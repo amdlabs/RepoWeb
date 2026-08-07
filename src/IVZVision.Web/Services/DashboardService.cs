@@ -6,7 +6,7 @@ namespace IVZVision.Web.Services;
 
 public sealed record DashboardVehicle(string Matricula, string Etiqueta, bool Registrado, int VecesVisto,
                                       DateTime PrimeraVez, DateTime UltimaVez, string? UltimaCamara,
-                                      bool YaVistoAntes, long UltimoEventoId);
+                                      bool YaVistoAntes, long UltimoEventoId, string? Foto);
 
 public sealed record DashboardSummary(
     int VehiculosHoy,
@@ -68,7 +68,8 @@ public sealed class DashboardService
             .Where(e => keys.Contains(e.PlateText!))
             .GroupBy(e => e.PlateText!)
             .Select(g => g.OrderByDescending(e => e.OccurredAt)
-                          .Select(e => new { e.Id, e.PlateText, e.Label, e.IsKnown, e.CameraName })
+                          .Select(e => new { e.Id, e.PlateText, e.Label, e.IsKnown, e.CameraName,
+                                             e.CropBase64, e.CropPath })
                           .First())
             .ToListAsync(ct);
 
@@ -84,7 +85,13 @@ public sealed class DashboardService
                 p.LastSeen,
                 last?.CameraName,
                 YaVistoAntes: p.TimesSeen > 1,
-                UltimoEventoId: last?.Id ?? 0);
+                UltimoEventoId: last?.Id ?? 0,
+                // Foto real de la última lectura, para contrastarla con la placa dibujada.
+                Foto: last?.CropBase64 is not null
+                    ? $"data:image/jpeg;base64,{last.CropBase64}"
+                    : last?.CropPath is not null
+                        ? $"/media/recorte?path={Uri.EscapeDataString(last.CropPath)}"
+                        : null);
         }).ToList();
 
         return new DashboardSummary(

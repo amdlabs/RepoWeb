@@ -88,22 +88,22 @@
                     var local = v.OccurredAt.ToLocalTime();
                     <tr>
                         <td data-col="Foto" class="thumb-cell">
-                            @* Doble clic → placa dibujada con el texto leído (data-plate). *@
-                            @if (!string.IsNullOrEmpty(v.CropBase64))
-                            {
-                                <img src="data:image/jpeg;base64,@v.CropBase64" alt="@v.Plate"
-                                     data-plate="@v.Plate" data-evento="@v.EventId" />
-                            }
-                            else if (!string.IsNullOrEmpty(v.CropPath))
-                            {
-                                <img src="/media/recorte?path=@Uri.EscapeDataString(v.CropPath)" alt="@v.Plate"
-                                     loading="lazy" data-plate="@v.Plate" data-evento="@v.EventId" />
-                            }
-                            else
-                            {
+                            @* Foto real y placa dibujada juntas; doble clic abre el editor de corrección. *@
+                            <div class="par-placa">
+                                @if (!string.IsNullOrEmpty(v.CropBase64))
+                                {
+                                    <img src="data:image/jpeg;base64,@v.CropBase64" alt="Lectura de @v.Plate"
+                                         data-plate="@v.Plate" data-evento="@v.EventId" title="Foto original" />
+                                }
+                                else if (!string.IsNullOrEmpty(v.CropPath))
+                                {
+                                    <img src="/media/recorte?path=@Uri.EscapeDataString(v.CropPath)" alt="Lectura de @v.Plate"
+                                         loading="lazy" data-plate="@v.Plate" data-evento="@v.EventId" title="Foto original" />
+                                }
                                 <img src="/matricula/@(Uri.EscapeDataString(v.Plate)).svg" alt="@v.Plate"
-                                     loading="lazy" data-plate="@v.Plate" data-evento="@v.EventId" />
-                            }
+                                     loading="lazy" data-plate="@v.Plate" data-evento="@v.EventId"
+                                     title="Lectura interpretada — doble clic para corregir" />
+                            </div>
                         </td>
                         <td data-col="Matrícula" class="plate"><b>@v.Plate</b></td>
                         <td data-col="Estado">

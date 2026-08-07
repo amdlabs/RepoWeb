@@ -30,7 +30,7 @@
             var tr = document.createElement("tr");
             // data-col rotula cada dato cuando la tabla se apila como tarjeta en móvil.
             tr.innerHTML =
-                '<td data-col="Placa" class="thumb-cell"><img loading="lazy" /></td>' +
+                '<td data-col="Placa" class="thumb-cell"><div class="par-placa"></div></td>' +
                 '<td data-col="Matrícula" class="plate"><b></b></td>' +
                 '<td data-col="Identificación"></td>' +
                 '<td data-col="Memoria">' + (v.yaVistoAntes ? badge("badge-warn", "ya visto antes") : badge("badge-muted", "primera vez")) + "</td>" +
@@ -39,12 +39,23 @@
                 '<td data-col="Última vez">' + fecha(v.ultimaVez) + "</td>" +
                 '<td data-col="Cámara"></td>';
 
-            // Placa dibujada; doble clic la amplía y permite corregir la lectura.
-            var img = tr.children[0].firstChild;
-            img.src = "/matricula/" + encodeURIComponent(v.matricula) + ".svg";
-            img.alt = v.matricula;
-            img.dataset.plate = v.matricula;
-            if (v.ultimoEventoId) img.dataset.evento = v.ultimoEventoId;
+            // Foto real + placa dibujada; doble clic amplía y permite corregir.
+            var par = tr.children[0].firstChild;
+
+            function imagen(src, titulo) {
+                var i = document.createElement("img");
+                i.src = src;
+                i.alt = v.matricula;
+                i.loading = "lazy";
+                i.title = titulo;
+                i.dataset.plate = v.matricula;
+                if (v.ultimoEventoId) i.dataset.evento = v.ultimoEventoId;
+                return i;
+            }
+
+            if (v.foto) par.appendChild(imagen(v.foto, "Foto original"));
+            par.appendChild(imagen("/matricula/" + encodeURIComponent(v.matricula) + ".svg",
+                                   "Lectura interpretada — doble clic para corregir"));
 
             tr.children[1].firstChild.textContent = v.matricula;
             tr.children[2].textContent = v.etiqueta;

@@ -633,3 +633,29 @@ a.dash-card:hover {
     /* ---- Pie discreto ---- */
     .footer { font-size: 11px; padding: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
 }
+
+/* ---- Par foto real + placa dibujada (para contrastar y corregir) ---- */
+.par-placa {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+}
+.par-placa img {
+    display: block;
+    max-width: 100%;
+    border-radius: 4px;
+    cursor: zoom-in;
+}
+.par-placa img:first-child {
+    max-height: 44px;                 /* foto real: pequeña, de referencia */
+    border: 1px solid var(--line, #232a36);
+}
+.par-placa img:last-child {
+    width: 150px;                     /* placa dibujada: legible de un vistazo */
+    height: auto;
+}
+@media (max-width: 920px) {
+    .par-placa img:first-child { max-height: 90px; }
+    .par-placa img:last-child { width: 220px; }
+}

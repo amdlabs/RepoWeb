@@ -63,9 +63,18 @@
             {
                 <tr>
                     <td data-col="Placa" class="thumb-cell">
-                        @* Doble clic → placa ampliada y editor para corregir la lectura. *@
-                        <img src="/matricula/@(Uri.EscapeDataString(v.Matricula)).svg" alt="@v.Matricula"
-                             loading="lazy" data-plate="@v.Matricula" data-evento="@v.UltimoEventoId" />
+                        @* Foto real + placa dibujada: se comparan de un vistazo.
+                           Doble clic en cualquiera abre el visor con el editor de corrección. *@
+                        <div class="par-placa">
+                            @if (!string.IsNullOrEmpty(v.Foto))
+                            {
+                                <img src="@v.Foto" alt="Lectura de @v.Matricula" loading="lazy"
+                                     data-plate="@v.Matricula" data-evento="@v.UltimoEventoId" title="Foto original" />
+                            }
+                            <img src="/matricula/@(Uri.EscapeDataString(v.Matricula)).svg" alt="@v.Matricula"
+                                 loading="lazy" data-plate="@v.Matricula" data-evento="@v.UltimoEventoId"
+                                 title="Lectura interpretada — doble clic para corregir" />
+                        </div>
                     </td>
                     <td data-col="Matrícula" class="plate"><b>@v.Matricula</b></td>
                     <td data-col="Identificación">@v.Etiqueta @if (v.Registrado) { <span class="badge badge-ok">registrado</span> }</td>

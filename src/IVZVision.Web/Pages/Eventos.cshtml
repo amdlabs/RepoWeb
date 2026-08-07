@@ -91,15 +91,23 @@
                                     ? e.PlateText
                                     : null;
                             }
-                            @if (!string.IsNullOrEmpty(e.CropPath))
+                            @if (placa is not null)
                             {
-                                <img src="/media/recorte?path=@Uri.EscapeDataString(e.CropPath)" alt="Recorte"
-                                     loading="lazy" data-plate="@placa" data-evento="@(placa is null ? null : e.Id.ToString())" />
+                                @* Matrícula: foto real y placa dibujada juntas para poder contrastarlas. *@
+                                <div class="par-placa">
+                                    @if (!string.IsNullOrEmpty(e.CropPath))
+                                    {
+                                        <img src="/media/recorte?path=@Uri.EscapeDataString(e.CropPath)" alt="Lectura de @placa"
+                                             loading="lazy" data-plate="@placa" data-evento="@e.Id" title="Foto original" />
+                                    }
+                                    <img src="/matricula/@(Uri.EscapeDataString(placa)).svg" alt="Matrícula @placa"
+                                         loading="lazy" data-plate="@placa" data-evento="@e.Id"
+                                         title="Lectura interpretada — doble clic para corregir" />
+                                </div>
                             }
-                            else if (placa is not null)
+                            else if (!string.IsNullOrEmpty(e.CropPath))
                             {
-                                <img src="/matricula/@(Uri.EscapeDataString(placa)).svg" alt="Matrícula @placa"
-                                     loading="lazy" data-plate="@placa" data-evento="@e.Id" />
+                                <img src="/media/recorte?path=@Uri.EscapeDataString(e.CropPath)" alt="Recorte" loading="lazy" />
                             }
                             else
                             {

@@ -546,13 +546,6 @@
             abrirDialogo(hit);
         });
 
-        // Aviso automático al leer una matrícula nueva: se muestra la placa generada.
-        connection.on("deteccion", function (hit) {
-            if (hit.tipo !== "matricula" || hit.conocido) return;
-            if (document.querySelector(".mon-overlay")) return; // no interrumpe otro diálogo
-            abrirDialogo(hit);
-        });
-
         // Relleno inicial con lo más reciente y conexión en tiempo real.
         fetch("/api/directo/estado")
             .then(function (r) { return r.json(); })
@@ -567,6 +560,14 @@
             .build();
 
         connection.on("deteccion", push);
+
+        // Al leer una matrícula nueva se abre el diálogo con la placa generada.
+        connection.on("deteccion", function (hit) {
+            if (hit.tipo !== "matricula" || hit.conocido) return;
+            if (document.querySelector(".mon-overlay")) return; // no interrumpe otro diálogo
+            abrirDialogo(hit);
+        });
+
         connection.start().catch(function (err) {
             console.error("No se pudo abrir el canal en tiempo real", err);
         });
