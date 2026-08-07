@@ -6,10 +6,20 @@
 <html lang="es">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>@ViewData["Title"] · IVZ Vision</title>
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#128065;</text></svg>" />
+    <link rel="icon" href="~/iconos/icono-192.png" />
+
+    <!-- Aplicación instalable (PWA): Chrome/Edge «Instalar», Safari «Añadir al Dock / pantalla de inicio» -->
+    <link rel="manifest" href="~/manifest.webmanifest" />
+    <meta name="theme-color" content="#0b0e13" />
+    <link rel="apple-touch-icon" href="~/iconos/icono-180.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="IVZ Vision" />
+    <script src="~/js/pwa.js" asp-append-version="true" defer></script>
 </head>
 <body>
     <header class="topbar">
@@ -20,6 +30,7 @@
         <nav class="nav">
             <a asp-page="/Directo" class="@(Active("/Directo") ? "active" : "")">Directo</a>
             <a asp-page="/Monitoreo" class="@(Active("/Monitoreo") ? "active" : "")">Monitoreo</a>
+            <a asp-page="/Dashboard" class="@(Active("/Dashboard") ? "active" : "")">Dashboard</a>
             <a asp-page="/Personas" class="@(Active("/Personas") ? "active" : "")">Personas</a>
             <a asp-page="/Vehiculos" class="@(Active("/Vehiculos") ? "active" : "")">Vehículos</a>
             <a asp-page="/Objetos" class="@(Active("/Objetos") ? "active" : "")">Objetos</a>

@@ -87,6 +87,7 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<CameraPipelineMana
 builder.Services.AddSingleton<EnrollmentService>();
 builder.Services.AddSingleton<SnapshotPathResolver>();
 builder.Services.AddSingleton<DiagnosticsService>();
+builder.Services.AddSingleton<DashboardService>();
 
 // ---- Web -----------------------------------------------------------------
 // Las claves que firman las cookies (sesión y antiforgery) se guardan junto a la

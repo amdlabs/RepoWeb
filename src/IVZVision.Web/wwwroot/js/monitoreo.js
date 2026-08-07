@@ -10,11 +10,53 @@
     var lblPage = document.getElementById("monPagina");
 
     // columnas x filas por cada distribución
-    var LAYOUTS = { 4: [2, 2], 6: [3, 2], 8: [4, 2], 12: [4, 3] };
+    var LAYOUTS = { 1: [1, 1], 4: [2, 2], 6: [3, 2], 8: [4, 2], 12: [4, 3] };
 
     var camaras = [];
     var layout = Number(localStorage.getItem("ivz.monitoreo.layout")) || 4;
+    if (!LAYOUTS[layout]) layout = 4;
     var pagina = 0;
+
+    /* ---------- Carrusel: rotación automática de páginas ---------- */
+
+    var carruselBtn = document.getElementById("monCarrusel");
+    var carruselSeg = document.getElementById("monCarruselSeg");
+    var carruselTimer = null;
+
+    function carruselActivo() { return carruselTimer !== null; }
+
+    function pasoCarrusel() {
+        if (document.hidden || maximizada) return;
+        if (totalPaginas() < 2) return;
+        pagina = (pagina + 1) % totalPaginas();
+        render();
+    }
+
+    function iniciarCarrusel() {
+        detenerCarrusel();
+        var seg = Math.max(3, Number(carruselSeg.value) || 10);
+        carruselTimer = setInterval(pasoCarrusel, seg * 1000);
+        carruselBtn.textContent = "⏸ Parar";
+        carruselBtn.classList.add("active");
+        localStorage.setItem("ivz.monitoreo.carrusel", "1");
+        localStorage.setItem("ivz.monitoreo.carruselSeg", String(seg));
+    }
+
+    function detenerCarrusel() {
+        if (carruselTimer) clearInterval(carruselTimer);
+        carruselTimer = null;
+        carruselBtn.textContent = "▶ Activar";
+        carruselBtn.classList.remove("active");
+        localStorage.setItem("ivz.monitoreo.carrusel", "0");
+    }
+
+    carruselBtn.addEventListener("click", function () {
+        if (carruselActivo()) detenerCarrusel(); else iniciarCarrusel();
+    });
+
+    carruselSeg.addEventListener("change", function () {
+        if (carruselActivo()) iniciarCarrusel(); // reinicia con el nuevo intervalo
+    });
 
     // El muro NO abre un flujo MJPEG permanente por celda: el navegador limita las
     // conexiones simultáneas por servidor (~6) y con más cámaras la web entera se
@@ -163,6 +205,11 @@
             }
             render();
             timer = setInterval(refreshCells, REFRESH_MS);
+
+            // Restaurar el carrusel tal y como quedó la última vez.
+            var seg = localStorage.getItem("ivz.monitoreo.carruselSeg");
+            if (seg && carruselSeg.querySelector('option[value="' + seg + '"]')) carruselSeg.value = seg;
+            if (localStorage.getItem("ivz.monitoreo.carrusel") === "1") iniciarCarrusel();
         })
         .catch(function (err) {
             console.error("No se pudo obtener la lista de cámaras", err);

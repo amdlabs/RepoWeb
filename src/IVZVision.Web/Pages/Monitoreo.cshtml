@@ -7,12 +7,21 @@
 <h1>Monitoreo</h1>
 <p class="subtitle">Todas las cámaras con su vídeo procesado en tiempo real. Elija cuántas posiciones mostrar.</p>
 
-<div class="actions" style="margin-bottom:14px; align-items:center; gap:8px">
+<div class="actions" style="margin-bottom:14px; align-items:center; gap:8px; flex-wrap:wrap">
     <span class="hint">Distribución:</span>
+    <button type="button" class="btn small secondary" data-layout="1">1</button>
     <button type="button" class="btn small secondary" data-layout="4">4</button>
     <button type="button" class="btn small secondary" data-layout="6">6</button>
     <button type="button" class="btn small secondary" data-layout="8">8</button>
     <button type="button" class="btn small secondary" data-layout="12">12</button>
+    <span class="hint" style="margin-left:10px">Carrusel:</span>
+    <button type="button" class="btn small secondary" id="monCarrusel">▶ Activar</button>
+    <select id="monCarruselSeg" style="max-width:90px">
+        <option value="5">5 s</option>
+        <option value="10" selected>10 s</option>
+        <option value="20">20 s</option>
+        <option value="30">30 s</option>
+    </select>
     <span style="flex:1"></span>
     <button type="button" class="btn small secondary" id="monAnterior" hidden>← Anteriores</button>
     <span class="hint" id="monPagina" hidden></span>

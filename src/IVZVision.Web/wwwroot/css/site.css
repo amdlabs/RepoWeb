@@ -345,3 +345,114 @@ td.plate { font-family: "Consolas", "SF Mono", monospace; letter-spacing: 1px; f
 .mon-overlay-close:hover {
     background: rgba(255, 80, 80, .8);
 }
+
+/* =====================================================================
+   Usabilidad movil (iPhone / Android)
+   ===================================================================== */
+
+/* Objetivos tactiles comodos en cualquier dispositivo sin puntero fino */
+@media (pointer: coarse) {
+    .btn { min-height: 44px; }
+    .btn.small { min-height: 38px; }
+    input, select, textarea { min-height: 44px; }
+    .check input[type="checkbox"] { width: 22px; height: 22px; }
+    .nav a { padding-top: 10px; padding-bottom: 10px; }
+}
+
+@media (max-width: 720px) {
+    /* iOS hace zoom al enfocar campos con letra menor de 16px */
+    input, select, textarea { font-size: 16px; }
+
+    .content { padding: 12px; }
+    h1 { font-size: 22px; }
+
+    /* Cabecera compacta: la navegacion se desliza en horizontal */
+    .topbar {
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 8px 10px;
+        padding-top: calc(8px + env(safe-area-inset-top));
+    }
+    .nav {
+        order: 3;
+        width: 100%;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    .nav::-webkit-scrollbar { display: none; }
+    .nav a { white-space: nowrap; flex: 0 0 auto; }
+
+    /* Tarjetas y formularios a una columna */
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .card { padding: 14px; }
+
+    .actions { flex-wrap: wrap; }
+    .actions .btn { flex: 1 1 auto; }
+
+    .filters .field { min-width: 100%; }
+
+    /* Muro de monitoreo: maximo 2 columnas en pantallas de telefono */
+    .mon-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 6px; }
+    .mon-label { font-size: 10px; padding: 1px 6px; }
+
+    /* Camara maximizada: cerrar comodo con el pulgar */
+    .mon-overlay-close {
+        width: 54px;
+        height: 54px;
+        font-size: 24px;
+        top: calc(10px + env(safe-area-inset-top));
+        right: 12px;
+    }
+    .mon-overlay-title {
+        top: calc(12px + env(safe-area-inset-top));
+        font-size: 13px;
+        max-width: 60vw;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .mon-overlay-video { max-width: 100vw; max-height: 100vh; }
+
+    /* Panel de detecciones bajo el video en Directo */
+    .status-strip { flex-wrap: wrap; gap: 6px 14px; font-size: 12px; }
+    .feed { max-height: 320px; overflow-y: auto; }
+
+    /* Tablas: desplazamiento horizontal suave */
+    .table-wrap { -webkit-overflow-scrolling: touch; }
+    td, th { padding: 8px 10px; }
+}
+
+@media (max-width: 420px) {
+    .mon-grid { grid-template-columns: 1fr !important; }
+    .brand-name { display: none; }
+}
+
+/* ---- Barra de menu fija arriba (toolbar) ---- */
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 900;
+}
+
+/* ---- Pulido tipo app nativa (iOS / Android / escritorio) ---- */
+html {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+}
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    overscroll-behavior-y: none;
+}
+.feed, .table-wrap, .nav { -webkit-overflow-scrolling: touch; }
+
+/* ---- Tarjetas del dashboard ---- */
+.dash-card { text-align: center; }
+.dash-num {
+    font-size: 40px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--accent, #4f8ff7);
+}
+.dash-label { margin-top: 4px; font-weight: 600; }
