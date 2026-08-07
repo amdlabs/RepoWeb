@@ -9,7 +9,8 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # Primero el grafo de proyectos, para cachear el restore.
-COPY IVZVision.sln ./
+# Directory.Build.props define el TargetFramework de todos los proyectos.
+COPY IVZVision.sln Directory.Build.props ./
 COPY src/IVZVision.Core/IVZVision.Core.csproj src/IVZVision.Core/
 COPY src/IVZVision.Data/IVZVision.Data.csproj src/IVZVision.Data/
 COPY src/IVZVision.Vision/IVZVision.Vision.csproj src/IVZVision.Vision/
