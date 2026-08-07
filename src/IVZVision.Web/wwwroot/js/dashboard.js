@@ -28,15 +28,16 @@
         tabla.innerHTML = "";
         (resumen.ultimosVehiculos || []).forEach(function (v) {
             var tr = document.createElement("tr");
+            // data-col rotula cada dato cuando la tabla se apila como tarjeta en móvil.
             tr.innerHTML =
-                '<td class="thumb-cell"><img loading="lazy" /></td>' +
-                '<td class="plate"><b></b></td>' +
-                "<td></td>" +
-                "<td>" + (v.yaVistoAntes ? badge("badge-warn", "ya visto antes") : badge("badge-muted", "primera vez")) + "</td>" +
-                "<td>" + v.vecesVisto + "</td>" +
-                "<td>" + fecha(v.primeraVez) + "</td>" +
-                "<td>" + fecha(v.ultimaVez) + "</td>" +
-                "<td></td>";
+                '<td data-col="Placa" class="thumb-cell"><img loading="lazy" /></td>' +
+                '<td data-col="Matrícula" class="plate"><b></b></td>' +
+                '<td data-col="Identificación"></td>' +
+                '<td data-col="Memoria">' + (v.yaVistoAntes ? badge("badge-warn", "ya visto antes") : badge("badge-muted", "primera vez")) + "</td>" +
+                '<td data-col="Veces visto">' + v.vecesVisto + "</td>" +
+                '<td data-col="Primera vez">' + fecha(v.primeraVez) + "</td>" +
+                '<td data-col="Última vez">' + fecha(v.ultimaVez) + "</td>" +
+                '<td data-col="Cámara"></td>';
 
             // Placa dibujada; doble clic la amplía y permite corregir la lectura.
             var img = tr.children[0].firstChild;

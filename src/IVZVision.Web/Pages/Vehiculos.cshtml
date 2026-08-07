@@ -87,7 +87,7 @@
                 {
                     var local = v.OccurredAt.ToLocalTime();
                     <tr>
-                        <td class="thumb-cell">
+                        <td data-col="Foto" class="thumb-cell">
                             @* Doble clic → placa dibujada con el texto leído (data-plate). *@
                             @if (!string.IsNullOrEmpty(v.CropBase64))
                             {
@@ -105,8 +105,8 @@
                                      loading="lazy" data-plate="@v.Plate" data-evento="@v.EventId" />
                             }
                         </td>
-                        <td class="plate"><b>@v.Plate</b></td>
-                        <td>
+                        <td data-col="Matrícula" class="plate"><b>@v.Plate</b></td>
+                        <td data-col="Estado">
                             @if (v.IsKnown)
                             {
                                 <span class="badge badge-ok">registrada</span>
@@ -116,16 +116,16 @@
                                 <span class="badge badge-danger">no registrada</span>
                             }
                         </td>
-                        <td>@local.ToString("dd/MM/yyyy")</td>
-                        <td>
+                        <td data-col="Fecha">@local.ToString("dd/MM/yyyy")</td>
+                        <td data-col="Hora">
                             @local.ToString("HH:mm:ss")
                             @if (v.Repeticiones > 1)
                             {
                                 <span class="badge badge-muted" title="Lecturas agrupadas de la misma cámara en 10 minutos">×@v.Repeticiones</span>
                             }
                         </td>
-                        <td>@v.CameraName</td>
-                        <td>
+                        <td data-col="Cámara">@v.CameraName</td>
+                        <td class="acciones">
                             @if (!v.IsKnown)
                             {
                                 <form method="post" asp-page-handler="Crear" class="actions" style="gap:6px">
@@ -197,16 +197,16 @@
                     @foreach (var v in Model.Vehicles)
                     {
                         <tr>
-                            <td class="plate">
+                            <td data-col="Matrícula" class="plate">
                                 <a asp-page="/Vehiculo" asp-route-id="@v.Id">@v.Plate</a>
                                 @if (!v.IsActive)
                                 {
                                     <span class="badge badge-muted">inactivo</span>
                                 }
                             </td>
-                            <td>@(string.IsNullOrWhiteSpace(v.Description) ? "—" : v.Description)</td>
-                            <td>@(v.Owner ?? "—")</td>
-                            <td>
+                            <td data-col="Vehículo">@(string.IsNullOrWhiteSpace(v.Description) ? "—" : v.Description)</td>
+                            <td data-col="Titular">@(v.Owner ?? "—")</td>
+                            <td data-col="Acceso">
                                 @if (v.IsAuthorized)
                                 {
                                     <span class="badge badge-ok">autorizado</span>
@@ -216,7 +216,7 @@
                                     <span class="badge badge-warn">no autorizado</span>
                                 }
                             </td>
-                            <td style="white-space:nowrap">
+                            <td class="acciones" style="white-space:nowrap">
                                 <a class="btn small secondary" asp-page="/Vehiculo" asp-route-id="@v.Id">Editar</a>
                                 <form method="post" style="display:inline"
                                       onsubmit="return confirm('¿Eliminar la matrícula @v.Plate?');">

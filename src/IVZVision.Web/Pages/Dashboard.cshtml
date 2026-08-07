@@ -1,4 +1,4 @@
-@page
+﻿@page
 @model DashboardModel
 @{
     ViewData["Title"] = "Dashboard";
@@ -62,14 +62,14 @@
             @foreach (var v in Model.Summary.UltimosVehiculos)
             {
                 <tr>
-                    <td class="thumb-cell">
+                    <td data-col="Placa" class="thumb-cell">
                         @* Doble clic → placa ampliada y editor para corregir la lectura. *@
                         <img src="/matricula/@(Uri.EscapeDataString(v.Matricula)).svg" alt="@v.Matricula"
                              loading="lazy" data-plate="@v.Matricula" data-evento="@v.UltimoEventoId" />
                     </td>
-                    <td class="plate"><b>@v.Matricula</b></td>
-                    <td>@v.Etiqueta @if (v.Registrado) { <span class="badge badge-ok">registrado</span> }</td>
-                    <td>
+                    <td data-col="Matrícula" class="plate"><b>@v.Matricula</b></td>
+                    <td data-col="Identificación">@v.Etiqueta @if (v.Registrado) { <span class="badge badge-ok">registrado</span> }</td>
+                    <td data-col="Memoria">
                         @if (v.YaVistoAntes)
                         {
                             <span class="badge badge-warn">ya visto antes</span>
@@ -79,10 +79,10 @@
                             <span class="badge badge-muted">primera vez</span>
                         }
                     </td>
-                    <td>@v.VecesVisto</td>
-                    <td>@v.PrimeraVez.ToLocalTime().ToString("dd/MM HH:mm")</td>
-                    <td>@v.UltimaVez.ToLocalTime().ToString("dd/MM HH:mm")</td>
-                    <td>@v.UltimaCamara</td>
+                    <td data-col="Veces visto">@v.VecesVisto</td>
+                    <td data-col="Primera vez">@v.PrimeraVez.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                    <td data-col="Última vez">@v.UltimaVez.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                    <td data-col="Cámara">@v.UltimaCamara</td>
                 </tr>
             }
             </tbody>

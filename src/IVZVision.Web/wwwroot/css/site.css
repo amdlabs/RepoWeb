@@ -526,3 +526,110 @@ a.dash-card:hover {
     padding: 10px;
     background: rgba(79, 143, 247, .05);
 }
+
+/* =====================================================================
+   Reestructuracion movil (iPhone / Android): las pantallas se rearman
+   como una app, no como una web de escritorio encogida.
+   ===================================================================== */
+@media (max-width: 920px) {
+
+    /* ---- Cabecera compacta: marca + acciones en una linea, menu debajo ---- */
+    .topbar { padding: 6px 10px; padding-top: calc(6px + env(safe-area-inset-top)); gap: 4px; }
+    .brand-mark { font-size: 12px; padding: 2px 6px; }
+    .brand-name { font-size: 14px; }
+    .nav a { padding: 8px 12px; font-size: 14px; }
+
+    h1 { font-size: 20px; margin-bottom: 2px; }
+    h2 { font-size: 17px; }
+    h3 { font-size: 15px; }
+    .subtitle { font-size: 13px; }
+
+    /* ---- Filtros plegables: ocupaban media pantalla ---- */
+    .filters {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        align-items: end;
+    }
+    .filters .field { min-width: 0; margin: 0; }
+    .filters .btn { grid-column: span 1; }
+    .filters .field:has(input[type="search"]),
+    .filters .field:has(textarea) { grid-column: 1 / -1; }
+
+    /* ---- Tablas convertidas en tarjetas apiladas ---- */
+    .table-wrap { overflow-x: visible; }
+    .table-wrap table,
+    .table-wrap thead,
+    .table-wrap tbody,
+    .table-wrap th,
+    .table-wrap td,
+    .table-wrap tr { display: block; width: auto; }
+
+    .table-wrap thead { position: absolute; left: -9999px; }  /* cabeceras solo para lectores */
+
+    .table-wrap tr {
+        background: var(--panel-2, #161a22);
+        border: 1px solid var(--line, #232a36);
+        border-radius: 10px;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+    }
+
+    .table-wrap td {
+        border: 0;
+        padding: 4px 0;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
+        text-align: right;
+        min-height: 0;
+    }
+
+    /* El nombre de la columna se muestra a la izquierda de cada dato */
+    .table-wrap td::before {
+        content: attr(data-col);
+        color: var(--muted, #8b93a7);
+        font-size: 12px;
+        text-align: left;
+        flex: 0 0 42%;
+    }
+    .table-wrap td:empty { display: none; }
+
+    /* Las celdas de imagen y las de acciones ocupan toda la fila */
+    .table-wrap td.thumb-cell,
+    .table-wrap td.acciones {
+        display: block;
+        text-align: center;
+        padding: 6px 0;
+    }
+    .table-wrap td.thumb-cell::before,
+    .table-wrap td.acciones::before { content: none; }
+    .table-wrap td.thumb-cell img { max-width: 100%; height: auto; max-height: 160px; }
+    .table-wrap td.acciones .actions { justify-content: center; flex-wrap: wrap; }
+    .table-wrap td.acciones form { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+
+    /* ---- Formularios y acciones a ancho completo ---- */
+    .card { padding: 12px; margin-bottom: 12px; }
+    .actions { gap: 8px; }
+    .actions .btn { flex: 1 1 auto; min-width: 120px; }
+    .field input, .field select, .field textarea { width: 100%; }
+
+    /* ---- Dialogos a pantalla completa ---- */
+    .dlg-card {
+        width: 100vw;
+        max-width: 100vw;
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+        padding-top: calc(20px + env(safe-area-inset-top));
+        overflow-y: auto;
+    }
+
+    /* ---- Paneles de detecciones: altura contenida y scroll propio ---- */
+    .feed { max-height: 260px; overflow-y: auto; }
+    .hit img { width: 54px; height: 54px; }
+
+    /* ---- Pie discreto ---- */
+    .footer { font-size: 11px; padding: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+}

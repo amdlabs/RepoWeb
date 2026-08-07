@@ -1,4 +1,4 @@
-@page
+﻿@page
 @model PersonasModel
 @{
     ViewData["Title"] = "Personas";
@@ -86,7 +86,7 @@
                 {
                     var local = face.OccurredAt.ToLocalTime();
                     <tr>
-                        <td class="thumb-cell">
+                        <td data-col="Foto" class="thumb-cell">
                             @if (!string.IsNullOrEmpty(face.CropBase64))
                             {
                                 <img src="data:image/jpeg;base64,@face.CropBase64" alt="Persona detectada" />
@@ -96,7 +96,7 @@
                                 <img src="/media/recorte?path=@Uri.EscapeDataString(face.CropPath!)" alt="Persona detectada" loading="lazy" />
                             }
                         </td>
-                        <td>
+                        <td data-col="Nombre">
                             @if (face.IsKnown)
                             {
                                 <b>@face.Label</b> <span class="badge badge-ok">identificada</span>
@@ -106,16 +106,16 @@
                                 <span class="badge badge-danger">sin identificar</span>
                             }
                         </td>
-                        <td>@local.ToString("dd/MM/yyyy")</td>
-                        <td>
+                        <td data-col="Fecha">@local.ToString("dd/MM/yyyy")</td>
+                        <td data-col="Hora">
                             @local.ToString("HH:mm:ss")
                             @if (face.Repeticiones > 1)
                             {
                                 <span class="badge badge-muted" title="Detecciones agrupadas de la misma cámara en 10 minutos">×@face.Repeticiones</span>
                             }
                         </td>
-                        <td>@face.CameraName</td>
-                        <td>
+                        <td data-col="Cámara">@face.CameraName</td>
+                        <td class="acciones">
                             @if (!face.IsKnown)
                             {
                                 <form method="post" asp-page-handler="AltaDesdeEvento" class="actions" style="gap:6px">
@@ -188,16 +188,16 @@
                     @foreach (var p in Model.People)
                     {
                         <tr>
-                            <td>
+                            <td data-col="Nombre">
                                 <a asp-page="/Persona" asp-route-id="@p.Id"><b>@p.FullName</b></a>
                                 @if (!p.IsActive)
                                 {
                                     <span class="badge badge-muted">inactiva</span>
                                 }
                             </td>
-                            <td>@(p.DocumentId ?? "—")</td>
-                            <td>@(p.Department ?? "—")</td>
-                            <td>
+                            <td data-col="Documento">@(p.DocumentId ?? "—")</td>
+                            <td data-col="Área">@(p.Department ?? "—")</td>
+                            <td data-col="Rostros">
                                 @if (p.Templates == 0)
                                 {
                                     <span class="badge badge-warn">sin fotos</span>
@@ -207,7 +207,7 @@
                                     @p.Templates
                                 }
                             </td>
-                            <td>
+                            <td data-col="Acceso">
                                 @if (p.IsAuthorized)
                                 {
                                     <span class="badge badge-ok">autorizada</span>
@@ -217,7 +217,7 @@
                                     <span class="badge badge-warn">no autorizada</span>
                                 }
                             </td>
-                            <td style="white-space:nowrap">
+                            <td class="acciones" style="white-space:nowrap">
                                 <a class="btn small secondary" asp-page="/Persona" asp-route-id="@p.Id">Abrir</a>
                                 <form method="post" style="display:inline"
                                       onsubmit="return confirm('¿Eliminar a @p.FullName y todas sus plantillas?');">

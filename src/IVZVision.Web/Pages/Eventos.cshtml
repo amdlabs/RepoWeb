@@ -1,4 +1,4 @@
-@page
+﻿@page
 @using IVZVision.Data.Entities
 @model EventosModel
 @{
@@ -83,7 +83,7 @@
                 @foreach (var e in Model.Events)
                 {
                     <tr>
-                        <td class="thumb-cell">
+                        <td data-col="Imagen" class="thumb-cell">
                             @{
                                 // En matrículas, el doble clic abre la placa dibujada con el
                                 // texto leído (data-plate); si no hay recorte, la placa hace de miniatura.
@@ -106,10 +106,10 @@
                                 <span class="badge badge-muted">—</span>
                             }
                         </td>
-                        <td>@e.OccurredAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
-                        <td>@e.CameraName</td>
-                        <td>@(e.Kind switch { RecognitionKind.Plate => "Matrícula", RecognitionKind.Object => "Objeto", RecognitionKind.Text => "Texto", _ => "Rostro" })</td>
-                        <td class="@(e.Kind == RecognitionKind.Plate ? "plate" : "")">
+                        <td data-col="Fecha y hora">@e.OccurredAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
+                        <td data-col="Cámara">@e.CameraName</td>
+                        <td data-col="Tipo">@(e.Kind switch { RecognitionKind.Plate => "Matrícula", RecognitionKind.Object => "Objeto", RecognitionKind.Text => "Texto", _ => "Rostro" })</td>
+                        <td data-col="Identificación" class="@(e.Kind == RecognitionKind.Plate ? "plate" : "")">
                             @if (e.PersonId is int personId)
                             {
                                 <a asp-page="/Persona" asp-route-id="@personId">@e.Label</a>
@@ -136,7 +136,7 @@
                                 <span class="badge badge-ok">autorizado</span>
                             }
                         </td>
-                        <td>
+                        <td data-col="Confianza">
                             @if (e.Kind == RecognitionKind.Plate)
                             {
                                 <span>OCR @((e.OcrConfidence ?? 0) * 100)%</span>
@@ -150,7 +150,7 @@
                                 <span>@((int)Math.Round(e.DetectionScore * 100))% detección</span>
                             }
                         </td>
-                        <td>
+                        <td data-col="Origen">
                             @if (e.Source == RecognitionSource.CameraEvent)
                             {
                                 <span class="badge badge-muted">ANPR cámara</span>

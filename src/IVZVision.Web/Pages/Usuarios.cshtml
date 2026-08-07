@@ -45,15 +45,15 @@
                     @foreach (var user in Model.Users)
                     {
                         <tr>
-                            <td>
+                            <td data-col="Usuario">
                                 <b>@user.Username</b>
                                 @if (!string.IsNullOrEmpty(user.FullName))
                                 {
                                     <div class="hint">@user.FullName</div>
                                 }
                             </td>
-                            <td>@RoleName(user.Role)</td>
-                            <td>
+                            <td data-col="Rol">@RoleName(user.Role)</td>
+                            <td data-col="Estado">
                                 @if (user.IsActive)
                                 {
                                     <span class="badge badge-ok">activo</span>
@@ -63,7 +63,7 @@
                                     <span class="badge badge-muted">deshabilitado</span>
                                 }
                             </td>
-                            <td style="white-space:nowrap">
+                            <td class="acciones" style="white-space:nowrap">
                                 <form method="post" style="display:inline" class="actions" >
                                     <input name="password" type="password" placeholder="Nueva clave"
                                            autocomplete="new-password" style="max-width:130px" />

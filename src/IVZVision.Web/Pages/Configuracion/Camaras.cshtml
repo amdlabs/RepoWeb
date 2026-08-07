@@ -1,4 +1,4 @@
-@page "/Configuracion/Camaras"
+﻿@page "/Configuracion/Camaras"
 @model IVZVision.Web.Pages.Configuracion.CamarasModel
 @{
     ViewData["Title"] = "Cámaras";
@@ -37,16 +37,16 @@
                 {
                     var status = Model.StatusFor(cam.Id);
                     <tr>
-                        <td>
+                        <td data-col="Nombre">
                             <b>@cam.Name</b>
                             @if (!cam.Enabled)
                             {
                                 <span class="badge badge-muted">deshabilitada</span>
                             }
                         </td>
-                        <td>@cam.Vendor</td>
-                        <td><code>@cam.BuildRtspUrl(maskCredentials: true)</code></td>
-                        <td>
+                        <td data-col="Marca">@cam.Vendor</td>
+                        <td data-col="URL RTSP"><code>@cam.BuildRtspUrl(maskCredentials: true)</code></td>
+                        <td data-col="Reconoce">
                             @if (cam.EnableFaceRecognition)
                             {
                                 <span class="badge badge-muted">rostros</span>
@@ -60,7 +60,7 @@
                                 <span class="badge badge-muted">ANPR cámara</span>
                             }
                         </td>
-                        <td>
+                        <td data-col="Estado">
                             @if (status is null)
                             {
                                 <span class="badge badge-muted">parada</span>
@@ -79,7 +79,7 @@
                                 }
                             }
                         </td>
-                        <td style="white-space:nowrap">
+                        <td class="acciones" style="white-space:nowrap">
                             <a class="btn small secondary" asp-page="/Configuracion/Camara" asp-route-id="@cam.Id">Editar</a>
                             <form method="post" style="display:inline">
                                 <button class="btn small secondary" asp-page-handler="Alternar" asp-route-id="@cam.Id">

@@ -81,7 +81,7 @@
                     @foreach (var item in Model.Unlabeled)
                     {
                         <tr>
-                            <td>
+                            <td data-col="Clase">
                                 @if (!string.IsNullOrEmpty(item.LastCropPath))
                                 {
                                     <img src="/media/recorte?path=@Uri.EscapeDataString(item.LastCropPath)"
@@ -89,9 +89,9 @@
                                 }
                                 <b>@item.ClassName</b>
                             </td>
-                            <td>@item.Detections</td>
-                            <td>@item.LastSeen.ToLocalTime().ToString("dd/MM HH:mm")</td>
-                            <td>
+                            <td data-col="Detecciones">@item.Detections</td>
+                            <td data-col="Última vez">@item.LastSeen.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                            <td data-col="Etiquetar">
                                 <form method="post" asp-page-handler="Etiquetar" class="actions" style="gap:6px">
                                     <input type="hidden" name="className" value="@item.ClassName" />
                                     <input name="displayName" placeholder="Categoría real (p. ej. Portón)" required style="max-width:170px" />
@@ -148,15 +148,15 @@
                     @foreach (var label in Model.Labels)
                     {
                         <tr>
-                            <td>
+                            <td data-col="Nombre">
                                 <b>@label.DisplayName</b>
                                 @if (!string.IsNullOrEmpty(label.Notes))
                                 {
                                     <div class="hint">@label.Notes</div>
                                 }
                             </td>
-                            <td><code>@label.ClassName</code></td>
-                            <td>
+                            <td data-col="Clase"><code>@label.ClassName</code></td>
+                            <td data-col="Estado">
                                 @if (label.IsAuthorized)
                                 {
                                     <span class="badge badge-ok">Autorizado</span>
@@ -166,7 +166,7 @@
                                     <span class="badge badge-warn">No autorizado</span>
                                 }
                             </td>
-                            <td style="white-space:nowrap">
+                            <td class="acciones" style="white-space:nowrap">
                                 <form method="post" style="display:inline">
                                     <button class="btn small secondary" asp-page-handler="Alternar" asp-route-id="@label.Id">
                                         @(label.IsAuthorized ? "Marcar no autorizado" : "Autorizar")

@@ -26,7 +26,10 @@ param(
 
     [string]$Carpeta = "C:\Caddy",
 
-    [string]$AppUrl = "http://localhost:8080"
+    [string]$AppUrl = "http://localhost:8080",
+
+    # Puerto HTTPS adicional además del 443 (0 = sólo 443).
+    [int]$PuertoHttps = 0
 )
 
 $ErrorActionPreference = "Stop"
@@ -45,12 +48,16 @@ if (-not (Test-Path $exe)) {
 }
 
 # Caddyfile: HTTPS automático para el dominio, proxy a la aplicación local.
+# Si se indica -PuertoHttps, el sitio se sirve además en ese puerto (útil cuando el
+# router ya publica 8080 hacia dentro). El certificado se emite por el puerto 80.
 $correoLinea = if ($Correo) { "    email $Correo`r`n" } else { "" }
+$sitios = if ($PuertoHttps -and $PuertoHttps -ne 443) { "$Dominio, $Dominio`:$PuertoHttps" } else { $Dominio }
+
 @"
 {
 $correoLinea}
 
-$Dominio {
+$sitios {
     reverse_proxy $AppUrl
     encode gzip
 }
