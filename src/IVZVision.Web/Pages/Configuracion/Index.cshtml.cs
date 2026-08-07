@@ -136,6 +136,65 @@ public class IndexModel : PageModel
         return RedirectToPage();
     }
 
+    /// <summary>
+    /// Borra los registros capturados: eventos de reconocimiento y sus imágenes en disco.
+    /// No toca el padrón (personas, vehículos, objetos etiquetados ni usuarios).
+    /// </summary>
+    public async Task<IActionResult> OnPostLimpiarRegistrosAsync(int? dias, string? confirmacion,
+                                                                 CancellationToken ct)
+    {
+        // Confirmación explícita escrita por el usuario: evita borrados accidentales.
+        if (!string.Equals(confirmacion?.Trim(), "BORRAR", StringComparison.OrdinalIgnoreCase))
+        {
+            TempData["Error"] = "Para vaciar los registros escriba BORRAR en el campo de confirmación.";
+            return RedirectToPage();
+        }
+
+        try
+        {
+            var dbFactory = HttpContext.RequestServices
+                .GetRequiredService<Microsoft.EntityFrameworkCore.IDbContextFactory<VisionDbContext>>();
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+            var cutoff = dias is > 0 ? DateTime.UtcNow.AddDays(-dias.Value) : (DateTime?)null;
+
+            var query = db.RecognitionEvents.AsQueryable();
+            if (cutoff.HasValue) query = query.Where(e => e.OccurredAt < cutoff.Value);
+
+            // Primero las imágenes en disco de los eventos que se van a borrar.
+            var paths = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+                query.Where(e => e.CropPath != null).Select(e => e.CropPath!), ct);
+
+            var root = _config.Current.Storage.Resolve(
+                HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>().ContentRootPath);
+
+            var borradas = 0;
+            foreach (var path in paths)
+            {
+                try
+                {
+                    var full = Path.Combine(root, path);
+                    if (System.IO.File.Exists(full)) { System.IO.File.Delete(full); borradas++; }
+                }
+                catch (Exception) { /* un fichero bloqueado no debe abortar la limpieza */ }
+            }
+
+            var eliminados = await Microsoft.EntityFrameworkCore.RelationalQueryableExtensions
+                .ExecuteDeleteAsync(query, ct);
+
+            TempData["Ok"] = cutoff.HasValue
+                ? $"Se han borrado {eliminados} registro(s) anteriores a {dias} día(s) y {borradas} imagen(es)."
+                : $"Se han borrado todos los registros capturados ({eliminados}) y {borradas} imagen(es). " +
+                  "El padrón de personas, vehículos y objetos se mantiene intacto.";
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = $"No se pudieron borrar los registros: {ex.Message}";
+        }
+
+        return RedirectToPage();
+    }
+
     /// <summary>Prueba la conexión con SQL Server sin guardar nada.</summary>
     public async Task<IActionResult> OnPostProbarBdAsync([FromBody] DatabaseConfig? database, CancellationToken ct)
     {

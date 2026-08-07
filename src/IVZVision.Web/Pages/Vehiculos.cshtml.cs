@@ -93,6 +93,25 @@ public class VehiculosModel : PageModel
 
     public async Task OnGetAsync(CancellationToken ct) => await LoadAsync(ct);
 
+    /// <summary>Borra las lecturas de matrícula (no toca el padrón de vehículos).</summary>
+    public async Task<IActionResult> OnPostLimpiarDeteccionesAsync([FromServices] DetectionCleanup cleanup,
+                                                                   int? dias, bool soloNoIdentificadas,
+                                                                   string? camara, CancellationToken ct)
+    {
+        if (!RoleGuard.CanEdit(User)) return Forbid();
+
+        var (eventos, imagenes) = await cleanup.DeleteAsync(
+            kinds: new[] { RecognitionKind.Plate },
+            camera: camara,
+            days: dias,
+            onlyUnknown: soloNoIdentificadas,
+            ct: ct);
+
+        TempData["Ok"] = $"Se han borrado {eventos} lectura(s) de matrícula y {imagenes} imagen(es). " +
+                          "El padrón de vehículos se mantiene intacto.";
+        return RedirectToPage(new { Camara = camara });
+    }
+
     public async Task<IActionResult> OnPostCrearAsync(CancellationToken ct)
     {
         if (!RoleGuard.CanEdit(User)) return Forbid();

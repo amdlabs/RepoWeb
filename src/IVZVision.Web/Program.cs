@@ -88,6 +88,7 @@ builder.Services.AddSingleton<EnrollmentService>();
 builder.Services.AddSingleton<SnapshotPathResolver>();
 builder.Services.AddSingleton<DiagnosticsService>();
 builder.Services.AddSingleton<DashboardService>();
+builder.Services.AddSingleton<DetectionCleanup>();
 
 // Auto-actualización de modelos: comprueba las fuentes oficiales periódicamente.
 builder.Services.AddSingleton<ModelUpdateService>();

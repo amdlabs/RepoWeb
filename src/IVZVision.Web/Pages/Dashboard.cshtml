@@ -48,6 +48,7 @@
         <table>
             <thead>
                 <tr>
+                    <th>Placa</th>
                     <th>Matrícula</th>
                     <th>Identificación</th>
                     <th>Memoria</th>
@@ -61,6 +62,11 @@
             @foreach (var v in Model.Summary.UltimosVehiculos)
             {
                 <tr>
+                    <td class="thumb-cell">
+                        @* Doble clic → placa ampliada y editor para corregir la lectura. *@
+                        <img src="/matricula/@(Uri.EscapeDataString(v.Matricula)).svg" alt="@v.Matricula"
+                             loading="lazy" data-plate="@v.Matricula" data-evento="@v.UltimoEventoId" />
+                    </td>
                     <td class="plate"><b>@v.Matricula</b></td>
                     <td>@v.Etiqueta @if (v.Registrado) { <span class="badge badge-ok">registrado</span> }</td>
                     <td>

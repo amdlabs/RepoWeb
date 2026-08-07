@@ -36,8 +36,29 @@
             <button type="submit" class="btn secondary">Filtrar</button>
             @if (!string.IsNullOrWhiteSpace(Model.Camara))
             {
-                <a class="btn secondary" asp-page="/Objetos">Limpiar</a>
+                <a class="btn secondary" asp-page="/Objetos">Quitar filtro</a>
             }
+        </form>
+
+        <form method="post" asp-page-handler="LimpiarDetecciones" class="actions"
+              style="gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center"
+              onsubmit="return confirm('¿Borrar las detecciones de objetos y textos según el filtro indicado? No se puede deshacer.');">
+            <input type="hidden" name="camara" value="@Model.Camara" />
+            <span class="hint">Eliminar registros:</span>
+            <select name="dias" style="max-width:150px">
+                <option value="0">todos</option>
+                <option value="1">de más de 1 día</option>
+                <option value="7">de más de 7 días</option>
+                <option value="30">de más de 30 días</option>
+            </select>
+            <label class="check" style="margin:0">
+                <input type="checkbox" name="soloSinEtiquetar" value="true" checked /> sólo clases sin etiquetar
+            </label>
+            @if (!string.IsNullOrWhiteSpace(Model.Camara))
+            {
+                <span class="badge badge-muted">sólo de @Model.Camara</span>
+            }
+            <button class="btn small danger" type="submit">Eliminar</button>
         </form>
 
         @if (Model.Unlabeled.Count == 0)

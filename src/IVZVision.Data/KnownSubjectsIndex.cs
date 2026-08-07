@@ -21,6 +21,7 @@ public sealed class KnownSubjectsIndex
     private volatile FaceEntry[] _faces = Array.Empty<FaceEntry>();
     private volatile Dictionary<string, PlateEntry> _plates = new(StringComparer.Ordinal);
     private volatile Dictionary<string, ObjectEntry> _objects = new(StringComparer.OrdinalIgnoreCase);
+    private volatile Dictionary<string, string> _plateCorrections = new(StringComparer.Ordinal);
     private long _dirty = 1;
 
     public KnownSubjectsIndex(IDbContextFactory<VisionDbContext> dbFactory, ILogger<KnownSubjectsIndex> logger)
@@ -111,9 +112,17 @@ public sealed class KnownSubjectsIndex
                 objects[key] = new ObjectEntry(o.Id, o.DisplayName, o.IsAuthorized, o.Notes);
             }
 
+            // Correcciones de matrícula enseñadas por el usuario: el OCR las aplica
+            // en cuanto vuelve a leer el mismo texto erróneo.
+            var corrections = await db.PlateCorrections
+                .AsNoTracking()
+                .ToDictionaryAsync(c => c.WrongText, c => c.CorrectText, StringComparer.Ordinal, ct)
+                .ConfigureAwait(false);
+
             _faces = faces.ToArray();
             _plates = plates;
             _objects = objects;
+            _plateCorrections = corrections;
             LastRefreshedAt = DateTimeOffset.Now;
             LastError = null;
             Interlocked.Exchange(ref _dirty, 0);
@@ -171,6 +180,19 @@ public sealed class KnownSubjectsIndex
             Notes = best.Department,
         };
     }
+
+    /// <summary>
+    /// Aplica lo aprendido de las correcciones del usuario: si el OCR devuelve un
+    /// texto que ya se corrigió antes, se sustituye por el correcto. Devuelve el
+    /// texto tal cual si no hay nada aprendido para él.
+    /// </summary>
+    public string ApplyLearnedCorrection(string normalizedPlate)
+    {
+        if (string.IsNullOrEmpty(normalizedPlate)) return normalizedPlate;
+        return _plateCorrections.TryGetValue(normalizedPlate, out var corrected) ? corrected : normalizedPlate;
+    }
+
+    public int PlateCorrectionCount => _plateCorrections.Count;
 
     /// <summary>Busca la matrícula normalizada en el padrón de vehículos.</summary>
     public IdentityMatch MatchPlate(string normalizedPlate)

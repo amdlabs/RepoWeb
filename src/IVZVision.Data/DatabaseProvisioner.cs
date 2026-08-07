@@ -127,6 +127,19 @@ BEGIN
         Json      nvarchar(max) NOT NULL,
         UpdatedAt datetime2 NOT NULL
     );
+END
+
+IF OBJECT_ID('PlateCorrections', 'U') IS NULL
+BEGIN
+    CREATE TABLE PlateCorrections (
+        Id           int IDENTITY(1,1) NOT NULL CONSTRAINT PK_PlateCorrections PRIMARY KEY,
+        WrongText    nvarchar(20) NOT NULL,
+        CorrectText  nvarchar(20) NOT NULL,
+        TimesApplied int NOT NULL,
+        CorrectedBy  nvarchar(150) NULL,
+        CreatedAt    datetime2 NOT NULL
+    );
+    CREATE UNIQUE INDEX IX_PlateCorrections_WrongText ON PlateCorrections (WrongText);
 END", ct).ConfigureAwait(false);
 
             // Usuario administrador inicial para que el sistema sea usable nada más instalar.

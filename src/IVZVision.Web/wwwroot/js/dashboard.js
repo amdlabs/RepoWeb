@@ -29,6 +29,7 @@
         (resumen.ultimosVehiculos || []).forEach(function (v) {
             var tr = document.createElement("tr");
             tr.innerHTML =
+                '<td class="thumb-cell"><img loading="lazy" /></td>' +
                 '<td class="plate"><b></b></td>' +
                 "<td></td>" +
                 "<td>" + (v.yaVistoAntes ? badge("badge-warn", "ya visto antes") : badge("badge-muted", "primera vez")) + "</td>" +
@@ -36,10 +37,18 @@
                 "<td>" + fecha(v.primeraVez) + "</td>" +
                 "<td>" + fecha(v.ultimaVez) + "</td>" +
                 "<td></td>";
-            tr.children[0].firstChild.textContent = v.matricula;
-            tr.children[1].textContent = v.etiqueta;
-            if (v.registrado) tr.children[1].innerHTML += " " + badge("badge-ok", "registrado");
-            tr.children[6].textContent = v.ultimaCamara || "";
+
+            // Placa dibujada; doble clic la amplía y permite corregir la lectura.
+            var img = tr.children[0].firstChild;
+            img.src = "/matricula/" + encodeURIComponent(v.matricula) + ".svg";
+            img.alt = v.matricula;
+            img.dataset.plate = v.matricula;
+            if (v.ultimoEventoId) img.dataset.evento = v.ultimoEventoId;
+
+            tr.children[1].firstChild.textContent = v.matricula;
+            tr.children[2].textContent = v.etiqueta;
+            if (v.registrado) tr.children[2].innerHTML += " " + badge("badge-ok", "registrado");
+            tr.children[7].textContent = v.ultimaCamara || "";
             tabla.appendChild(tr);
         });
 

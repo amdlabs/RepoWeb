@@ -6,7 +6,7 @@ namespace IVZVision.Web.Services;
 
 public sealed record DashboardVehicle(string Matricula, string Etiqueta, bool Registrado, int VecesVisto,
                                       DateTime PrimeraVez, DateTime UltimaVez, string? UltimaCamara,
-                                      bool YaVistoAntes);
+                                      bool YaVistoAntes, long UltimoEventoId);
 
 public sealed record DashboardSummary(
     int VehiculosHoy,
@@ -68,7 +68,7 @@ public sealed class DashboardService
             .Where(e => keys.Contains(e.PlateText!))
             .GroupBy(e => e.PlateText!)
             .Select(g => g.OrderByDescending(e => e.OccurredAt)
-                          .Select(e => new { e.PlateText, e.Label, e.IsKnown, e.CameraName })
+                          .Select(e => new { e.Id, e.PlateText, e.Label, e.IsKnown, e.CameraName })
                           .First())
             .ToListAsync(ct);
 
@@ -83,7 +83,8 @@ public sealed class DashboardService
                 p.FirstSeen,
                 p.LastSeen,
                 last?.CameraName,
-                YaVistoAntes: p.TimesSeen > 1);
+                YaVistoAntes: p.TimesSeen > 1,
+                UltimoEventoId: last?.Id ?? 0);
         }).ToList();
 
         return new DashboardSummary(

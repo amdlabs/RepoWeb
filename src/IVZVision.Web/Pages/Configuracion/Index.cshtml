@@ -433,6 +433,30 @@
                 </div>
             </div>
 
+            <h3>Limpieza de registros capturados</h3>
+            <div class="hint" style="margin-bottom:8px">
+                Borra los eventos de reconocimiento y sus imágenes (rostros, matrículas, objetos y textos).
+                <b>No</b> se tocan el padrón de personas y vehículos, los objetos etiquetados ni los usuarios.
+                Esta acción no se puede deshacer.
+            </div>
+            <div class="grid grid-3">
+                <div class="field">
+                    <label for="diasLimpieza">Borrar registros de más de (días)</label>
+                    <input id="diasLimpieza" form="formLimpiar" name="dias" type="number" min="0" max="3650" value="0" />
+                    <div class="hint">0 = borrar todo el histórico.</div>
+                </div>
+                <div class="field">
+                    <label for="confirmacionLimpieza">Escriba BORRAR para confirmar</label>
+                    <input id="confirmacionLimpieza" form="formLimpiar" name="confirmacion" placeholder="BORRAR" autocomplete="off" />
+                </div>
+            </div>
+            <div class="actions">
+                <button class="btn danger" type="submit" form="formLimpiar"
+                        onclick="return confirm('¿Seguro que quiere borrar los registros capturados? Esta acción no se puede deshacer.');">
+                    Limpiar registros
+                </button>
+            </div>
+
             <h3>Estado actual</h3>
             <div class="kv"><span>Plantillas faciales cargadas</span><span>@Model.KnownFaces</span></div>
             <div class="kv"><span>Matrículas registradas</span><span>@Model.KnownPlates</span></div>
@@ -461,6 +485,10 @@
         <span class="hint">Al guardar se recargan los modelos y se reinician todas las cámaras.</span>
     </div>
 </form>
+
+@* Formulario propio para la limpieza: así el botón no envía toda la configuración.
+   Va fuera del <form> principal porque HTML no permite formularios anidados. *@
+<form method="post" id="formLimpiar" asp-page-handler="LimpiarRegistros"></form>
 
 @section Scripts {
     <script src="~/js/config.js" asp-append-version="true"></script>

@@ -15,6 +15,7 @@ public class VisionDbContext : DbContext
     public DbSet<SystemUser> SystemUsers => Set<SystemUser>();
     public DbSet<ConfigSnapshot> ConfigSnapshots => Set<ConfigSnapshot>();
     public DbSet<AppConfigurationRow> AppConfiguration => Set<AppConfigurationRow>();
+    public DbSet<PlateCorrection> PlateCorrections => Set<PlateCorrection>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -68,6 +69,12 @@ public class VisionDbContext : DbContext
         {
             e.ToTable("AppConfiguration");
             e.Property(r => r.Id).ValueGeneratedNever();
+        });
+
+        b.Entity<PlateCorrection>(e =>
+        {
+            e.ToTable("PlateCorrections");
+            e.HasIndex(p => p.WrongText).IsUnique();
         });
 
         b.Entity<RecognitionEvent>(e =>

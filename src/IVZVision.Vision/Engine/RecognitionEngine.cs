@@ -418,6 +418,10 @@ public sealed class RecognitionEngine : IDisposable
                 }
 
                 var normalized = PlateText.Normalize(reading.Text);
+
+                // Aprendizaje: si el usuario ya corrigió esta lectura, se aplica su versión.
+                normalized = _index.ApplyLearnedCorrection(normalized);
+
                 var valid = reading.Confidence >= rec.PlateOcrMinConfidence
                             && PlateText.LooksValid(normalized, rec.PlateMinCharacters, rec.PlateMaxCharacters);
 

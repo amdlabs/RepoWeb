@@ -168,6 +168,26 @@ public class PersonasModel : PageModel
         return RedirectToPage("/Persona", new { id = person.Id });
     }
 
+    /// <summary>Borra las detecciones de personas (no toca el padrón de personas dadas de alta).</summary>
+    public async Task<IActionResult> OnPostLimpiarDeteccionesAsync([FromServices] DetectionCleanup cleanup,
+                                                                   int? dias, bool soloNoIdentificadas,
+                                                                   string? camara, CancellationToken ct)
+    {
+        if (!RoleGuard.CanEdit(User)) return Forbid();
+
+        var (eventos, imagenes) = await cleanup.DeleteAsync(
+            kinds: new[] { RecognitionKind.Face, RecognitionKind.Object },
+            objectClasses: new[] { "persona", "person" },
+            camera: camara,
+            days: dias,
+            onlyUnknown: soloNoIdentificadas,
+            ct: ct);
+
+        TempData["Ok"] = $"Se han borrado {eventos} detección(es) de personas y {imagenes} imagen(es). " +
+                          "El padrón de personas se mantiene intacto.";
+        return RedirectToPage(new { Camara = camara });
+    }
+
     public async Task<IActionResult> OnPostCrearAsync(CancellationToken ct)
     {
         if (!RoleGuard.CanEdit(User)) return Forbid();

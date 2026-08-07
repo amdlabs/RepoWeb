@@ -38,8 +38,29 @@
         <button type="submit" class="btn secondary">Filtrar</button>
         @if (!string.IsNullOrWhiteSpace(Model.Camara))
         {
-            <a class="btn secondary" asp-page="/Vehiculos">Limpiar</a>
+            <a class="btn secondary" asp-page="/Vehiculos">Quitar filtro</a>
         }
+    </form>
+
+    <form method="post" asp-page-handler="LimpiarDetecciones" class="actions"
+          style="gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center"
+          onsubmit="return confirm('¿Borrar las lecturas de matrícula según el filtro indicado? No se puede deshacer.');">
+        <input type="hidden" name="camara" value="@Model.Camara" />
+        <span class="hint">Eliminar registros:</span>
+        <select name="dias" style="max-width:150px">
+            <option value="0">todos</option>
+            <option value="1">de más de 1 día</option>
+            <option value="7">de más de 7 días</option>
+            <option value="30">de más de 30 días</option>
+        </select>
+        <label class="check" style="margin:0">
+            <input type="checkbox" name="soloNoIdentificadas" value="true" checked /> sólo no registradas
+        </label>
+        @if (!string.IsNullOrWhiteSpace(Model.Camara))
+        {
+            <span class="badge badge-muted">sólo de @Model.Camara</span>
+        }
+        <button class="btn small danger" type="submit">Eliminar</button>
     </form>
 
     @if (Model.Detected.Count == 0)
@@ -67,13 +88,21 @@
                     var local = v.OccurredAt.ToLocalTime();
                     <tr>
                         <td class="thumb-cell">
+                            @* Doble clic → placa dibujada con el texto leído (data-plate). *@
                             @if (!string.IsNullOrEmpty(v.CropBase64))
                             {
-                                <img src="data:image/jpeg;base64,@v.CropBase64" alt="@v.Plate" />
+                                <img src="data:image/jpeg;base64,@v.CropBase64" alt="@v.Plate"
+                                     data-plate="@v.Plate" data-evento="@v.EventId" />
                             }
                             else if (!string.IsNullOrEmpty(v.CropPath))
                             {
-                                <img src="/media/recorte?path=@Uri.EscapeDataString(v.CropPath)" alt="@v.Plate" loading="lazy" />
+                                <img src="/media/recorte?path=@Uri.EscapeDataString(v.CropPath)" alt="@v.Plate"
+                                     loading="lazy" data-plate="@v.Plate" data-evento="@v.EventId" />
+                            }
+                            else
+                            {
+                                <img src="/matricula/@(Uri.EscapeDataString(v.Plate)).svg" alt="@v.Plate"
+                                     loading="lazy" data-plate="@v.Plate" data-evento="@v.EventId" />
                             }
                         </td>
                         <td class="plate"><b>@v.Plate</b></td>

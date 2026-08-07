@@ -84,9 +84,22 @@
                 {
                     <tr>
                         <td class="thumb-cell">
+                            @{
+                                // En matrículas, el doble clic abre la placa dibujada con el
+                                // texto leído (data-plate); si no hay recorte, la placa hace de miniatura.
+                                var placa = e.Kind == RecognitionKind.Plate && !string.IsNullOrEmpty(e.PlateText)
+                                    ? e.PlateText
+                                    : null;
+                            }
                             @if (!string.IsNullOrEmpty(e.CropPath))
                             {
-                                <img src="/media/recorte?path=@Uri.EscapeDataString(e.CropPath)" alt="Recorte" loading="lazy" />
+                                <img src="/media/recorte?path=@Uri.EscapeDataString(e.CropPath)" alt="Recorte"
+                                     loading="lazy" data-plate="@placa" data-evento="@(placa is null ? null : e.Id.ToString())" />
+                            }
+                            else if (placa is not null)
+                            {
+                                <img src="/matricula/@(Uri.EscapeDataString(placa)).svg" alt="Matrícula @placa"
+                                     loading="lazy" data-plate="@placa" data-evento="@e.Id" />
                             }
                             else
                             {

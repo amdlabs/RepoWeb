@@ -96,6 +96,47 @@ public class ObjetosModel : PageModel
         }
     }
 
+    /// <summary>Borra las detecciones de objetos (no toca las etiquetas ya creadas).</summary>
+    public async Task<IActionResult> OnPostLimpiarDeteccionesAsync(
+        [FromServices] Services.DetectionCleanup cleanup,
+        int? dias, bool soloSinEtiquetar, string? camara, CancellationToken ct)
+    {
+        if (!Services.RoleGuard.CanEdit(User)) return Forbid();
+
+        // «Sin etiquetar» = clases que no tienen etiqueta de usuario todavía.
+        IReadOnlyCollection<string>? clases = null;
+        if (soloSinEtiquetar)
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            var etiquetadas = await db.ObjectLabels.AsNoTracking().Select(o => o.ClassName).ToListAsync(ct);
+
+            clases = await db.RecognitionEvents.AsNoTracking()
+                .Where(e => e.Kind == RecognitionKind.Object && e.ObjectClass != null)
+                .Select(e => e.ObjectClass!)
+                .Distinct()
+                .ToListAsync(ct);
+
+            clases = clases.Where(c => !etiquetadas.Contains(c, StringComparer.OrdinalIgnoreCase)).ToList();
+
+            if (clases.Count == 0)
+            {
+                TempData["Ok"] = "No hay detecciones sin etiquetar que borrar.";
+                return RedirectToPage(new { Camara = camara });
+            }
+        }
+
+        var (eventos, imagenes) = await cleanup.DeleteAsync(
+            kinds: new[] { RecognitionKind.Object, RecognitionKind.Text },
+            objectClasses: clases,
+            camera: camara,
+            days: dias,
+            ct: ct);
+
+        TempData["Ok"] = $"Se han borrado {eventos} detección(es) de objetos/textos y {imagenes} imagen(es). " +
+                          "Las etiquetas creadas se mantienen.";
+        return RedirectToPage(new { Camara = camara });
+    }
+
     /// <summary>Da nombre a una clase detectada (o actualiza la etiqueta existente).</summary>
     public async Task<IActionResult> OnPostEtiquetarAsync(string className, string displayName,
                                                           bool isAuthorized, string? notes, CancellationToken ct)
