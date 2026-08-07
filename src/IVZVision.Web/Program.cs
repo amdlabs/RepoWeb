@@ -199,6 +199,108 @@ app.MapRazorPages();
 app.MapControllers();
 app.MapHub<DetectionHub>("/hubs/detecciones");
 
+// ---- Vídeo multiplexado por WebSocket --------------------------------------
+// Un único WebSocket lleva el vídeo en vivo de todas las cámaras del muro:
+// los WebSockets no cuentan en el límite de ~6 conexiones HTTP del navegador,
+// así que todas las celdas pueden ser streaming real a la vez.
+// Trama binaria: [36 bytes ASCII con el GUID de la cámara][JPEG].
+app.UseWebSockets();
+app.Map("/ws/video", async context =>
+{
+    if (context.User.Identity?.IsAuthenticated != true)
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return;
+    }
+
+    if (!context.WebSockets.IsWebSocketRequest)
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        return;
+    }
+
+    var ids = (context.Request.Query["camaras"].ToString() ?? "")
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+        .Where(g => g != Guid.Empty)
+        .Distinct()
+        .Take(32)
+        .ToList();
+
+    if (ids.Count == 0)
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        return;
+    }
+
+    var broadcaster = context.RequestServices.GetRequiredService<FrameBroadcaster>();
+    using var socket = await context.WebSockets.AcceptWebSocketAsync();
+    using var cts = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
+    var ct = cts.Token;
+
+    // Cola común con descarte del más antiguo: un cliente lento no acumula retraso.
+    var frames = System.Threading.Channels.Channel.CreateBounded<(Guid Id, byte[] Jpeg)>(
+        new System.Threading.Channels.BoundedChannelOptions(ids.Count * 3)
+        {
+            FullMode = System.Threading.Channels.BoundedChannelFullMode.DropOldest,
+        });
+
+    // Un lector por cámara, limitado a ~8 fps por cámara para contener el ancho de banda.
+    var minInterval = TimeSpan.FromMilliseconds(125);
+    var readers = ids.Select(id => Task.Run(async () =>
+    {
+        var lastSent = DateTimeOffset.MinValue;
+        while (!ct.IsCancellationRequested)
+        {
+            byte[] jpeg;
+            try { jpeg = await broadcaster.WaitForNextAsync(id, ct).WaitAsync(TimeSpan.FromSeconds(5), ct); }
+            catch (TimeoutException) { continue; }
+            catch (OperationCanceledException) { break; }
+
+            var now = DateTimeOffset.UtcNow;
+            if (now - lastSent < minInterval) continue;
+            lastSent = now;
+            frames.Writer.TryWrite((id, jpeg));
+        }
+    }, ct)).ToList();
+
+    // Detecta el cierre del navegador.
+    _ = Task.Run(async () =>
+    {
+        var buffer = new byte[1024];
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                var result = await socket.ReceiveAsync(buffer, ct);
+                if (result.MessageType == System.Net.WebSockets.WebSocketMessageType.Close) break;
+            }
+        }
+        catch (Exception) { /* conexión cerrada */ }
+        cts.Cancel();
+    }, ct);
+
+    try
+    {
+        await foreach (var (id, jpeg) in frames.Reader.ReadAllAsync(ct))
+        {
+            var header = System.Text.Encoding.ASCII.GetBytes(id.ToString("D"));
+            var payload = new byte[header.Length + jpeg.Length];
+            header.CopyTo(payload, 0);
+            jpeg.CopyTo(payload, header.Length);
+
+            await socket.SendAsync(payload, System.Net.WebSockets.WebSocketMessageType.Binary, true, ct);
+        }
+    }
+    catch (OperationCanceledException) { /* fin normal */ }
+    catch (Exception) { /* el cliente cerró */ }
+    finally
+    {
+        cts.Cancel();
+        try { await Task.WhenAll(readers).WaitAsync(TimeSpan.FromSeconds(3)); } catch (Exception) { }
+    }
+});
+
 // Deja el índice y los modelos preparados sin bloquear el arranque del servidor.
 _ = Task.Run(() =>
 {

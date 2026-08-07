@@ -77,8 +77,64 @@
     function celdas() { return layout; }
     function totalPaginas() { return Math.max(1, Math.ceil(camaras.length / celdas())); }
 
-    /// Decide qué celdas llevan vídeo en vivo y cuáles instantáneas.
+    /* ---------- Vídeo por WebSocket: streaming real en TODAS las celdas ----------
+       Un único WebSocket multiplexa los fotogramas de todas las cámaras visibles
+       (no cuenta en el límite de conexiones HTTP). Si falla, se usa el reparto
+       HTTP de más abajo como reserva. */
+    var ws = null;
+    var wsActivo = false;
+
+    function startWs() {
+        stopWs();
+        var visibles = Array.prototype.slice.call(grid.querySelectorAll("img[data-camara]"))
+            .map(function (i) { return i.dataset.camara; });
+        if (!visibles.length || !("WebSocket" in window)) return;
+
+        var proto = location.protocol === "https:" ? "wss://" : "ws://";
+        try { ws = new WebSocket(proto + location.host + "/ws/video?camaras=" + visibles.join(",")); }
+        catch (e) { ws = null; return; }
+
+        ws.binaryType = "arraybuffer";
+
+        ws.onopen = function () {
+            wsActivo = true;
+            // Las celdas dejan las conexiones HTTP: todo llega por el WebSocket.
+            grid.querySelectorAll("img[data-camara]").forEach(function (img) {
+                img.dataset.modo = "ws";
+            });
+        };
+
+        ws.onmessage = function (e) {
+            if (maximizada) return; // el muro descansa con una cámara maximizada
+            var buf = e.data;
+            var id = new TextDecoder().decode(buf.slice(0, 36));
+            var img = grid.querySelector('img[data-camara="' + id + '"]');
+            if (!img) return;
+
+            var url = URL.createObjectURL(new Blob([buf.slice(36)], { type: "image/jpeg" }));
+            var anterior = img.dataset.blob;
+            img.dataset.blob = url;
+            img.src = url;
+            if (anterior) setTimeout(function () { URL.revokeObjectURL(anterior); }, 1000);
+        };
+
+        ws.onclose = ws.onerror = function () {
+            if (!wsActivo && ws) { ws = null; assignFeeds(); return; } // nunca llegó a abrir: reserva HTTP
+            wsActivo = false;
+            ws = null;
+            assignFeeds(); // sigue en HTTP mientras tanto
+            setTimeout(function () { if (!maximizada) startWs(); }, 4000);
+        };
+    }
+
+    function stopWs() {
+        wsActivo = false;
+        if (ws) { try { ws.onclose = null; ws.close(); } catch (e) { } ws = null; }
+    }
+
+    /// Decide qué celdas llevan vídeo en vivo y cuáles instantáneas (reserva sin WebSocket).
     function assignFeeds() {
+        if (wsActivo) return;
         var imgs = Array.prototype.slice.call(grid.querySelectorAll("img[data-camara]"));
         if (!imgs.length) return;
 
@@ -101,7 +157,7 @@
     }
 
     function rotarFeeds() {
-        if (document.hidden || maximizada) return;
+        if (wsActivo || document.hidden || maximizada) return;
         var visibles = grid.querySelectorAll("img[data-camara]").length;
         var liveCount = HTTP2 || visibles <= MAX_LIVE_H1 ? visibles : LIVE_WHEN_ROTATING;
         if (liveCount >= visibles) return; // todas en vivo: nada que rotar
@@ -110,7 +166,7 @@
     }
 
     function refreshCells() {
-        if (document.hidden) return;
+        if (wsActivo || document.hidden) return;
         if (maximizada) return; // con una cámara maximizada, el muro descansa
         grid.querySelectorAll('img[data-camara][data-modo="poll"]').forEach(function (img) {
             if (img.dataset.cargando === "1") return; // aún descargando la anterior
@@ -127,8 +183,9 @@
         if (maximizada) return;
         maximizada = true;
 
-        // Se sueltan los flujos del muro para que la cámara maximizada tenga
-        // su conexión garantizada y todo el ancho de banda.
+        // Se sueltan los flujos del muro (WebSocket incluido) para que la cámara
+        // maximizada tenga la conexión garantizada y todo el ancho de banda.
+        stopWs();
         grid.querySelectorAll('img[data-camara]').forEach(function (img) {
             img.dataset.modo = "poll";
             img.dataset.cargando = "0";
@@ -163,7 +220,8 @@
             video.src = ""; // corta el flujo MJPEG
             overlay.remove();
             document.removeEventListener("keydown", onKey);
-            assignFeeds();  // el muro recupera sus flujos en vivo al instante
+            assignFeeds();  // reserva HTTP inmediata…
+            startWs();      // …y el streaming WebSocket vuelve al instante
         }
 
         function onKey(e) { if (e.key === "Escape") cerrarOverlay(); }
@@ -231,6 +289,7 @@
         }
 
         assignFeeds();
+        startWs(); // streaming real por WebSocket para todas las celdas visibles
 
         var multi = totalPaginas() > 1;
         btnPrev.hidden = !multi;
@@ -280,5 +339,6 @@
     window.addEventListener("beforeunload", function () {
         if (timer) clearInterval(timer);
         if (rotateTimer) clearInterval(rotateTimer);
+        stopWs();
     });
 })();
