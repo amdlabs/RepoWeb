@@ -33,6 +33,9 @@ public sealed class CameraWorker
 
     private IReadOnlyList<Observation> _overlay = Array.Empty<Observation>();
 
+    /// <summary>1 mientras hay un análisis de esta cámara en curso (el vídeo nunca lo espera).</summary>
+    private int _analysisBusy;
+
     public CameraWorker(CameraConfig camera, IConfigStore config, RecognitionEngine engine,
                         EventRecorder recorder, FrameBroadcaster broadcaster,
                         IEnumerable<IObservationSink> sinks, string snapshotsRoot, ILogger logger)
@@ -178,12 +181,35 @@ public sealed class CameraWorker
 
                 var rec = _config.Current.Recognition;
 
+                // El análisis va SIEMPRE aparte del bucle de captura: la inferencia se
+                // reparte entre todas las cámaras y puede tardar; si el vídeo esperara
+                // su turno, el feed se congelaría (fotos en vez de vídeo). Si el motor
+                // sigue ocupado cuando toca analizar, ese fotograma simplemente se salta.
                 var analysisInterval = _camera.AnalysisFps > 0 ? 1000.0 / _camera.AnalysisFps : 0;
-                if (analysisInterval > 0 && analysisClock.Elapsed.TotalMilliseconds >= analysisInterval)
+                if (analysisInterval > 0 && analysisClock.Elapsed.TotalMilliseconds >= analysisInterval
+                    && Interlocked.CompareExchange(ref _analysisBusy, 1, 0) == 0)
                 {
                     analysisClock.Restart();
-                    await AnalyzeFrameAsync(frame, rec, ct).ConfigureAwait(false);
-                    Status.FramesProcessed++;
+
+                    var snapshot = frame.Clone();
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await AnalyzeFrameAsync(snapshot, rec, ct).ConfigureAwait(false);
+                            Status.FramesProcessed++;
+                        }
+                        catch (OperationCanceledException) { /* parada de la cámara */ }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug(ex, "Análisis de fotograma fallido en {Name}", _camera.Name);
+                        }
+                        finally
+                        {
+                            snapshot.Dispose();
+                            Interlocked.Exchange(ref _analysisBusy, 0);
+                        }
+                    }, CancellationToken.None);
                 }
 
                 var streamInterval = rec.StreamFps > 0 ? 1000.0 / rec.StreamFps : 0;
