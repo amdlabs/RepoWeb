@@ -28,11 +28,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certifi
 RUN dotnet publish src/IVZVision.Web/IVZVision.Web.csproj -c Release -o /app/publish /p:UseAppHost=false
 
 # ---- Imagen final ----------------------------------------------------------
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+# Ubuntu 22.04 (jammy): libOpenCvSharpExtern.so está enlazada contra las
+# versiones de librería de esta distribución (ffmpeg 4.4, libjpeg8, gtk2…).
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-jammy AS final
 WORKDIR /app
 
-# Dependencias nativas mínimas de OpenCvSharp (runtime oficial linux-x64).
+# Dependencias nativas de OpenCvSharp (runtime oficial linux-x64): vídeo (ffmpeg),
+# imagen (jpeg/png/tiff/openjp2/openexr), captura (dc1394) y GUI headless (gtk2).
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        libavcodec58 \
+        libavformat58 \
+        libavutil56 \
+        libswscale5 \
+        libjpeg-turbo8 \
+        libpng16-16 \
+        libtiff5 \
+        libopenjp2-7 \
+        libopenexr25 \
+        libdc1394-25 \
+        libtesseract4 \
+        libgtk2.0-0 \
         libgomp1 \
         libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
