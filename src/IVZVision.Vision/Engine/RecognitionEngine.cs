@@ -119,6 +119,14 @@ public sealed class RecognitionEngine : IDisposable
         }
     }
 
+    /// <summary>
+    /// Una sola inferencia a la vez en todo el proceso: con varias cámaras, las
+    /// ejecuciones concurrentes sobre la misma sesión provocan violaciones de acceso
+    /// con el proveedor DirectML y saturan la CPU con el resto. Los workers esperan
+    /// su turno; su ritmo de análisis se autolimita al rendimiento real del equipo.
+    /// </summary>
+    private readonly SemaphoreSlim _inferenceGate = new(1, 1);
+
     public IReadOnlyList<AnalysisItem> Analyze(Mat analysisFrame, CameraConfig camera)
     {
         EnsureLoaded();
@@ -126,14 +134,22 @@ public sealed class RecognitionEngine : IDisposable
         var rec = _config.Current.Recognition;
         var items = new List<AnalysisItem>();
 
-        if (camera.EnableFaceRecognition && Status.FacesAvailable)
-            AnalyzeFaces(analysisFrame, rec, items);
+        _inferenceGate.Wait();
+        try
+        {
+            if (camera.EnableFaceRecognition && Status.FacesAvailable)
+                AnalyzeFaces(analysisFrame, rec, items);
 
-        if (camera.EnablePlateRecognition && Status.PlatesAvailable)
-            AnalyzePlates(analysisFrame, rec, items);
+            if (camera.EnablePlateRecognition && Status.PlatesAvailable)
+                AnalyzePlates(analysisFrame, rec, items);
 
-        if (camera.EnableObjectDetection && Status.ObjectsAvailable)
-            AnalyzeObjects(analysisFrame, rec, items);
+            if (camera.EnableObjectDetection && Status.ObjectsAvailable)
+                AnalyzeObjects(analysisFrame, rec, items);
+        }
+        finally
+        {
+            _inferenceGate.Release();
+        }
 
         return items;
     }
@@ -289,6 +305,7 @@ public sealed class RecognitionEngine : IDisposable
 
         var rec = _config.Current.Recognition;
 
+        _inferenceGate.Wait();
         try
         {
             // En una foto de alta se baja el listón del detector: la imagen es de estudio.
@@ -314,6 +331,10 @@ public sealed class RecognitionEngine : IDisposable
         {
             _logger.LogError(ex, "Error al extraer el rostro de la imagen de alta");
             return new FaceEnrollment(false, $"Error al procesar la imagen: {ex.Message}");
+        }
+        finally
+        {
+            _inferenceGate.Release();
         }
     }
 

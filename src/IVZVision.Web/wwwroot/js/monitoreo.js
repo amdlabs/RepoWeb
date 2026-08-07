@@ -16,8 +16,23 @@
     var layout = Number(localStorage.getItem("ivz.monitoreo.layout")) || 4;
     var pagina = 0;
 
+    // El muro NO abre un flujo MJPEG permanente por celda: el navegador limita las
+    // conexiones simultáneas por servidor (~6) y con más cámaras la web entera se
+    // bloquearía. Cada celda refresca su instantánea con peticiones cortas.
+    var REFRESH_MS = 700;
+    var timer = null;
+
     function celdas() { return layout; }
     function totalPaginas() { return Math.max(1, Math.ceil(camaras.length / celdas())); }
+
+    function refreshCells() {
+        if (document.hidden) return;
+        grid.querySelectorAll("img[data-camara]").forEach(function (img) {
+            if (img.dataset.cargando === "1") return; // aún descargando la anterior
+            img.dataset.cargando = "1";
+            img.src = "/stream/" + img.dataset.camara + "/instantanea?t=" + Date.now();
+        });
+    }
 
     function render() {
         var cols = LAYOUTS[layout][0];
@@ -34,11 +49,10 @@
 
             var img = document.createElement("img");
             img.alt = cam.nombre;
-            img.src = "/stream/" + cam.id + "?t=" + Date.now();
-            // Si el flujo se corta (reinicio de la cámara) se reengancha solo.
-            img.addEventListener("error", function () {
-                setTimeout(function () { img.src = "/stream/" + cam.id + "?t=" + Date.now(); }, 3000);
-            });
+            img.dataset.camara = cam.id;
+            img.addEventListener("load", function () { img.dataset.cargando = "0"; });
+            img.addEventListener("error", function () { img.dataset.cargando = "0"; });
+            img.src = "/stream/" + cam.id + "/instantanea?t=" + Date.now();
 
             var label = document.createElement("div");
             label.className = "mon-label";
@@ -96,9 +110,12 @@
                 return;
             }
             render();
+            timer = setInterval(refreshCells, REFRESH_MS);
         })
         .catch(function (err) {
             console.error("No se pudo obtener la lista de cámaras", err);
             vacio.hidden = false;
         });
+
+    window.addEventListener("beforeunload", function () { if (timer) clearInterval(timer); });
 })();

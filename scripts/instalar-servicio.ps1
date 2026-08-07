@@ -19,6 +19,7 @@
 param(
     [string]$Carpeta = "C:\IVZVision",
     [int]$Puerto = 8080,
+    [int]$PuertoHttps = 8443,
     [string]$Nombre = "IVZVision"
 )
 
@@ -42,9 +43,15 @@ if (Get-Service $Nombre -ErrorAction SilentlyContinue) {
     Start-Sleep -Seconds 2
 }
 
-# --urls fija el puerto de escucha; --contentRoot asegura que App_Data y Models se
+# --urls fija los puertos de escucha; --contentRoot asegura que App_Data y Models se
 # resuelvan en la carpeta publicada aunque el servicio arranque desde system32.
-$binPath = "`"$exe`" --urls http://+:$Puerto --contentRoot `"$Carpeta`""
+# HTTPS se activa si existe el certificado (App_Data\https\ivzvision.pfx +
+# appsettings.Production.json con su contraseña).
+$urls = "http://+:$Puerto"
+if (Test-Path (Join-Path $Carpeta "App_Data\https\ivzvision.pfx")) {
+    $urls += ";https://+:$PuertoHttps"
+}
+$binPath = "`"$exe`" --urls `"$urls`" --contentRoot `"$Carpeta`""
 
 sc.exe create $Nombre binPath= $binPath start= auto DisplayName= "IVZ Vision" | Out-Null
 sc.exe description $Nombre "Reconocimiento facial, de matriculas y de objetos en local (IVZ Vision)" | Out-Null
