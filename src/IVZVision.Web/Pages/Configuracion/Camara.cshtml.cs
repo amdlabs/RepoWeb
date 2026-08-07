@@ -9,11 +9,13 @@ public class CamaraModel : PageModel
 {
     private readonly IConfigStore _config;
     private readonly DiagnosticsService _diagnostics;
+    private readonly ILogger<CamaraModel> _logger;
 
-    public CamaraModel(IConfigStore config, DiagnosticsService diagnostics)
+    public CamaraModel(IConfigStore config, DiagnosticsService diagnostics, ILogger<CamaraModel> logger)
     {
         _config = config;
         _diagnostics = diagnostics;
+        _logger = logger;
     }
 
     [BindProperty] public CameraConfig Camera { get; set; } = new();
@@ -87,19 +89,48 @@ public class CamaraModel : PageModel
     }
 
     /// <summary>Abre la fuente de vídeo con los datos del formulario y devuelve un fotograma de muestra.</summary>
-    public async Task<IActionResult> OnPostProbarRtspAsync([FromBody] CameraConfig camera, CancellationToken ct)
+    public async Task<IActionResult> OnPostProbarRtspAsync([FromBody] CameraConfig? camera, CancellationToken ct)
     {
-        RestoreStoredPassword(camera);
-        var result = await _diagnostics.TestRtspAsync(camera, ct);
-        return new JsonResult(new { ok = result.Success, mensaje = result.Message, vistaPrevia = result.Preview });
+        // Nunca un 500: cualquier problema vuelve como JSON con el mensaje real.
+        try
+        {
+            if (camera is null)
+                return new JsonResult(new { ok = false, mensaje = "No se recibieron los datos del formulario. Recargue la página (Ctrl+F5) y vuelva a intentarlo." });
+
+            RestoreStoredPassword(camera);
+            var result = await _diagnostics.TestRtspAsync(camera, ct);
+            return new JsonResult(new { ok = result.Success, mensaje = result.Message, vistaPrevia = result.Preview });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fallo inesperado en la prueba de vídeo");
+            return new JsonResult(new { ok = false, mensaje = $"Error inesperado: {ex.Message}" });
+        }
     }
 
     /// <summary>Comprueba las credenciales HTTP contra el interfaz ISAPI.</summary>
-    public async Task<IActionResult> OnPostProbarIsapiAsync([FromBody] CameraConfig camera, CancellationToken ct)
+    public async Task<IActionResult> OnPostProbarIsapiAsync([FromBody] CameraConfig? camera, CancellationToken ct)
     {
-        RestoreStoredPassword(camera);
-        var result = await _diagnostics.TestIsapiAsync(camera, ct);
-        return new JsonResult(new { ok = result.Success, mensaje = result.Message });
+        try
+        {
+            if (camera is null)
+                return new JsonResult(new { ok = false, mensaje = "No se recibieron los datos del formulario. Recargue la página (Ctrl+F5) y vuelva a intentarlo." });
+
+            if (camera.IsUsb)
+                return new JsonResult(new { ok = false, mensaje = "Una cámara USB no tiene interfaz ISAPI: esta prueba sólo aplica a cámaras de red." });
+
+            if (string.IsNullOrWhiteSpace(camera.Host))
+                return new JsonResult(new { ok = false, mensaje = "Indique la dirección IP o el nombre de la cámara antes de probar ISAPI." });
+
+            RestoreStoredPassword(camera);
+            var result = await _diagnostics.TestIsapiAsync(camera, ct);
+            return new JsonResult(new { ok = result.Success, mensaje = result.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fallo inesperado en la prueba ISAPI");
+            return new JsonResult(new { ok = false, mensaje = $"Error inesperado: {ex.Message}" });
+        }
     }
 
     /// <summary>Si la contraseña llegó en blanco, recupera la almacenada para esa cámara.</summary>

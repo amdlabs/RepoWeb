@@ -51,7 +51,13 @@
             body: JSON.stringify(payload)
         });
 
-        if (!response.ok) throw new Error("HTTP " + response.status);
+        if (!response.ok) {
+            // 400 casi siempre es un token de página caducado; el resto, error del servidor.
+            var hint = response.status === 400
+                ? "La página llevaba demasiado tiempo abierta: recárguela (Ctrl+F5) y pruebe de nuevo."
+                : "Error del servidor (HTTP " + response.status + "). Recargue la página y pruebe de nuevo.";
+            throw new Error(hint);
+        }
         return await response.json();
     }
 

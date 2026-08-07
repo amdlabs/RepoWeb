@@ -119,19 +119,39 @@ public class IndexModel : PageModel
     }
 
     /// <summary>Prueba la conexión con SQL Server sin guardar nada.</summary>
-    public async Task<IActionResult> OnPostProbarBdAsync([FromBody] DatabaseConfig database, CancellationToken ct)
+    public async Task<IActionResult> OnPostProbarBdAsync([FromBody] DatabaseConfig? database, CancellationToken ct)
     {
-        if (string.IsNullOrEmpty(database.Password))
-            database.Password = _config.Current.Database.Password;
+        try
+        {
+            if (database is null)
+                return new JsonResult(new { ok = false, mensaje = "No se recibieron los datos del formulario. Recargue la página (Ctrl+F5) y vuelva a intentarlo." });
 
-        var result = await DatabaseProvisioner.TestAsync(database, ct);
-        return new JsonResult(new { ok = result.Success, mensaje = result.Message, version = result.ServerVersion });
+            if (string.IsNullOrEmpty(database.Password))
+                database.Password = _config.Current.Database.Password;
+
+            var result = await DatabaseProvisioner.TestAsync(database, ct);
+            return new JsonResult(new { ok = result.Success, mensaje = result.Message, version = result.ServerVersion });
+        }
+        catch (Exception ex)
+        {
+            return new JsonResult(new { ok = false, mensaje = $"Error inesperado: {ex.Message}" });
+        }
     }
 
     /// <summary>Comprueba que los modelos ONNX existen y se pueden cargar.</summary>
-    public IActionResult OnPostVerificarModelos([FromBody] ModelsConfig models)
+    public IActionResult OnPostVerificarModelos([FromBody] ModelsConfig? models)
     {
-        var result = _diagnostics.CheckModels(models);
-        return new JsonResult(new { ok = result.Success, mensaje = result.Message });
+        try
+        {
+            if (models is null)
+                return new JsonResult(new { ok = false, mensaje = "No se recibieron los datos del formulario. Recargue la página (Ctrl+F5) y vuelva a intentarlo." });
+
+            var result = _diagnostics.CheckModels(models);
+            return new JsonResult(new { ok = result.Success, mensaje = result.Message });
+        }
+        catch (Exception ex)
+        {
+            return new JsonResult(new { ok = false, mensaje = $"Error inesperado: {ex.Message}" });
+        }
     }
 }
