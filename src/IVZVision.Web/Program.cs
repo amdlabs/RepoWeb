@@ -1,4 +1,4 @@
-using IVZVision.Core.Configuration;
+﻿using IVZVision.Core.Configuration;
 using IVZVision.Data;
 using Microsoft.AspNetCore.DataProtection;
 using IVZVision.Vision.Engine;
@@ -146,7 +146,7 @@ builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
     {
-        Title = "IVZ Vision API",
+        Title = "Cerbero Garage API",
         Version = "v1",
         Description = "API JSON para integraciones: lista de cámaras configuradas y " +
                       "detecciones (objetos, rostros y matrículas) de cada cámara. " +
@@ -187,8 +187,8 @@ app.UseSwagger(options => options.RouteTemplate = "api/docs/{documentName}/swagg
 app.UseSwaggerUI(options =>
 {
     options.RoutePrefix = "api/docs";
-    options.SwaggerEndpoint("/api/docs/v1/swagger.json", "IVZ Vision API v1");
-    options.DocumentTitle = "IVZ Vision · API";
+    options.SwaggerEndpoint("/api/docs/v1/swagger.json", "Cerbero Garage API v1");
+    options.DocumentTitle = "Cerbero Garage · API";
 });
 
 app.MapRazorPages();
@@ -236,3 +236,4 @@ _ = Task.Run(() =>
 }
 
 app.Run();
+

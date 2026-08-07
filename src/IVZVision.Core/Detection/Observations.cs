@@ -6,6 +6,8 @@ public enum ObservationKind
     Plate = 1,
     /// <summary>Objeto genérico detectado por el modelo COCO (persona, vehículo, animal…).</summary>
     Object = 2,
+    /// <summary>Texto legible localizado en la escena (carteles, rótulos…).</summary>
+    Text = 3,
 }
 
 /// <summary>Cuadro delimitador en píxeles del fotograma original.</summary>
@@ -84,6 +86,9 @@ public sealed class Observation
     /// <summary>Clase del objeto detectado (solo para <see cref="ObservationKind.Object"/>), p. ej. «perro».</summary>
     public string? ObjectClass { get; init; }
 
+    /// <summary>Dato asociado a posteriori, p. ej. la matrícula leída dentro de un vehículo detectado.</summary>
+    public string? Annotation { get; set; }
+
     public IdentityMatch Match { get; init; } = IdentityMatch.Unknown;
 
     /// <summary>Recorte JPEG del sujeto, en base64, para mostrarlo en la web.</summary>
@@ -98,6 +103,8 @@ public sealed class Observation
     public string DisplayLabel => Kind switch
     {
         ObservationKind.Plate => Match.IsKnown ? $"{PlateText} · {Match.Label}" : PlateText ?? "?",
+        ObservationKind.Object when Annotation is not null =>
+            (Match.IsKnown ? $"{Match.Label} ({ObjectClass})" : ObjectClass ?? "objeto") + $" · {Annotation}",
         ObservationKind.Object => Match.IsKnown ? $"{Match.Label} ({ObjectClass})" : ObjectClass ?? "objeto",
         _ => Match.Label,
     };

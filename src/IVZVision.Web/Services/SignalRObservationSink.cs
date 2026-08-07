@@ -69,6 +69,7 @@ public sealed class SignalRObservationSink : IObservationSink
         {
             ObservationKind.Plate => "matricula",
             ObservationKind.Object => "objeto",
+            ObservationKind.Text => "texto",
             _ => "rostro",
         },
         o.CameraId.ToString(),
@@ -77,7 +78,7 @@ public sealed class SignalRObservationSink : IObservationSink
         o.Kind switch
         {
             ObservationKind.Plate => o.PlateText ?? "?",
-            ObservationKind.Object => o.Match.IsKnown ? o.Match.Label : (o.ObjectClass ?? "objeto"),
+            ObservationKind.Object => o.DisplayLabel,
             _ => o.Match.Label,
         },
         o.PlateText,

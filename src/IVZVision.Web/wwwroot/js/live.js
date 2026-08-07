@@ -30,6 +30,7 @@
     }
 
     function badge(hit) {
+        if (hit.tipo === "texto") return '<span class="badge badge-muted">Texto leído</span>';
         if (!hit.conocido) {
             if (hit.tipo === "matricula") return '<span class="badge badge-danger">No registrada</span>';
             if (hit.tipo === "objeto") return '<span class="badge badge-warn">Sin etiquetar</span>';
@@ -90,7 +91,7 @@
         if (hit.camaraId !== selected) return;
 
         const target = hit.tipo === "matricula" ? feedPlates
-                     : hit.tipo === "objeto" ? feedObjects
+                     : (hit.tipo === "objeto" || hit.tipo === "texto") ? feedObjects
                      : feedFaces;
         if (!target) return;
 

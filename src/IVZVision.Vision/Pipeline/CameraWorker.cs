@@ -266,10 +266,44 @@ public sealed class CameraWorker
             });
         }
 
+        AssociatePlatesToVehicles(observations);
+
         _overlay = observations;
 
         foreach (var obs in observations)
             await MaybeRegisterAsync(frame, obs, rec, ct).ConfigureAwait(false);
+    }
+
+    private static readonly HashSet<string> VehicleClasses = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "coche", "camion", "moto", "autobus", "bicicleta", "car", "truck", "motorcycle", "bus", "bicycle",
+    };
+
+    /// <summary>
+    /// Si una matrícula leída cae dentro de un vehículo detectado, el rótulo del
+    /// vehículo pasa a incluirla («coche · ABC123») y así queda también en el evento.
+    /// </summary>
+    private static void AssociatePlatesToVehicles(List<Observation> observations)
+    {
+        foreach (var vehicle in observations.Where(o => o.Kind == ObservationKind.Object
+                                                        && o.ObjectClass is not null
+                                                        && VehicleClasses.Contains(o.ObjectClass)))
+        {
+            var plate = observations.FirstOrDefault(p =>
+                p.Kind == ObservationKind.Plate
+                && !string.IsNullOrEmpty(p.PlateText)
+                && Contains(vehicle.Box, p.Box));
+
+            if (plate is not null)
+                vehicle.Annotation = plate.PlateText;
+        }
+    }
+
+    private static bool Contains(BoxF outer, BoxF inner)
+    {
+        var cx = inner.X + inner.Width / 2;
+        var cy = inner.Y + inner.Height / 2;
+        return cx >= outer.X && cx <= outer.Right && cy >= outer.Y && cy <= outer.Bottom;
     }
 
     private async Task MaybeRegisterAsync(Mat frame, Observation obs, RecognitionConfig rec, CancellationToken ct)

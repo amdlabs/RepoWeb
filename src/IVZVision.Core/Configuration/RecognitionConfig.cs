@@ -48,6 +48,16 @@ public sealed class RecognitionConfig
     /// <summary>Lado mínimo en píxeles de un objeto para tenerlo en cuenta.</summary>
     public int MinObjectSize { get; set; } = 32;
 
+    // ---- Textos de la escena ---------------------------------------------
+    /// <summary>Umbral del mapa de probabilidad del detector de texto (0-1).</summary>
+    public float TextDetectionThreshold { get; set; } = 0.3f;
+
+    /// <summary>Confianza mínima del OCR para aceptar un texto leído (0-1).</summary>
+    public float TextMinConfidence { get; set; } = 0.6f;
+
+    /// <summary>Máximo de textos que se leen por fotograma (los más grandes primero).</summary>
+    public int MaxTextsPerFrame { get; set; } = 8;
+
     // ---- Eventos -------------------------------------------------------
     /// <summary>Segundos durante los que no se repite un evento del mismo sujeto en la misma cámara.</summary>
     public int EventCooldownSeconds { get; set; } = 30;

@@ -79,6 +79,9 @@ public sealed class CameraConfig
     /// <summary>Detección genérica de objetos (personas, vehículos, animales…) con el modelo COCO local.</summary>
     public bool EnableObjectDetection { get; set; } = true;
 
+    /// <summary>Lee los textos visibles en la escena (carteles, rótulos…) con OCR local.</summary>
+    public bool EnableTextReading { get; set; } = true;
+
     /// <summary>Escucha los eventos ANPR nativos de la cámara vía ISAPI, además del OCR local.</summary>
     public bool UseCameraAnprEvents { get; set; } = false;
 

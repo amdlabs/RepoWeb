@@ -51,6 +51,10 @@ descargar license_plate_detector.onnx \
     "https://huggingface.co/morsetechlab/yolov11-license-plate-detection/resolve/main/license-plate-finetune-v1n.onnx" \
     10481682
 
+descargar text_detector.onnx \
+    "https://huggingface.co/SWHL/RapidOCR/resolve/main/PP-OCRv3/ch_PP-OCRv3_det_infer.onnx" \
+    2432880
+
 echo
 echo "Modelos descargados."
 echo "Opcional: añada un detector YOLO de matrículas (p. ej. license_plate_detector.onnx)."

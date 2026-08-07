@@ -68,6 +68,7 @@ public sealed class EventRecorder
                 {
                     ObservationKind.Plate => RecognitionKind.Plate,
                     ObservationKind.Object => RecognitionKind.Object,
+                    ObservationKind.Text => RecognitionKind.Text,
                     _ => RecognitionKind.Face,
                 },
                 Source = source,
@@ -147,6 +148,7 @@ public sealed class EventRecorder
         {
             ObservationKind.Plate => obs.PlateText ?? "desconocida",
             ObservationKind.Object => obs.ObjectClass ?? "desconocido",
+            ObservationKind.Text => obs.Match.Label, // el mismo texto no se repite dentro del tiempo de guarda
             _ => obs.Match.PersonId?.ToString() ?? "desconocido",
         };
 

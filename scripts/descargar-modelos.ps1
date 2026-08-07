@@ -65,6 +65,12 @@ $modelos = @(
         Nombre = "license_plate_detector.onnx"
         Url    = "https://huggingface.co/morsetechlab/yolov11-license-plate-detection/resolve/main/license-plate-finetune-v1n.onnx"
         Tam    = 10481682
+    },
+    @{
+        # Detector de texto en escena DBNet PP-OCRv3 (RapidOCR/PaddleOCR, Apache 2.0).
+        Nombre = "text_detector.onnx"
+        Url    = "https://huggingface.co/SWHL/RapidOCR/resolve/main/PP-OCRv3/ch_PP-OCRv3_det_infer.onnx"
+        Tam    = 2432880
     }
 )
 

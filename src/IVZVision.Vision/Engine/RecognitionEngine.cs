@@ -6,6 +6,7 @@ using IVZVision.Vision.Faces;
 using IVZVision.Vision.Imaging;
 using IVZVision.Vision.Objects;
 using IVZVision.Vision.Plates;
+using IVZVision.Vision.Text;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
 
@@ -31,14 +32,18 @@ public sealed class ModelStatus
     public bool PlateDetectorReady { get; set; }
     public bool PlateOcrReady { get; set; }
     public bool ObjectDetectorReady { get; set; }
+    public bool TextDetectorReady { get; set; }
 
     public string? FaceError { get; set; }
     public string? PlateError { get; set; }
     public string? ObjectError { get; set; }
+    public string? TextError { get; set; }
 
     public bool FacesAvailable => FaceDetectorReady && FaceEmbedderReady;
     public bool PlatesAvailable => PlateDetectorReady && PlateOcrReady;
     public bool ObjectsAvailable => ObjectDetectorReady;
+    /// <summary>La lectura de textos usa el detector propio y el OCR de matrículas.</summary>
+    public bool TextsAvailable => TextDetectorReady && PlateOcrReady;
     public string? FaceModelId { get; set; }
 }
 
@@ -64,6 +69,7 @@ public sealed class RecognitionEngine : IDisposable
     private YoloPlateDetector? _plateDetector;
     private CtcPlateOcr? _plateOcr;
     private YoloObjectDetector? _objectDetector;
+    private SceneTextDetector? _textDetector;
     private bool _loaded;
     private bool _disposed;
 
@@ -145,6 +151,9 @@ public sealed class RecognitionEngine : IDisposable
 
             if (camera.EnableObjectDetection && Status.ObjectsAvailable)
                 AnalyzeObjects(analysisFrame, rec, items);
+
+            if (camera.EnableTextReading && Status.TextsAvailable)
+                AnalyzeTexts(analysisFrame, rec, items);
         }
         finally
         {
@@ -152,6 +161,51 @@ public sealed class RecognitionEngine : IDisposable
         }
 
         return items;
+    }
+
+    /// <summary>Localiza los textos de la escena y los lee con el OCR CRNN.</summary>
+    private void AnalyzeTexts(Mat frame, RecognitionConfig rec, List<AnalysisItem> items)
+    {
+        SceneTextDetector? detector;
+        CtcPlateOcr? ocr;
+        lock (_gate) { detector = _textDetector; ocr = _plateOcr; }
+        if (detector is null || ocr is null) return;
+
+        try
+        {
+            var boxes = detector.Detect(frame, rec.TextDetectionThreshold, rec.MaxTextsPerFrame);
+
+            foreach (var box in boxes)
+            {
+                using var crop = ImageOps.SafeCrop(frame, box.Expand(0.04f, frame.Width, frame.Height));
+                if (crop is null) continue;
+
+                PlateReading reading;
+                try { reading = ocr.Read(crop); }
+                catch (Exception) { continue; }
+
+                var text = reading.Text?.Trim();
+                if (string.IsNullOrEmpty(text) || text.Length < 2) continue;
+                if (reading.Confidence < rec.TextMinConfidence) continue;
+
+                items.Add(new AnalysisItem
+                {
+                    Kind = ObservationKind.Text,
+                    Box = box,
+                    Score = reading.Confidence,
+                    Match = new IdentityMatch { IsKnown = false, Label = text, Score = reading.Confidence },
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fallo en la lectura de textos; se desactiva hasta la próxima recarga");
+            lock (_gate)
+            {
+                Status.TextDetectorReady = false;
+                Status.TextError = ex.Message;
+            }
+        }
     }
 
     private void AnalyzeObjects(Mat frame, RecognitionConfig rec, List<AnalysisItem> items)
@@ -352,6 +406,7 @@ public sealed class RecognitionEngine : IDisposable
                      models.Resolve(models.PlateDetectorPath, _contentRoot),
                      models.Resolve(models.PlateOcrPath, _contentRoot),
                      models.Resolve(models.ObjectDetectorPath, _contentRoot),
+                     models.Resolve(models.SceneTextDetectorPath, _contentRoot),
                  })
         {
             if (!string.IsNullOrEmpty(path) && !File.Exists(path))
@@ -406,6 +461,19 @@ public sealed class RecognitionEngine : IDisposable
             _logger.LogError(ex, "No se pudo cargar el modelo de detección de objetos");
         }
 
+        try
+        {
+            var textPath = models.Resolve(models.SceneTextDetectorPath, _contentRoot);
+            _textDetector = new SceneTextDetector(textPath, models,
+                _loggerFactory.CreateLogger<SceneTextDetector>());
+            status.TextDetectorReady = true;
+        }
+        catch (Exception ex)
+        {
+            status.TextError = ex.Message;
+            _logger.LogError(ex, "No se pudo cargar el detector de texto");
+        }
+
         Status = status;
         _loaded = true;
     }
@@ -417,6 +485,7 @@ public sealed class RecognitionEngine : IDisposable
         _plateDetector?.Dispose(); _plateDetector = null;
         _plateOcr?.Dispose(); _plateOcr = null;
         _objectDetector?.Dispose(); _objectDetector = null;
+        _textDetector?.Dispose(); _textDetector = null;
         Status = new ModelStatus();
     }
 

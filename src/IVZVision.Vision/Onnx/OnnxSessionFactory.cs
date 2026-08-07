@@ -151,6 +151,51 @@ public static class OnnxSessionFactory
         }
     }
 
+    /// <summary>
+    /// Tensor RGB con normalización ImageNet por canal ((p/255 - media) / desviación),
+    /// el preprocesado que esperan los detectores de texto PP-OCR (DBNet).
+    /// </summary>
+    public static DenseTensor<float> ToTensorImagenet(Mat bgr)
+    {
+        var mean = new[] { 0.485f, 0.456f, 0.406f }; // RGB
+        var std = new[] { 0.229f, 0.224f, 0.225f };
+
+        Mat? owned = bgr.IsContinuous() ? null : bgr.Clone();
+        var src = owned ?? bgr;
+
+        try
+        {
+            var height = src.Height;
+            var width = src.Width;
+            var channels = src.Channels();
+
+            var tensor = new DenseTensor<float>(new[] { 1, 3, height, width });
+            var buffer = tensor.Buffer.Span;
+            var plane = height * width;
+
+            var bytes = new byte[plane * channels];
+            System.Runtime.InteropServices.Marshal.Copy(src.Data, bytes, 0, bytes.Length);
+
+            for (var i = 0; i < plane; i++)
+            {
+                var px = i * channels;
+                float b = bytes[px];
+                float g = channels > 1 ? bytes[px + 1] : b;
+                float r = channels > 2 ? bytes[px + 2] : b;
+
+                buffer[0 * plane + i] = (r / 255f - mean[0]) / std[0];
+                buffer[1 * plane + i] = (g / 255f - mean[1]) / std[1];
+                buffer[2 * plane + i] = (b / 255f - mean[2]) / std[2];
+            }
+
+            return tensor;
+        }
+        finally
+        {
+            owned?.Dispose();
+        }
+    }
+
     /// <summary>Variante de un solo canal (escala de grises) para OCR entrenado en gris.</summary>
     public static DenseTensor<float> ToGrayTensor(Mat gray, float scale, float mean, float std)
     {

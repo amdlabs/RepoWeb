@@ -61,6 +61,10 @@ public sealed class ModelsConfig
     /// <summary>Fichero opcional con los nombres de las clases (uno por línea). Si falta se usan las 80 clases COCO en español.</summary>
     public string ObjectLabelsPath { get; set; } = "object_labels.txt";
 
+    // ---- Textos de la escena ---------------------------------------------
+    /// <summary>Detector de texto DBNet (PP-OCR det) exportado a ONNX; el OCR de matrículas lee lo localizado.</summary>
+    public string SceneTextDetectorPath { get; set; } = "text_detector.onnx";
+
     // ---- Runtime -------------------------------------------------------
     public ExecutionProviderKind ExecutionProvider { get; set; } = ExecutionProviderKind.Cpu;
 

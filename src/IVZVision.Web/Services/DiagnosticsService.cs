@@ -151,11 +151,18 @@ public sealed class DiagnosticsService
             detector.Detect(dummy, 0.9f, 0.45f);
         });
 
+        var texts = TryLoad(lines, "Lectura de textos", () =>
+        {
+            using var detector = new Vision.Text.SceneTextDetector(
+                models.Resolve(models.SceneTextDetectorPath, _environment.ContentRootPath), models, _logger);
+            detector.Detect(dummy, 0.3f, 4);
+        });
+
         lines.Add("");
         lines.Add($"Proveedor de ejecución: {models.ExecutionProvider}");
         lines.Add($"Carpeta de modelos: {models.Resolve(".", _environment.ContentRootPath)}");
 
-        return new TestResult(faces || plates || objects, string.Join('\n', lines));
+        return new TestResult(faces || plates || objects || texts, string.Join('\n', lines));
     }
 
     private bool TryLoad(List<string> lines, string label, Action load)

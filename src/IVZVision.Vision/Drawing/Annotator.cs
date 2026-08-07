@@ -11,15 +11,18 @@ public static class Annotator
     private static readonly Scalar Known = new(90, 200, 60);        // verde  (BGR)
     private static readonly Scalar KnownRestricted = new(30, 170, 245); // ámbar
     private static readonly Scalar Unknown = new(60, 60, 235);      // rojo
+    private static readonly Scalar SceneText = new(220, 200, 60);   // turquesa: texto leído
     private static readonly Scalar TextColor = Scalar.White;
 
     public static void Draw(Mat frame, IEnumerable<Observation> observations)
     {
         foreach (var obs in observations)
         {
-            var color = obs.Match.IsKnown
-                ? (obs.Match.IsAuthorized ? Known : KnownRestricted)
-                : Unknown;
+            var color = obs.Kind == ObservationKind.Text
+                ? SceneText
+                : obs.Match.IsKnown
+                    ? (obs.Match.IsAuthorized ? Known : KnownRestricted)
+                    : Unknown;
 
             var box = obs.Box.ClampTo(frame.Width, frame.Height);
             var rect = new Rect((int)box.X, (int)box.Y, (int)box.Width, (int)box.Height);
@@ -43,9 +46,14 @@ public static class Annotator
         {
             ObservationKind.Plate => "MAT",
             ObservationKind.Object => "OBJ",
+            ObservationKind.Text => "TXT",
             _ => "ROS",
         };
-        var text = $"{prefix} {obs.DisplayLabel} {percent * 100:0}%";
+
+        // Los textos leídos no llevan porcentaje: el rótulo ES el texto.
+        var text = obs.Kind == ObservationKind.Text
+            ? $"{prefix} {obs.DisplayLabel}"
+            : $"{prefix} {obs.DisplayLabel} {percent * 100:0}%";
         return ToAscii(text);
     }
 

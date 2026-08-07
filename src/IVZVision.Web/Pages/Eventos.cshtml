@@ -24,6 +24,7 @@
                 <option value="rostro" selected="@(Model.Tipo == "rostro")">Rostros</option>
                 <option value="matricula" selected="@(Model.Tipo == "matricula")">Matrículas</option>
                 <option value="objeto" selected="@(Model.Tipo == "objeto")">Objetos</option>
+                <option value="texto" selected="@(Model.Tipo == "texto")">Textos leídos</option>
             </select>
         </div>
         <div class="field">
@@ -94,7 +95,7 @@
                         </td>
                         <td>@e.OccurredAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
                         <td>@e.CameraName</td>
-                        <td>@(e.Kind switch { RecognitionKind.Plate => "Matrícula", RecognitionKind.Object => "Objeto", _ => "Rostro" })</td>
+                        <td>@(e.Kind switch { RecognitionKind.Plate => "Matrícula", RecognitionKind.Object => "Objeto", RecognitionKind.Text => "Texto", _ => "Rostro" })</td>
                         <td class="@(e.Kind == RecognitionKind.Plate ? "plate" : "")">
                             @if (e.PersonId is int personId)
                             {

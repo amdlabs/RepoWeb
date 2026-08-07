@@ -56,6 +56,7 @@ public class EventosModel : PageModel
             if (Tipo == "rostro") query = query.Where(e => e.Kind == RecognitionKind.Face);
             else if (Tipo == "matricula") query = query.Where(e => e.Kind == RecognitionKind.Plate);
             else if (Tipo == "objeto") query = query.Where(e => e.Kind == RecognitionKind.Object);
+            else if (Tipo == "texto") query = query.Where(e => e.Kind == RecognitionKind.Text);
 
             if (Guid.TryParse(Camara, out var cameraId)) query = query.Where(e => e.CameraId == cameraId);
 

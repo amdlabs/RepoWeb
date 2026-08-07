@@ -7,6 +7,7 @@ public enum RecognitionKind
     Face = 0,
     Plate = 1,
     Object = 2,
+    Text = 3,
 }
 
 public enum RecognitionSource
