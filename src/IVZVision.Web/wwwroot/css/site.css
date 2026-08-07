@@ -1,4 +1,4 @@
-:root {
+﻿:root {
     --bg: #0f1319;
     --panel: #171c25;
     --panel-2: #1e2530;
@@ -35,7 +35,7 @@ a:hover { text-decoration: underline; }
     align-items: center;
     gap: 32px;
     padding: 0 24px;
-    height: 58px;
+    min-height: 58px;
     background: var(--panel);
     border-bottom: 1px solid var(--line);
     flex-wrap: wrap;
@@ -359,7 +359,7 @@ td.plate { font-family: "Consolas", "SF Mono", monospace; letter-spacing: 1px; f
     .nav a { padding-top: 10px; padding-bottom: 10px; }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 920px) {
     /* iOS hace zoom al enfocar campos con letra menor de 16px */
     input, select, textarea { font-size: 16px; }
 
@@ -456,3 +456,15 @@ body {
     color: var(--accent, #4f8ff7);
 }
 .dash-label { margin-top: 4px; font-weight: 600; }
+
+/* ---- iPhone en horizontal: contenido fuera del notch ---- */
+@media (max-width: 920px) {
+    .topbar {
+        padding-left: calc(10px + env(safe-area-inset-left));
+        padding-right: calc(10px + env(safe-area-inset-right));
+    }
+    .content {
+        padding-left: calc(12px + env(safe-area-inset-left));
+        padding-right: calc(12px + env(safe-area-inset-right));
+    }
+}
