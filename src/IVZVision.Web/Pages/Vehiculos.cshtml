@@ -1,0 +1,126 @@
+@page
+@model VehiculosModel
+@{
+    ViewData["Title"] = "Vehículos";
+}
+
+<h1>Vehículos</h1>
+<p class="subtitle">Padrón de matrículas conocidas. Al leer una matrícula se compara contra esta tabla.</p>
+
+@if (Model.DatabaseError is not null)
+{
+    <div class="alert alert-error">
+        <b>No se pudo consultar la base de datos:</b> @Model.DatabaseError<br />
+        Revise los datos en <a asp-page="/Configuracion/Index">Configuración → Base de datos</a>.
+    </div>
+}
+
+<div class="grid grid-live">
+    <div class="card">
+        <div class="filters" style="margin-bottom:16px">
+            <form method="get" class="filters">
+                <div class="field">
+                    <label for="Buscar">Buscar</label>
+                    <input type="search" id="Buscar" name="Buscar" value="@Model.Buscar" placeholder="Matrícula, marca o modelo" />
+                </div>
+                <button type="submit" class="btn secondary">Buscar</button>
+                @if (!string.IsNullOrWhiteSpace(Model.Buscar))
+                {
+                    <a class="btn secondary" asp-page="/Vehiculos">Limpiar</a>
+                }
+            </form>
+        </div>
+
+        @if (Model.Vehicles.Count == 0)
+        {
+            <div class="empty">No hay vehículos registrados.</div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Matrícula</th>
+                            <th>Vehículo</th>
+                            <th>Titular</th>
+                            <th>Acceso</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var v in Model.Vehicles)
+                    {
+                        <tr>
+                            <td class="plate">
+                                <a asp-page="/Vehiculo" asp-route-id="@v.Id">@v.Plate</a>
+                                @if (!v.IsActive)
+                                {
+                                    <span class="badge badge-muted">inactivo</span>
+                                }
+                            </td>
+                            <td>@(string.IsNullOrWhiteSpace(v.Description) ? "—" : v.Description)</td>
+                            <td>@(v.Owner ?? "—")</td>
+                            <td>
+                                @if (v.IsAuthorized)
+                                {
+                                    <span class="badge badge-ok">autorizado</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-warn">no autorizado</span>
+                                }
+                            </td>
+                            <td style="white-space:nowrap">
+                                <a class="btn small secondary" asp-page="/Vehiculo" asp-route-id="@v.Id">Editar</a>
+                                <form method="post" style="display:inline"
+                                      onsubmit="return confirm('¿Eliminar la matrícula @v.Plate?');">
+                                    <button class="btn small danger" asp-page-handler="Eliminar" asp-route-id="@v.Id">Eliminar</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <div class="card">
+        <h2>Nuevo vehículo</h2>
+        <form method="post">
+            <div class="field">
+                <label asp-for="NewVehicle.Plate">Matrícula</label>
+                <input asp-for="NewVehicle.Plate" required placeholder="1234 ABC" />
+                <div class="hint">Se guarda normalizada (mayúsculas, sin espacios ni guiones).</div>
+            </div>
+            <div class="field">
+                <label asp-for="NewVehicle.Make">Marca</label>
+                <input asp-for="NewVehicle.Make" />
+            </div>
+            <div class="field">
+                <label asp-for="NewVehicle.Model">Modelo</label>
+                <input asp-for="NewVehicle.Model" />
+            </div>
+            <div class="field">
+                <label asp-for="NewVehicle.Color">Color</label>
+                <input asp-for="NewVehicle.Color" />
+            </div>
+            <div class="field">
+                <label asp-for="NewVehicle.OwnerPersonId">Titular</label>
+                <select asp-for="NewVehicle.OwnerPersonId" asp-items="Model.Owners">
+                    <option value="">— sin titular —</option>
+                </select>
+            </div>
+            <div class="check">
+                <input asp-for="NewVehicle.IsAuthorized" type="checkbox" checked />
+                <label asp-for="NewVehicle.IsAuthorized">Acceso autorizado</label>
+            </div>
+            <div class="field">
+                <label asp-for="NewVehicle.Notes">Notas</label>
+                <textarea asp-for="NewVehicle.Notes"></textarea>
+            </div>
+            <button type="submit" class="btn" asp-page-handler="Crear">Registrar vehículo</button>
+        </form>
+    </div>
+</div>

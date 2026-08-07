@@ -1,0 +1,17 @@
+@page
+@model ErrorModel
+@{
+    ViewData["Title"] = "Error";
+}
+
+<h1>Se ha producido un error</h1>
+<p class="subtitle">La operación no se pudo completar. Revise el registro de la aplicación para ver el detalle.</p>
+
+@if (Model.ShowRequestId)
+{
+    <div class="card">
+        <div class="kv"><span>Identificador de la petición</span><span><code>@Model.RequestId</code></span></div>
+    </div>
+}
+
+<a class="btn" asp-page="/Directo">Volver al directo</a>

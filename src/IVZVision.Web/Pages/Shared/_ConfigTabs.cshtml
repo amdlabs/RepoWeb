@@ -1,0 +1,5 @@
+@model string
+<nav class="tabs">
+    <a asp-page="/Configuracion/Index" class="@(Model == "sistemas" ? "active" : "")">Sistemas</a>
+    <a asp-page="/Configuracion/Camaras" class="@(Model == "camaras" ? "active" : "")">Cámaras</a>
+</nav>

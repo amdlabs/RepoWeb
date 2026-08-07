@@ -1,0 +1,1 @@
+# Los modelos .onnx no se versionan: ejecute scripts/descargar-modelos.ps1 (o .sh).

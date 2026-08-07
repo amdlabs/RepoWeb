@@ -1,0 +1,300 @@
+@page "/Configuracion"
+@model IVZVision.Web.Pages.Configuracion.IndexModel
+@{
+    ViewData["Title"] = "Configuración";
+}
+
+<h1>Configuración</h1>
+<p class="subtitle">Todos los parámetros de conexión y de reconocimiento se guardan en <code>@Model.SettingsPath</code>.</p>
+
+<partial name="_ConfigTabs" model="@("sistemas")" />
+
+<form method="post" id="configForm">
+    <div class="grid grid-2">
+
+        <div class="card">
+            <h2>Base de datos (SQL Server Express)</h2>
+
+            <div class="field">
+                <label asp-for="Database.Server">Servidor / instancia</label>
+                <input asp-for="Database.Server" placeholder=".\SQLEXPRESS" />
+                <div class="hint">Ejemplos: <code>.\SQLEXPRESS</code>, <code>localhost\SQLEXPRESS</code>, <code>192.168.1.10,1433</code></div>
+            </div>
+
+            <div class="field">
+                <label asp-for="Database.Database">Base de datos</label>
+                <input asp-for="Database.Database" />
+            </div>
+
+            <div class="check">
+                <input asp-for="Database.IntegratedSecurity" type="checkbox" />
+                <label asp-for="Database.IntegratedSecurity">Autenticación de Windows</label>
+            </div>
+
+            <div class="field">
+                <label asp-for="Database.UserId">Usuario SQL</label>
+                <input asp-for="Database.UserId" autocomplete="off" />
+            </div>
+
+            <div class="field">
+                <label asp-for="Database.Password">Contraseña SQL</label>
+                <input asp-for="Database.Password" type="password" autocomplete="new-password" />
+            </div>
+
+            <div class="check">
+                <input asp-for="Database.TrustServerCertificate" type="checkbox" />
+                <label asp-for="Database.TrustServerCertificate">Confiar en el certificado del servidor</label>
+            </div>
+
+            <div class="check">
+                <input asp-for="Database.Encrypt" type="checkbox" />
+                <label asp-for="Database.Encrypt">Cifrar la conexión</label>
+            </div>
+
+            <div class="check">
+                <input asp-for="Database.AutoCreateDatabase" type="checkbox" />
+                <label asp-for="Database.AutoCreateDatabase">Crear la base y las tablas si no existen</label>
+            </div>
+
+            <div class="field">
+                <label asp-for="Database.ConnectTimeoutSeconds">Tiempo de espera de conexión (s)</label>
+                <input asp-for="Database.ConnectTimeoutSeconds" type="number" min="1" max="120" />
+            </div>
+
+            <div class="field">
+                <label asp-for="Database.ConnectionStringOverride">Cadena de conexión completa (opcional)</label>
+                <textarea asp-for="Database.ConnectionStringOverride" placeholder="Si se rellena, se ignoran los campos anteriores"></textarea>
+            </div>
+
+            <div class="actions">
+                <button type="button" class="btn secondary" id="btnProbarBd">Probar conexión</button>
+            </div>
+            <div class="test-output" id="outBd" hidden></div>
+        </div>
+
+        <div class="card">
+            <h2>Modelos de reconocimiento local</h2>
+
+            <div class="field">
+                <label asp-for="Models.ModelsDirectory">Carpeta de modelos</label>
+                <input asp-for="Models.ModelsDirectory" />
+                <div class="hint">Las rutas de abajo se resuelven dentro de esta carpeta salvo que sean absolutas.</div>
+            </div>
+
+            <h3>Rostros</h3>
+            <div class="field">
+                <label asp-for="Models.FaceDetectorPath">Detector (YuNet ONNX)</label>
+                <input asp-for="Models.FaceDetectorPath" />
+            </div>
+            <div class="field">
+                <label asp-for="Models.FaceEmbedderPath">Embeddings (SFace ONNX)</label>
+                <input asp-for="Models.FaceEmbedderPath" />
+            </div>
+            <div class="grid grid-3">
+                <div class="field">
+                    <label asp-for="Models.FaceDetectorInputWidth">Ancho de entrada</label>
+                    <input asp-for="Models.FaceDetectorInputWidth" type="number" step="32" min="160" max="1920" />
+                </div>
+                <div class="field">
+                    <label asp-for="Models.FaceDetectorInputHeight">Alto de entrada</label>
+                    <input asp-for="Models.FaceDetectorInputHeight" type="number" step="32" min="160" max="1920" />
+                </div>
+            </div>
+
+            <h3>Matrículas</h3>
+            <div class="field">
+                <label asp-for="Models.PlateDetectorPath">Detector (YOLO ONNX)</label>
+                <input asp-for="Models.PlateDetectorPath" />
+            </div>
+            <div class="field">
+                <label asp-for="Models.PlateDetectorInputSize">Tamaño de entrada del detector</label>
+                <input asp-for="Models.PlateDetectorInputSize" type="number" step="32" min="160" max="1920" />
+            </div>
+            <div class="field">
+                <label asp-for="Models.PlateOcrPath">OCR (CRNN/CTC ONNX)</label>
+                <input asp-for="Models.PlateOcrPath" />
+            </div>
+            <div class="field">
+                <label asp-for="Models.PlateOcrCharsetPath">Diccionario del OCR</label>
+                <input asp-for="Models.PlateOcrCharsetPath" />
+            </div>
+            <div class="grid grid-3">
+                <div class="field">
+                    <label asp-for="Models.PlateOcrInputHeight">Alto OCR</label>
+                    <input asp-for="Models.PlateOcrInputHeight" type="number" min="16" max="128" />
+                </div>
+                <div class="field">
+                    <label asp-for="Models.PlateOcrInputWidth">Ancho OCR</label>
+                    <input asp-for="Models.PlateOcrInputWidth" type="number" min="32" max="640" />
+                </div>
+                <div class="field">
+                    <label asp-for="Models.PlateOcrMean">Media</label>
+                    <input asp-for="Models.PlateOcrMean" type="number" step="0.01" />
+                </div>
+                <div class="field">
+                    <label asp-for="Models.PlateOcrStd">Desviación</label>
+                    <input asp-for="Models.PlateOcrStd" type="number" step="0.01" />
+                </div>
+            </div>
+            <div class="check">
+                <input asp-for="Models.PlateOcrGrayscale" type="checkbox" />
+                <label asp-for="Models.PlateOcrGrayscale">El OCR trabaja en escala de grises</label>
+            </div>
+            <div class="check">
+                <input asp-for="Models.PlateOcrBlankFirst" type="checkbox" />
+                <label asp-for="Models.PlateOcrBlankFirst">El símbolo «blank» del CTC es el índice 0 (PP-OCR)</label>
+            </div>
+
+            <h3>Ejecución</h3>
+            <div class="grid grid-3">
+                <div class="field">
+                    <label asp-for="Models.ExecutionProvider">Proveedor</label>
+                    <select asp-for="Models.ExecutionProvider" asp-items="Html.GetEnumSelectList<ExecutionProviderKind>()"></select>
+                </div>
+                <div class="field">
+                    <label asp-for="Models.GpuDeviceId">Id de GPU</label>
+                    <input asp-for="Models.GpuDeviceId" type="number" min="0" max="8" />
+                </div>
+                <div class="field">
+                    <label asp-for="Models.IntraOpThreads">Hilos (0 = automático)</label>
+                    <input asp-for="Models.IntraOpThreads" type="number" min="0" max="64" />
+                </div>
+            </div>
+
+            <div class="actions">
+                <button type="button" class="btn secondary" id="btnVerificarModelos">Verificar modelos</button>
+            </div>
+            <div class="test-output" id="outModelos" hidden></div>
+        </div>
+
+        <div class="card">
+            <h2>Umbrales de reconocimiento</h2>
+
+            <h3>Rostros</h3>
+            <div class="field">
+                <label asp-for="Recognition.FaceDetectionThreshold">Confianza mínima del detector (0-1)</label>
+                <input asp-for="Recognition.FaceDetectionThreshold" type="number" step="0.01" min="0" max="1" />
+            </div>
+            <div class="field">
+                <label asp-for="Recognition.FaceMatchThreshold">Similitud mínima para identificar (0-1)</label>
+                <input asp-for="Recognition.FaceMatchThreshold" type="number" step="0.001" min="0" max="1" />
+                <div class="hint">0,363 es el valor recomendado para SFace. Súbalo para reducir falsos positivos.</div>
+            </div>
+            <div class="grid grid-3">
+                <div class="field">
+                    <label asp-for="Recognition.FaceNmsThreshold">IoU (NMS)</label>
+                    <input asp-for="Recognition.FaceNmsThreshold" type="number" step="0.01" min="0" max="1" />
+                </div>
+                <div class="field">
+                    <label asp-for="Recognition.MinFaceSize">Tamaño mínimo (px)</label>
+                    <input asp-for="Recognition.MinFaceSize" type="number" min="16" max="512" />
+                </div>
+            </div>
+
+            <h3>Matrículas</h3>
+            <div class="grid grid-3">
+                <div class="field">
+                    <label asp-for="Recognition.PlateDetectionThreshold">Confianza detector</label>
+                    <input asp-for="Recognition.PlateDetectionThreshold" type="number" step="0.01" min="0" max="1" />
+                </div>
+                <div class="field">
+                    <label asp-for="Recognition.PlateNmsThreshold">IoU (NMS)</label>
+                    <input asp-for="Recognition.PlateNmsThreshold" type="number" step="0.01" min="0" max="1" />
+                </div>
+                <div class="field">
+                    <label asp-for="Recognition.PlateOcrMinConfidence">Confianza OCR</label>
+                    <input asp-for="Recognition.PlateOcrMinConfidence" type="number" step="0.01" min="0" max="1" />
+                </div>
+                <div class="field">
+                    <label asp-for="Recognition.PlateMinCharacters">Mín. caracteres</label>
+                    <input asp-for="Recognition.PlateMinCharacters" type="number" min="1" max="20" />
+                </div>
+                <div class="field">
+                    <label asp-for="Recognition.PlateMaxCharacters">Máx. caracteres</label>
+                    <input asp-for="Recognition.PlateMaxCharacters" type="number" min="1" max="20" />
+                </div>
+                <div class="field">
+                    <label asp-for="Recognition.PlateConfirmationHits">Lecturas para confirmar</label>
+                    <input asp-for="Recognition.PlateConfirmationHits" type="number" min="1" max="10" />
+                </div>
+                <div class="field">
+                    <label asp-for="Recognition.PlateConfirmationWindowSeconds">Ventana (s)</label>
+                    <input asp-for="Recognition.PlateConfirmationWindowSeconds" type="number" min="1" max="60" />
+                </div>
+            </div>
+
+            <h3>Eventos y vídeo</h3>
+            <div class="grid grid-3">
+                <div class="field">
+                    <label asp-for="Recognition.EventCooldownSeconds">Tiempo de guarda (s)</label>
+                    <input asp-for="Recognition.EventCooldownSeconds" type="number" min="0" max="3600" />
+                </div>
+                <div class="field">
+                    <label asp-for="Recognition.StreamFps">Fps enviados a la web</label>
+                    <input asp-for="Recognition.StreamFps" type="number" step="1" min="1" max="30" />
+                </div>
+                <div class="field">
+                    <label asp-for="Recognition.StreamJpegQuality">Calidad JPEG</label>
+                    <input asp-for="Recognition.StreamJpegQuality" type="number" min="10" max="100" />
+                </div>
+                <div class="field">
+                    <label asp-for="Recognition.RecentDetectionsBuffer">Detecciones en memoria</label>
+                    <input asp-for="Recognition.RecentDetectionsBuffer" type="number" min="5" max="200" />
+                </div>
+            </div>
+            <div class="check">
+                <input asp-for="Recognition.RegisterUnknown" type="checkbox" />
+                <label asp-for="Recognition.RegisterUnknown">Registrar también los sujetos desconocidos</label>
+            </div>
+            <div class="check">
+                <input asp-for="Recognition.SaveSnapshots" type="checkbox" />
+                <label asp-for="Recognition.SaveSnapshots">Guardar el recorte de cada evento</label>
+            </div>
+            <div class="check">
+                <input asp-for="Recognition.DrawOverlay" type="checkbox" />
+                <label asp-for="Recognition.DrawOverlay">Dibujar los cuadrantes sobre el vídeo</label>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Almacenamiento e índice</h2>
+
+            <div class="field">
+                <label asp-for="Storage.SnapshotsDirectory">Carpeta de capturas</label>
+                <input asp-for="Storage.SnapshotsDirectory" />
+            </div>
+            <div class="grid grid-3">
+                <div class="field">
+                    <label asp-for="Storage.RetentionDays">Días de retención (0 = sin límite)</label>
+                    <input asp-for="Storage.RetentionDays" type="number" min="0" max="3650" />
+                </div>
+                <div class="field">
+                    <label asp-for="Storage.PurgeHour">Hora de purga</label>
+                    <input asp-for="Storage.PurgeHour" type="number" min="0" max="23" />
+                </div>
+            </div>
+
+            <h3>Estado actual</h3>
+            <div class="kv"><span>Plantillas faciales cargadas</span><span>@Model.KnownFaces</span></div>
+            <div class="kv"><span>Matrículas registradas</span><span>@Model.KnownPlates</span></div>
+            <div class="kv"><span>Última recarga del índice</span><span>@Model.IndexRefreshed</span></div>
+            <div class="kv">
+                <span>Reconocimiento facial</span>
+                <span>@(Model.ModelStatus.FacesAvailable ? "operativo" : "no disponible")</span>
+            </div>
+            <div class="kv">
+                <span>Lectura de matrículas</span>
+                <span>@(Model.ModelStatus.PlatesAvailable ? "operativo" : "no disponible")</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="actions">
+        <button type="submit" class="btn">Guardar configuración</button>
+        <span class="hint">Al guardar se recargan los modelos y se reinician todas las cámaras.</span>
+    </div>
+</form>
+
+@section Scripts {
+    <script src="~/js/config.js" asp-append-version="true"></script>
+}

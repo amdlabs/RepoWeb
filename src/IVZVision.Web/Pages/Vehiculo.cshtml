@@ -1,0 +1,54 @@
+@page "/Vehiculo/{id:int}"
+@model VehiculoModel
+@{
+    ViewData["Title"] = Model.Vehicle.Plate;
+}
+
+<h1>@Model.Vehicle.Plate</h1>
+<p class="subtitle"><a asp-page="/Vehiculos">← Volver al listado</a></p>
+
+<div class="card" style="max-width:560px">
+    <form method="post">
+        <input type="hidden" asp-for="Vehicle.Id" />
+
+        <div class="field">
+            <label asp-for="Vehicle.Plate">Matrícula</label>
+            <input asp-for="Vehicle.Plate" required />
+        </div>
+        <div class="field">
+            <label asp-for="Vehicle.Make">Marca</label>
+            <input asp-for="Vehicle.Make" />
+        </div>
+        <div class="field">
+            <label asp-for="Vehicle.Model">Modelo</label>
+            <input asp-for="Vehicle.Model" />
+        </div>
+        <div class="field">
+            <label asp-for="Vehicle.Color">Color</label>
+            <input asp-for="Vehicle.Color" />
+        </div>
+        <div class="field">
+            <label asp-for="Vehicle.OwnerPersonId">Titular</label>
+            <select asp-for="Vehicle.OwnerPersonId" asp-items="Model.Owners">
+                <option value="">— sin titular —</option>
+            </select>
+        </div>
+        <div class="check">
+            <input asp-for="Vehicle.IsAuthorized" type="checkbox" />
+            <label asp-for="Vehicle.IsAuthorized">Acceso autorizado</label>
+        </div>
+        <div class="check">
+            <input asp-for="Vehicle.IsActive" type="checkbox" />
+            <label asp-for="Vehicle.IsActive">Activo (se busca en el reconocimiento)</label>
+        </div>
+        <div class="field">
+            <label asp-for="Vehicle.Notes">Notas</label>
+            <textarea asp-for="Vehicle.Notes"></textarea>
+        </div>
+
+        <div class="actions">
+            <button type="submit" class="btn">Guardar cambios</button>
+            <a class="btn secondary" asp-page="/Vehiculos">Cancelar</a>
+        </div>
+    </form>
+</div>

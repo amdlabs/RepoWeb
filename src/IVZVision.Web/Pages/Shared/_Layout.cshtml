@@ -1,0 +1,47 @@
+@{
+    var current = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
+    bool Active(string prefix) => current.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] · IVZ Vision</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#128065;</text></svg>" />
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" asp-page="/Directo">
+            <span class="brand-mark">IVZ</span>
+            <span class="brand-name">Vision</span>
+        </a>
+        <nav class="nav">
+            <a asp-page="/Directo" class="@(Active("/Directo") ? "active" : "")">Directo</a>
+            <a asp-page="/Personas" class="@(Active("/Personas") ? "active" : "")">Personas</a>
+            <a asp-page="/Vehiculos" class="@(Active("/Vehiculos") ? "active" : "")">Vehículos</a>
+            <a asp-page="/Eventos" class="@(Active("/Eventos") ? "active" : "")">Eventos</a>
+            <a asp-page="/Configuracion/Index" class="@(Active("/Configuracion") ? "active" : "")">Configuración</a>
+        </nav>
+    </header>
+
+    <main class="content">
+        @if (TempData["Ok"] is string ok)
+        {
+            <div class="alert alert-ok">@ok</div>
+        }
+        @if (TempData["Error"] is string error)
+        {
+            <div class="alert alert-error">@error</div>
+        }
+        @RenderBody()
+    </main>
+
+    <footer class="footer">
+        IVZ Vision · reconocimiento facial y de matrículas en local
+    </footer>
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
