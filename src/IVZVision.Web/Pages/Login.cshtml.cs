@@ -37,14 +37,37 @@ public class LoginModel : PageModel
     {
         try
         {
+            // Se recortan espacios accidentales (copiar y pegar, autorrelleno).
+            var username = (Username ?? "").Trim();
+            var password = (Password ?? "").Trim();
+
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
             var user = await db.SystemUsers
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Username == Username.Trim(), ct);
+                .FirstOrDefaultAsync(u => u.Username == username, ct);
 
-            if (user is null || !user.IsActive || !SystemUser.VerifyPassword(Password, user.PasswordHash))
+            // El motivo exacto va al registro (nunca la contraseña) para poder
+            // diagnosticar sin revelar en pantalla qué parte falló.
+            if (user is null)
             {
+                _logger.LogWarning("Login fallido: el usuario «{User}» no existe (longitud de clave recibida: {Len})",
+                                   username, password.Length);
+                Error = "Usuario o contraseña incorrectos.";
+                return Page();
+            }
+
+            if (!user.IsActive)
+            {
+                _logger.LogWarning("Login fallido: el usuario «{User}» está deshabilitado", username);
+                Error = "Usuario o contraseña incorrectos.";
+                return Page();
+            }
+
+            if (!SystemUser.VerifyPassword(password, user.PasswordHash))
+            {
+                _logger.LogWarning("Login fallido: contraseña incorrecta para «{User}» (longitud recibida: {Len})",
+                                   username, password.Length);
                 Error = "Usuario o contraseña incorrectos.";
                 return Page();
             }

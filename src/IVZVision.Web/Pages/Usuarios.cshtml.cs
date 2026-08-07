@@ -33,6 +33,7 @@ public class UsuariosModel : PageModel
                                                       SystemUserRole role, CancellationToken ct)
     {
         username = (username ?? "").Trim();
+        password = (password ?? "").Trim(); // coherente con el recorte del login
         if (username.Length == 0 || string.IsNullOrEmpty(password))
         {
             TempData["Error"] = "Hay que indicar usuario y contraseña.";
@@ -62,6 +63,7 @@ public class UsuariosModel : PageModel
 
     public async Task<IActionResult> OnPostClaveAsync(int id, string password, CancellationToken ct)
     {
+        password = (password ?? "").Trim(); // coherente con el recorte del login
         if (string.IsNullOrEmpty(password))
         {
             TempData["Error"] = "La nueva contraseña no puede estar vacía.";
