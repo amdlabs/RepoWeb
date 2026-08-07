@@ -39,8 +39,7 @@ public sealed class DiagnosticsService
                 VideoCapture capture;
                 if (camera.IsUsb)
                 {
-                    capture = new VideoCapture(Math.Max(0, camera.UsbDeviceIndex),
-                        OperatingSystem.IsWindows() ? VideoCaptureAPIs.DSHOW : VideoCaptureAPIs.ANY);
+                    capture = Vision.Pipeline.CameraWorker.OpenUsbCapture(camera.UsbDeviceIndex);
                 }
                 else
                 {

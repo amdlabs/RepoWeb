@@ -76,18 +76,5 @@ else
 
 @section Scripts {
     <script src="~/lib/signalr/signalr.min.js"></script>
-    <script>
-        window.IVZ = {
-            camaras: @Html.Raw(WebJson.Serialize(
-                Model.Cameras.Select(c => new { id = c.Id.ToString(), nombre = c.Name }))),
-            estados: @Html.Raw(WebJson.Serialize(
-                Model.Statuses.Select(s => new CameraStatusDto(
-                    s.CameraId.ToString(), s.Name, s.Connected, s.State, s.LastError,
-                    s.MeasuredFps,
-                    s.FrameWidth > 0 ? $"{s.FrameWidth}×{s.FrameHeight}" : "—",
-                    s.FramesProcessed)))),
-            recientes: @Html.Raw(WebJson.Serialize(Model.Recent))
-        };
-    </script>
     <script src="~/js/live.js" asp-append-version="true"></script>
 }

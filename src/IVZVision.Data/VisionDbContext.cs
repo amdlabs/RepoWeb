@@ -14,6 +14,7 @@ public class VisionDbContext : DbContext
     public DbSet<ObjectLabel> ObjectLabels => Set<ObjectLabel>();
     public DbSet<SystemUser> SystemUsers => Set<SystemUser>();
     public DbSet<ConfigSnapshot> ConfigSnapshots => Set<ConfigSnapshot>();
+    public DbSet<AppConfigurationRow> AppConfiguration => Set<AppConfigurationRow>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -61,6 +62,12 @@ public class VisionDbContext : DbContext
         {
             e.ToTable("ConfigSnapshots");
             e.HasIndex(s => s.SavedAt);
+        });
+
+        b.Entity<AppConfigurationRow>(e =>
+        {
+            e.ToTable("AppConfiguration");
+            e.Property(r => r.Id).ValueGeneratedNever();
         });
 
         b.Entity<RecognitionEvent>(e =>

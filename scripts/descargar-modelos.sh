@@ -47,6 +47,10 @@ descargar plate_ocr_charset_en.txt \
     "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/main/ppocr/utils/en_dict.txt" \
     190
 
+descargar license_plate_detector.onnx \
+    "https://huggingface.co/morsetechlab/yolov11-license-plate-detection/resolve/main/license-plate-finetune-v1n.onnx" \
+    10481682
+
 echo
 echo "Modelos descargados."
 echo "Opcional: añada un detector YOLO de matrículas (p. ej. license_plate_detector.onnx)."

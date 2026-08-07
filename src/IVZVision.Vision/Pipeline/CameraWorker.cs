@@ -209,9 +209,24 @@ public sealed class CameraWorker
         {
             var overlay = _overlay;
             if (overlay.Count > 0) Annotator.Draw(canvas, overlay);
+
+            DrawFps(canvas);
         }
 
         _broadcaster.Publish(_camera.Id, ImageOps.EncodeJpeg(canvas, rec.StreamJpegQuality));
+    }
+
+    /// <summary>Rótulo con los fps medidos tras el procesado, en la esquina superior izquierda.</summary>
+    private void DrawFps(Mat canvas)
+    {
+        var text = $"{Status.MeasuredFps:0.#} fps";
+        var scale = Math.Clamp(canvas.Width / 1400.0, 0.5, 1.0);
+        var size = Cv2.GetTextSize(text, HersheyFonts.HersheySimplex, scale, 1, out var baseline);
+
+        Cv2.Rectangle(canvas, new Rect(6, 6, size.Width + 12, size.Height + baseline + 8),
+                      new Scalar(0, 0, 0), -1);
+        Cv2.PutText(canvas, text, new Point(12, 10 + size.Height),
+                    HersheyFonts.HersheySimplex, scale, new Scalar(80, 220, 100), 1, LineTypes.AntiAlias);
     }
 
     private async Task AnalyzeFrameAsync(Mat frame, RecognitionConfig rec, CancellationToken ct)
@@ -406,13 +421,29 @@ public sealed class CameraWorker
     private VideoCapture OpenCapture()
     {
         if (_camera.IsUsb)
-        {
-            // DirectShow es el backend más estable para webcams en Windows.
-            var api = OperatingSystem.IsWindows() ? VideoCaptureAPIs.DSHOW : VideoCaptureAPIs.ANY;
-            return new VideoCapture(Math.Max(0, _camera.UsbDeviceIndex), api);
-        }
+            return OpenUsbCapture(_camera.UsbDeviceIndex);
 
         return new VideoCapture(_camera.BuildRtspUrl(), VideoCaptureAPIs.FFMPEG);
+    }
+
+    /// <summary>
+    /// Abre una webcam local. En Windows se usa Media Foundation (MSMF), el backend
+    /// estable en Windows 10/11: DirectShow puede provocar violaciones de acceso
+    /// nativas (que matan el proceso) al leer tras una apertura fallida. Si MSMF no
+    /// abre el dispositivo se intenta DirectShow como reserva.
+    /// </summary>
+    public static VideoCapture OpenUsbCapture(int deviceIndex)
+    {
+        var index = Math.Max(0, deviceIndex);
+
+        if (!OperatingSystem.IsWindows())
+            return new VideoCapture(index, VideoCaptureAPIs.ANY);
+
+        var capture = new VideoCapture(index, VideoCaptureAPIs.MSMF);
+        if (capture.IsOpened()) return capture;
+
+        capture.Dispose();
+        return new VideoCapture(index, VideoCaptureAPIs.DSHOW);
     }
 
     /// <summary>

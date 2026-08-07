@@ -1,8 +1,16 @@
-/* Vista en directo: vídeo MJPEG + detecciones que llegan por SignalR. */
+/* Vista en directo: vídeo MJPEG + detecciones que llegan por SignalR.
+   Los datos iniciales los sirve el backend en /api/directo/estado. */
 (function () {
     "use strict";
 
-    const state = window.IVZ || { camaras: [], estados: [], recientes: [] };
+    if (!document.getElementById("videoFeed")) return;
+
+    fetch("/api/directo/estado")
+        .then(function (r) { return r.json(); })
+        .then(init)
+        .catch(function (err) { console.error("No se pudo obtener el estado inicial", err); });
+
+    function init(state) {
     if (!state.camaras.length) return;
 
     const video = document.getElementById("videoFeed");
@@ -176,4 +184,5 @@
     });
 
     select(selected);
+    }
 })();

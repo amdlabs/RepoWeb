@@ -118,6 +118,15 @@ BEGIN
         Json    nvarchar(max) NOT NULL
     );
     CREATE INDEX IX_ConfigSnapshots_SavedAt ON ConfigSnapshots (SavedAt);
+END
+
+IF OBJECT_ID('AppConfiguration', 'U') IS NULL
+BEGIN
+    CREATE TABLE AppConfiguration (
+        Id        int NOT NULL CONSTRAINT PK_AppConfiguration PRIMARY KEY,
+        Json      nvarchar(max) NOT NULL,
+        UpdatedAt datetime2 NOT NULL
+    );
 END", ct).ConfigureAwait(false);
 
             // Usuario administrador inicial para que el sistema sea usable nada más instalar.

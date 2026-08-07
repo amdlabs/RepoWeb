@@ -264,3 +264,42 @@ td.plate { font-family: "Consolas", "SF Mono", monospace; letter-spacing: 1px; f
 .thumb-cell img { width: 54px; height: 54px; object-fit: cover; border-radius: 6px; background: #000; }
 .filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
 .filters .field { margin-bottom: 0; min-width: 160px; }
+
+/* ---- Muro de monitoreo ---- */
+.mon-grid {
+    display: grid;
+    gap: 8px;
+}
+.mon-cell {
+    position: relative;
+    background: #0b0e13;
+    border-radius: 8px;
+    overflow: hidden;
+    aspect-ratio: 16 / 9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.mon-cell img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+.mon-label {
+    position: absolute;
+    left: 8px;
+    bottom: 6px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, .55);
+    color: #fff;
+    font-size: 12px;
+}
+.mon-empty {
+    color: #3a4150;
+    font-size: 22px;
+}
+.btn.small.secondary.active {
+    outline: 2px solid #4f8ff7;
+}

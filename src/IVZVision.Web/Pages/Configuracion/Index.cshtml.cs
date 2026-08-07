@@ -32,6 +32,9 @@ public class IndexModel : PageModel
     public ModelStatus ModelStatus { get; private set; } = new();
     public string SettingsPath => _config.FilePath;
 
+    /// <summary>True si la cadena de conexión viene fijada por web.config / appsettings.</summary>
+    public bool ConnectionForced => (_config as DbConfigStore)?.ConnectionStringIsForced ?? false;
+
     /// <summary>Ficheros ONNX disponibles en la carpeta de modelos, para las listas desplegables.</summary>
     public IReadOnlyList<string> OnnxFiles { get; private set; } = Array.Empty<string>();
 

@@ -59,6 +59,12 @@ $modelos = @(
         Nombre = "plate_ocr_charset_en.txt"
         Url    = "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/main/ppocr/utils/en_dict.txt"
         Tam    = 190
+    },
+    @{
+        # Detector de matrículas YOLOv11-nano afinado en matrículas (morsetechlab, AGPL-3.0).
+        Nombre = "license_plate_detector.onnx"
+        Url    = "https://huggingface.co/morsetechlab/yolov11-license-plate-detection/resolve/main/license-plate-finetune-v1n.onnx"
+        Tam    = 10481682
     }
 )
 

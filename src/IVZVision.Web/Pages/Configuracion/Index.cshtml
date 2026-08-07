@@ -15,6 +15,16 @@
         <div class="card">
             <h2>Base de datos (SQL Server Express)</h2>
 
+            @if (Model.ConnectionForced)
+            {
+                <div class="alert alert-info">
+                    La cadena de conexión está fijada como parámetro de despliegue
+                    (<code>web.config</code> / <code>appsettings.json</code>, clave
+                    <code>ConnectionStrings__IVZVision</code>) y <b>manda sobre estos campos</b>.
+                    Para cambiarla, edite ese parámetro y reinicie el sitio.
+                </div>
+            }
+
             <div class="field">
                 <label asp-for="Database.Server">Servidor / instancia</label>
                 <input asp-for="Database.Server" placeholder=".\SQLEXPRESS" />

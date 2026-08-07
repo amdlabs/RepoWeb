@@ -19,6 +19,7 @@
         </a>
         <nav class="nav">
             <a asp-page="/Directo" class="@(Active("/Directo") ? "active" : "")">Directo</a>
+            <a asp-page="/Monitoreo" class="@(Active("/Monitoreo") ? "active" : "")">Monitoreo</a>
             <a asp-page="/Personas" class="@(Active("/Personas") ? "active" : "")">Personas</a>
             <a asp-page="/Vehiculos" class="@(Active("/Vehiculos") ? "active" : "")">Vehículos</a>
             <a asp-page="/Objetos" class="@(Active("/Objetos") ? "active" : "")">Objetos</a>
@@ -51,7 +52,9 @@
     </main>
 
     <footer class="footer">
-        IVZ Vision · reconocimiento facial y de matrículas en local
+        IVZ Vision · reconocimiento facial, de matrículas y de objetos en local ·
+        <a href="/api/docs" target="_blank">API REST</a> ·
+        <a href="/api/camaras" target="_blank">/api/camaras</a>
     </footer>
 
     @await RenderSectionAsync("Scripts", required: false)

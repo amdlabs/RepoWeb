@@ -92,12 +92,29 @@ public sealed class RecognitionEngine : IDisposable
         }
     }
 
+    private DateTimeOffset _lastRetryAt = DateTimeOffset.MinValue;
+    private readonly List<string> _missingModelFiles = new();
+
     /// <summary>Fuerza la carga inmediata y devuelve el estado resultante (lo usa la pantalla de configuración).</summary>
     public ModelStatus EnsureLoaded()
     {
         lock (_gate)
         {
-            if (!_loaded) Load();
+            if (!_loaded)
+            {
+                Load();
+            }
+            else if (_missingModelFiles.Count > 0
+                     && DateTimeOffset.UtcNow - _lastRetryAt > TimeSpan.FromSeconds(30)
+                     && _missingModelFiles.Any(File.Exists))
+            {
+                // Un modelo que faltaba ya está en disco (p. ej. recién descargado):
+                // se recarga sin necesidad de reiniciar la aplicación.
+                _lastRetryAt = DateTimeOffset.UtcNow;
+                DisposeModels();
+                Load();
+            }
+
             return Status;
         }
     }
@@ -304,6 +321,21 @@ public sealed class RecognitionEngine : IDisposable
     {
         var models = _config.Current.Models;
         var status = new ModelStatus();
+
+        // Registro de ficheros ausentes para poder recargar cuando aparezcan.
+        _missingModelFiles.Clear();
+        foreach (var path in new[]
+                 {
+                     models.Resolve(models.FaceDetectorPath, _contentRoot),
+                     models.Resolve(models.FaceEmbedderPath, _contentRoot),
+                     models.Resolve(models.PlateDetectorPath, _contentRoot),
+                     models.Resolve(models.PlateOcrPath, _contentRoot),
+                     models.Resolve(models.ObjectDetectorPath, _contentRoot),
+                 })
+        {
+            if (!string.IsNullOrEmpty(path) && !File.Exists(path))
+                _missingModelFiles.Add(path);
+        }
 
         try
         {

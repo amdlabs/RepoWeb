@@ -43,8 +43,17 @@ if (!File.Exists(settingsFile))
 }
 
 // ---- Configuración persistente (editable desde la web) --------------------
-builder.Services.AddSingleton<IConfigStore>(sp =>
-    new JsonFileConfigStore(settingsFile, sp.GetRequiredService<ILogger<JsonFileConfigStore>>()));
+// La cadena de conexión puede venir como parámetro de despliegue (web.config en IIS,
+// appsettings.json o la variable de entorno ConnectionStrings__IVZVision): si está
+// definida, manda sobre lo que haya en la configuración editable.
+var forcedConnectionString = builder.Configuration.GetConnectionString("IVZVision");
+
+// La base de datos es la copia autoritativa de la configuración (tabla AppConfiguration);
+// el fichero JSON queda como caché de arranque.
+builder.Services.AddSingleton<IConfigStore>(sp => new DbConfigStore(
+    new JsonFileConfigStore(settingsFile, sp.GetRequiredService<ILogger<JsonFileConfigStore>>()),
+    forcedConnectionString,
+    sp.GetRequiredService<ILogger<DbConfigStore>>()));
 
 // ---- Datos ---------------------------------------------------------------
 builder.Services.AddSingleton<IDbContextFactory<VisionDbContext>, VisionDbContextFactory>();
@@ -124,6 +133,25 @@ builder.Services.AddRazorPages(options =>
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
 
+// La validación de cada formulario es manual y por tipo de cámara: sin esto,
+// los campos string no anulables (Host, URL RTSP…) serían obligatorios siempre,
+// incluso ocultos (p. ej. al guardar una cámara USB).
+builder.Services.Configure<Microsoft.AspNetCore.Mvc.MvcOptions>(options =>
+    options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true);
+
+// Documentación pública de la API REST (Swagger UI en /api/docs).
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "IVZ Vision API",
+        Version = "v1",
+        Description = "API JSON para integraciones: lista de cámaras configuradas y " +
+                      "detecciones (objetos, rostros y matrículas) de cada cámara.",
+    });
+});
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
@@ -135,6 +163,14 @@ app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseSwagger(options => options.RouteTemplate = "api/docs/{documentName}/swagger.json");
+app.UseSwaggerUI(options =>
+{
+    options.RoutePrefix = "api/docs";
+    options.SwaggerEndpoint("/api/docs/v1/swagger.json", "IVZ Vision API v1");
+    options.DocumentTitle = "IVZ Vision · API";
+});
 
 app.MapRazorPages();
 app.MapControllers();

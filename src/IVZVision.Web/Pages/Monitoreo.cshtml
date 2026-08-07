@@ -1,0 +1,32 @@
+@page
+@model MonitoreoModel
+@{
+    ViewData["Title"] = "Monitoreo";
+}
+
+<h1>Monitoreo</h1>
+<p class="subtitle">Todas las cámaras con su vídeo procesado en tiempo real. Elija cuántas posiciones mostrar.</p>
+
+<div class="actions" style="margin-bottom:14px; align-items:center; gap:8px">
+    <span class="hint">Distribución:</span>
+    <button type="button" class="btn small secondary" data-layout="4">4</button>
+    <button type="button" class="btn small secondary" data-layout="6">6</button>
+    <button type="button" class="btn small secondary" data-layout="8">8</button>
+    <button type="button" class="btn small secondary" data-layout="12">12</button>
+    <span style="flex:1"></span>
+    <button type="button" class="btn small secondary" id="monAnterior" hidden>← Anteriores</button>
+    <span class="hint" id="monPagina" hidden></span>
+    <button type="button" class="btn small secondary" id="monSiguiente" hidden>Siguientes →</button>
+</div>
+
+<div id="monGrid" class="mon-grid"></div>
+
+<div class="card" id="monVacio" hidden>
+    <h2>No hay cámaras habilitadas</h2>
+    <p class="subtitle">Añada cámaras en Configuración para verlas aquí.</p>
+    <a class="btn" asp-page="/Configuracion/Camaras">Ir a cámaras</a>
+</div>
+
+@section Scripts {
+    <script src="~/js/monitoreo.js" asp-append-version="true"></script>
+}
