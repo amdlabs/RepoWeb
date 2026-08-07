@@ -20,6 +20,11 @@ public class CamaraModel : PageModel
 
     public bool IsNew { get; private set; }
 
+    /// <summary>True cuando la aplicación corre dentro de un contenedor (imágenes oficiales de .NET).</summary>
+    public static bool IsRunningInContainer =>
+        string.Equals(Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER"), "true",
+                      StringComparison.OrdinalIgnoreCase);
+
     public IActionResult OnGet(Guid? id)
     {
         if (id is null || id == Guid.Empty)

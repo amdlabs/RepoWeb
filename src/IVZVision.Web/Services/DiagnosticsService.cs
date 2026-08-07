@@ -52,11 +52,25 @@ public sealed class DiagnosticsService
 
                 using var _ = capture;
                 if (!capture.IsOpened())
-                    return new TestResult(false, camera.IsUsb
-                        ? $"No se pudo abrir la cámara USB n.º {camera.UsbDeviceIndex}. Compruebe que está " +
-                          "conectada y que ninguna otra aplicación (Teams, OBS…) la esté usando."
-                        : $"No se pudo abrir {masked}. Revise IP/puerto, usuario y contraseña, " +
-                          "y que el canal y el perfil existan en la cámara.");
+                {
+                    if (camera.IsUsb)
+                    {
+                        var inContainer = string.Equals(
+                            Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER"), "true",
+                            StringComparison.OrdinalIgnoreCase);
+
+                        return new TestResult(false, inContainer
+                            ? $"No se pudo abrir la cámara USB n.º {camera.UsbDeviceIndex}. La aplicación corre " +
+                              "dentro de un contenedor Docker: en Windows/macOS las webcams USB no llegan al " +
+                              "contenedor. Use una cámara IP (RTSP) o ejecute la aplicación directamente en el equipo."
+                            : $"No se pudo abrir la cámara USB n.º {camera.UsbDeviceIndex}. Compruebe que está " +
+                              "conectada y que ninguna otra aplicación (Teams, OBS…) la esté usando.");
+                    }
+
+                    return new TestResult(false,
+                        $"No se pudo abrir {masked}. Revise IP/puerto, usuario y contraseña, " +
+                        "y que el canal y el perfil existan en la cámara.");
+                }
 
                 using var frame = new Mat();
                 var stopwatch = Stopwatch.StartNew();

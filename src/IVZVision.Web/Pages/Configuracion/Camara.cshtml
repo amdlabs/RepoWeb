@@ -35,6 +35,19 @@
             </div>
 
             <div id="usbFields">
+                @if (IVZVision.Web.Pages.Configuracion.CamaraModel.IsRunningInContainer)
+                {
+                    <div class="alert alert-info">
+                        <b>La aplicación se está ejecutando dentro de un contenedor Docker.</b>
+                        En Windows y macOS, Docker no puede pasar webcams USB al contenedor, así que
+                        esta cámara no será accesible desde aquí. Opciones:
+                        <ul style="margin:6px 0 0 18px">
+                            <li>Usar una cámara IP (RTSP): funcionan perfectamente desde el contenedor.</li>
+                            <li>Ejecutar la aplicación directamente en el equipo (<code>dotnet run</code> o IIS) para usar la webcam.</li>
+                            <li>Si el anfitrión es Linux, mapear el dispositivo con <code>devices: /dev/video0</code> en <code>docker-compose.yml</code>.</li>
+                        </ul>
+                    </div>
+                }
                 <div class="field">
                     <label asp-for="Camera.UsbDeviceIndex">Índice del dispositivo USB</label>
                     <input asp-for="Camera.UsbDeviceIndex" type="number" min="0" max="16" />
