@@ -303,3 +303,45 @@ td.plate { font-family: "Consolas", "SF Mono", monospace; letter-spacing: 1px; f
 .btn.small.secondary.active {
     outline: 2px solid #4f8ff7;
 }
+
+/* ---- Camara maximizada en el muro ---- */
+.mon-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(5, 7, 10, .96);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.mon-overlay-video {
+    max-width: 96vw;
+    max-height: 92vh;
+    object-fit: contain;
+}
+.mon-overlay-title {
+    position: absolute;
+    left: 18px;
+    top: 14px;
+    color: #fff;
+    font-size: 16px;
+    padding: 4px 12px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, .5);
+}
+.mon-overlay-close {
+    position: absolute;
+    right: 16px;
+    top: 12px;
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .12);
+    color: #fff;
+    font-size: 18px;
+    cursor: pointer;
+}
+.mon-overlay-close:hover {
+    background: rgba(255, 80, 80, .8);
+}

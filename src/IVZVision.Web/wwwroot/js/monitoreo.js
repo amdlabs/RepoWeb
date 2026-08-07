@@ -27,11 +27,63 @@
 
     function refreshCells() {
         if (document.hidden) return;
+        if (maximizada) return; // con una cámara maximizada, el muro descansa
         grid.querySelectorAll("img[data-camara]").forEach(function (img) {
             if (img.dataset.cargando === "1") return; // aún descargando la anterior
             img.dataset.cargando = "1";
             img.src = "/stream/" + img.dataset.camara + "/instantanea?t=" + Date.now();
         });
+    }
+
+    /* ---------- Cámara maximizada (doble clic) ---------- */
+
+    var maximizada = false;
+
+    function maximizar(cam) {
+        if (maximizada) return;
+        maximizada = true;
+
+        var overlay = document.createElement("div");
+        overlay.className = "mon-overlay";
+
+        var titulo = document.createElement("div");
+        titulo.className = "mon-overlay-title";
+        titulo.textContent = cam.nombre;
+
+        var cerrar = document.createElement("button");
+        cerrar.className = "mon-overlay-close";
+        cerrar.type = "button";
+        cerrar.title = "Cerrar (Esc)";
+        cerrar.textContent = "✕";
+
+        // Una sola cámara maximizada sí usa el vídeo MJPEG continuo.
+        var video = document.createElement("img");
+        video.className = "mon-overlay-video";
+        video.alt = cam.nombre;
+        video.src = "/stream/" + cam.id + "?t=" + Date.now();
+        video.addEventListener("error", function () {
+            if (!maximizada) return;
+            setTimeout(function () { video.src = "/stream/" + cam.id + "?t=" + Date.now(); }, 3000);
+        });
+
+        function cerrarOverlay() {
+            maximizada = false;
+            video.src = ""; // corta el flujo MJPEG
+            overlay.remove();
+            document.removeEventListener("keydown", onKey);
+            refreshCells(); // el muro continúa al instante
+        }
+
+        function onKey(e) { if (e.key === "Escape") cerrarOverlay(); }
+
+        cerrar.addEventListener("click", cerrarOverlay);
+        overlay.addEventListener("dblclick", cerrarOverlay);
+        document.addEventListener("keydown", onKey);
+
+        overlay.appendChild(video);
+        overlay.appendChild(titulo);
+        overlay.appendChild(cerrar);
+        document.body.appendChild(overlay);
     }
 
     function render() {
@@ -64,8 +116,8 @@
             cell.appendChild(img);
             cell.appendChild(label);
 
-            // Doble clic: abrir la vista en directo de esa cámara.
-            cell.addEventListener("dblclick", function () { window.location.href = "/"; });
+            // Doble clic: maximizar esa cámara sobre el muro (Esc o ✕ para volver).
+            cell.addEventListener("dblclick", function () { maximizar(cam); });
 
             grid.appendChild(cell);
         });
