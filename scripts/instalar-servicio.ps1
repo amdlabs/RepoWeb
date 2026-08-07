@@ -43,6 +43,10 @@ if (Get-Service $Nombre -ErrorAction SilentlyContinue) {
     Start-Sleep -Seconds 2
 }
 
+# Si la aplicación corre como proceso manual, se detiene para liberar los puertos.
+Get-Process IVZVision.Web -ErrorAction SilentlyContinue | Stop-Process -Force -Confirm:$false
+Start-Sleep -Seconds 2
+
 # --urls fija los puertos de escucha; --contentRoot asegura que App_Data y Models se
 # resuelvan en la carpeta publicada aunque el servicio arranque desde system32.
 # HTTPS se activa si existe el certificado (App_Data\https\ivzvision.pfx +
