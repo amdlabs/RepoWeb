@@ -49,6 +49,15 @@ public sealed class EnrollmentService
             bytes = ms.ToArray();
         }
 
+        return await EnrollFromBytesAsync(personId, bytes, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Alta de rostro desde una imagen en memoria (p. ej. el recorte guardado de un evento).</summary>
+    public async Task<EnrollResult> EnrollFromBytesAsync(int personId, byte[] bytes, CancellationToken ct = default)
+    {
+        if (bytes.Length == 0)
+            return new EnrollResult(false, "La imagen está vacía.");
+
         using var image = Cv2.ImDecode(bytes, ImreadModes.Color);
         if (image.Empty())
             return new EnrollResult(false, "No se ha podido leer la imagen (formatos admitidos: JPG, PNG, BMP).");

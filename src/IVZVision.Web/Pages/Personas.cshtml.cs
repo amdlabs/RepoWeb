@@ -34,6 +34,68 @@ public class PersonasModel : PageModel
         await LoadAsync(ct);
     }
 
+    /// <summary>Rostro no identificado visto por las cámaras, con su recorte (zoom de la cara).</summary>
+    public sealed record UnknownFace(long EventId, DateTime OccurredAt, string CameraName, string? CropBase64);
+
+    public IReadOnlyList<UnknownFace> UnknownFaces { get; private set; } = Array.Empty<UnknownFace>();
+
+    private async Task LoadUnknownFacesAsync(VisionDbContext db, CancellationToken ct)
+    {
+        UnknownFaces = (await db.RecognitionEvents
+                .AsNoTracking()
+                .Where(e => e.Kind == RecognitionKind.Face && !e.IsKnown && e.CropBase64 != null)
+                .OrderByDescending(e => e.OccurredAt)
+                .Take(12)
+                .Select(e => new { e.Id, e.OccurredAt, e.CameraName, e.CropBase64 })
+                .ToListAsync(ct))
+            .Select(e => new UnknownFace(e.Id, e.OccurredAt, e.CameraName, e.CropBase64))
+            .ToList();
+    }
+
+    /// <summary>Da de alta una persona nueva usando el rostro de un evento no identificado.</summary>
+    public async Task<IActionResult> OnPostAltaDesdeEventoAsync(long eventoId, string nombre,
+                                                                EnrollmentService enrollment, CancellationToken ct)
+    {
+        if (!RoleGuard.CanEdit(User)) return Forbid();
+
+        nombre = (nombre ?? "").Trim();
+        if (nombre.Length == 0)
+        {
+            TempData["Error"] = "Escriba el nombre de la persona antes de darla de alta.";
+            return RedirectToPage();
+        }
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        var evento = await db.RecognitionEvents.AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == eventoId && e.Kind == RecognitionKind.Face, ct);
+
+        if (evento?.CropBase64 is null)
+        {
+            TempData["Error"] = "El evento ya no existe o no conserva el recorte del rostro.";
+            return RedirectToPage();
+        }
+
+        var person = new Person { FullName = nombre, IsAuthorized = false };
+        db.Persons.Add(person);
+        await db.SaveChangesAsync(ct);
+
+        var result = await enrollment.EnrollFromBytesAsync(person.Id, Convert.FromBase64String(evento.CropBase64), ct);
+        if (!result.Success)
+        {
+            // Sin plantilla la persona no aporta nada: se revierte el alta.
+            db.Persons.Remove(person);
+            await db.SaveChangesAsync(ct);
+            TempData["Error"] = $"No se pudo registrar el rostro: {result.Message}";
+            return RedirectToPage();
+        }
+
+        _index.MarkDirty();
+        TempData["Ok"] = $"Persona «{nombre}» creada a partir del rostro detectado (marcada como no autorizada; " +
+                          "revísela y autorícela si procede).";
+        return RedirectToPage("/Persona", new { id = person.Id });
+    }
+
     public async Task<IActionResult> OnPostCrearAsync(CancellationToken ct)
     {
         if (!RoleGuard.CanEdit(User)) return Forbid();
@@ -107,6 +169,8 @@ public class PersonasModel : PageModel
                                            p.IsAuthorized, p.IsActive, p.FaceTemplates.Count, p.CreatedAt))
                 .Take(500)
                 .ToListAsync(ct);
+
+            await LoadUnknownFacesAsync(db, ct);
         }
         catch (Exception ex)
         {

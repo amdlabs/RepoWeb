@@ -56,8 +56,12 @@ public class ObjetosModel : PageModel
                 })
                 .ToListAsync(ct);
 
+            // Las personas no se etiquetan como objetos: se gestionan en la página
+            // Personas (rostros detectados sin identificar, con alta directa).
+            var excluded = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "persona", "person" };
+
             Unlabeled = detected
-                .Where(d => !labeled.Contains(d.ClassName.ToLowerInvariant()))
+                .Where(d => !labeled.Contains(d.ClassName.ToLowerInvariant()) && !excluded.Contains(d.ClassName))
                 .OrderByDescending(d => d.LastSeen)
                 .Select(d => new UnknownClass(d.ClassName, d.Detections, d.LastSeen, d.LastCropPath))
                 .ToList();

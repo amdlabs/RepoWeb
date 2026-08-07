@@ -15,6 +15,32 @@
     </div>
 }
 
+@if (Model.UnknownFaces.Count > 0)
+{
+    <div class="card" style="margin-bottom:16px">
+        <h2>Detectadas sin identificar</h2>
+        <p class="subtitle">
+            Rostros vistos por las cámaras que no coinciden con nadie del padrón.
+            Póngales nombre para darlas de alta con ese mismo rostro (quedan como
+            «no autorizadas» hasta que las revise).
+        </p>
+        <div class="unknown-faces">
+            @foreach (var face in Model.UnknownFaces)
+            {
+                <div class="unknown-face">
+                    <img src="data:image/jpeg;base64,@face.CropBase64" alt="Rostro sin identificar" />
+                    <div class="hint">@face.OccurredAt.ToLocalTime().ToString("dd/MM HH:mm") · @face.CameraName</div>
+                    <form method="post" asp-page-handler="AltaDesdeEvento" class="actions" style="gap:6px">
+                        <input type="hidden" name="eventoId" value="@face.EventId" />
+                        <input name="nombre" placeholder="Nombre" required style="min-width:0" />
+                        <button class="btn small" type="submit">Alta</button>
+                    </form>
+                </div>
+            }
+        </div>
+    </div>
+}
+
 <div class="grid grid-live">
     <div class="card">
         <div class="filters" style="margin-bottom:16px">

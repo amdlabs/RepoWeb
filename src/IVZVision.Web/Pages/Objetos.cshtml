@@ -6,8 +6,10 @@
 
 <h1>Objetos</h1>
 <p class="subtitle">
-    Clases de objeto detectadas por las cámaras. Las que no tienen etiqueta se listan como
-    desconocidas: póngales un nombre y las siguientes detecciones saldrán como objetos conocidos.
+    Clases de objeto detectadas por las cámaras. Póngales su <b>categoría real</b> — si el detector
+    dice «horno» pero es su portón, etiquételo como «Portón» — y las siguientes detecciones saldrán
+    como objetos conocidos con ese nombre. Las personas no se listan aquí: sus rostros aparecen en
+    la página <a asp-page="/Personas">Personas</a> para darles nombre.
 </p>
 
 @if (Model.DatabaseError is not null)
@@ -51,7 +53,7 @@
                             <td>
                                 <form method="post" asp-page-handler="Etiquetar" class="actions" style="gap:6px">
                                     <input type="hidden" name="className" value="@item.ClassName" />
-                                    <input name="displayName" placeholder="Nombre" required style="max-width:150px" />
+                                    <input name="displayName" placeholder="Categoría real (p. ej. Portón)" required style="max-width:170px" />
                                     <label class="check" style="margin:0">
                                         <input type="checkbox" name="isAuthorized" value="true" checked /> Autorizado
                                     </label>
