@@ -58,19 +58,61 @@
         if (carruselActivo()) iniciarCarrusel(); // reinicia con el nuevo intervalo
     });
 
-    // El muro NO abre un flujo MJPEG permanente por celda: el navegador limita las
-    // conexiones simultáneas por servidor (~6) y con más cámaras la web entera se
-    // bloquearía. Cada celda refresca su instantánea con peticiones cortas.
+    /* ---------- Reparto inteligente de los feeds ----------
+       El navegador permite ~6 conexiones HTTP/1.1 simultáneas por servidor.
+       Estrategia: usar siempre el máximo de flujos MJPEG en vivo posibles.
+       - ≤6 celdas visibles → TODAS con vídeo continuo (máximos fps).
+       - >6 visibles (HTTP/1.1) → 5 flujos en vivo que van ROTANDO entre las
+         celdas cada pocos segundos; el resto refresca instantáneas (se ven todas).
+       - HTTPS usa HTTP/2 (multiplexado, sin límite) → todas en vivo siempre. */
+    var HTTP2 = location.protocol === "https:";
+    var MAX_LIVE_H1 = 6;      // todas en vivo si caben
+    var LIVE_WHEN_ROTATING = 5; // deja 1 conexión libre para las instantáneas
+    var ROTATE_MS = 12000;
     var REFRESH_MS = 700;
     var timer = null;
+    var rotateTimer = null;
+    var liveOffset = 0;
 
     function celdas() { return layout; }
     function totalPaginas() { return Math.max(1, Math.ceil(camaras.length / celdas())); }
 
+    /// Decide qué celdas llevan vídeo en vivo y cuáles instantáneas.
+    function assignFeeds() {
+        var imgs = Array.prototype.slice.call(grid.querySelectorAll("img[data-camara]"));
+        if (!imgs.length) return;
+
+        var liveCount = HTTP2 ? imgs.length
+                      : imgs.length <= MAX_LIVE_H1 ? imgs.length
+                      : LIVE_WHEN_ROTATING;
+
+        imgs.forEach(function (img, i) {
+            // La ventana de celdas "en vivo" gira con liveOffset.
+            var vivo = ((i - liveOffset) % imgs.length + imgs.length) % imgs.length < liveCount;
+            var modo = vivo ? "live" : "poll";
+            if (img.dataset.modo === modo) return;
+
+            img.dataset.modo = modo;
+            img.dataset.cargando = "0";
+            img.src = vivo
+                ? "/stream/" + img.dataset.camara + "?t=" + Date.now()
+                : "/stream/" + img.dataset.camara + "/instantanea?t=" + Date.now();
+        });
+    }
+
+    function rotarFeeds() {
+        if (document.hidden || maximizada) return;
+        var visibles = grid.querySelectorAll("img[data-camara]").length;
+        var liveCount = HTTP2 || visibles <= MAX_LIVE_H1 ? visibles : LIVE_WHEN_ROTATING;
+        if (liveCount >= visibles) return; // todas en vivo: nada que rotar
+        liveOffset = (liveOffset + 1) % visibles;
+        assignFeeds();
+    }
+
     function refreshCells() {
         if (document.hidden) return;
         if (maximizada) return; // con una cámara maximizada, el muro descansa
-        grid.querySelectorAll("img[data-camara]").forEach(function (img) {
+        grid.querySelectorAll('img[data-camara][data-modo="poll"]').forEach(function (img) {
             if (img.dataset.cargando === "1") return; // aún descargando la anterior
             img.dataset.cargando = "1";
             img.src = "/stream/" + img.dataset.camara + "/instantanea?t=" + Date.now();
@@ -84,6 +126,14 @@
     function maximizar(cam) {
         if (maximizada) return;
         maximizada = true;
+
+        // Se sueltan los flujos del muro para que la cámara maximizada tenga
+        // su conexión garantizada y todo el ancho de banda.
+        grid.querySelectorAll('img[data-camara]').forEach(function (img) {
+            img.dataset.modo = "poll";
+            img.dataset.cargando = "0";
+            img.src = "/stream/" + img.dataset.camara + "/instantanea?t=" + Date.now();
+        });
 
         var overlay = document.createElement("div");
         overlay.className = "mon-overlay";
@@ -113,7 +163,7 @@
             video.src = ""; // corta el flujo MJPEG
             overlay.remove();
             document.removeEventListener("keydown", onKey);
-            refreshCells(); // el muro continúa al instante
+            assignFeeds();  // el muro recupera sus flujos en vivo al instante
         }
 
         function onKey(e) { if (e.key === "Escape") cerrarOverlay(); }
@@ -145,8 +195,16 @@
             img.alt = cam.nombre;
             img.dataset.camara = cam.id;
             img.addEventListener("load", function () { img.dataset.cargando = "0"; });
-            img.addEventListener("error", function () { img.dataset.cargando = "0"; });
-            img.src = "/stream/" + cam.id + "/instantanea?t=" + Date.now();
+            img.addEventListener("error", function () {
+                img.dataset.cargando = "0";
+                // Un flujo en vivo cortado se reengancha solo.
+                if (img.dataset.modo === "live") {
+                    setTimeout(function () {
+                        if (img.dataset.modo === "live" && !maximizada)
+                            img.src = "/stream/" + cam.id + "?t=" + Date.now();
+                    }, 3000);
+                }
+            });
 
             var label = document.createElement("div");
             label.className = "mon-label";
@@ -171,6 +229,8 @@
             empty.textContent = "—";
             grid.appendChild(empty);
         }
+
+        assignFeeds();
 
         var multi = totalPaginas() > 1;
         btnPrev.hidden = !multi;
@@ -205,6 +265,7 @@
             }
             render();
             timer = setInterval(refreshCells, REFRESH_MS);
+            rotateTimer = setInterval(rotarFeeds, ROTATE_MS);
 
             // Restaurar el carrusel tal y como quedó la última vez.
             var seg = localStorage.getItem("ivz.monitoreo.carruselSeg");
@@ -216,5 +277,8 @@
             vacio.hidden = false;
         });
 
-    window.addEventListener("beforeunload", function () { if (timer) clearInterval(timer); });
+    window.addEventListener("beforeunload", function () {
+        if (timer) clearInterval(timer);
+        if (rotateTimer) clearInterval(rotateTimer);
+    });
 })();
