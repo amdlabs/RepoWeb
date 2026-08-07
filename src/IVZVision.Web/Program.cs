@@ -84,7 +84,12 @@ builder.Services
         options.ExpireTimeSpan = TimeSpan.FromHours(12);
         options.SlidingExpiration = true;
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    // Los valores coinciden con SystemUserRole.ToString().
+    options.AddPolicy("Administrador", p => p.RequireRole("Administrator"));
+    options.AddPolicy("Operador", p => p.RequireRole("Administrator", "Operator"));
+});
 
 builder.Services.AddRazorPages(options =>
 {
@@ -94,6 +99,13 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeFolder("/");
     options.Conventions.AllowAnonymousToPage("/Login");
     options.Conventions.AllowAnonymousToPage("/Error");
+
+    // Reparto por roles: configuración y usuarios sólo para administradores;
+    // las altas y ediciones del padrón para operadores o superiores.
+    options.Conventions.AuthorizeFolder("/Configuracion", "Administrador");
+    options.Conventions.AuthorizePage("/Usuarios", "Administrador");
+    options.Conventions.AuthorizePage("/Persona", "Operador");
+    options.Conventions.AuthorizePage("/Vehiculo", "Operador");
 });
 builder.Services.AddControllers();
 builder.Services.AddSignalR();

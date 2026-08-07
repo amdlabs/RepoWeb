@@ -1,6 +1,7 @@
 using IVZVision.Core.Util;
 using IVZVision.Data;
 using IVZVision.Data.Entities;
+using IVZVision.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -33,6 +34,8 @@ public class VehiculosModel : PageModel
 
     public async Task<IActionResult> OnPostCrearAsync(CancellationToken ct)
     {
+        if (!RoleGuard.CanEdit(User)) return Forbid();
+
         var normalized = PlateText.Normalize(NewVehicle.Plate);
 
         if (normalized.Length < 2)
@@ -71,6 +74,8 @@ public class VehiculosModel : PageModel
 
     public async Task<IActionResult> OnPostEliminarAsync(int id, CancellationToken ct)
     {
+        if (!RoleGuard.CanEdit(User)) return Forbid();
+
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         var vehicle = await db.Vehicles.FirstOrDefaultAsync(v => v.Id == id, ct);

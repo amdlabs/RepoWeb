@@ -72,6 +72,8 @@ public class ObjetosModel : PageModel
     public async Task<IActionResult> OnPostEtiquetarAsync(string className, string displayName,
                                                           bool isAuthorized, string? notes, CancellationToken ct)
     {
+        if (!Services.RoleGuard.CanEdit(User)) return Forbid();
+
         className = (className ?? "").Trim();
         displayName = (displayName ?? "").Trim();
 
@@ -111,6 +113,8 @@ public class ObjetosModel : PageModel
 
     public async Task<IActionResult> OnPostEliminarAsync(int id, CancellationToken ct)
     {
+        if (!Services.RoleGuard.CanEdit(User)) return Forbid();
+
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         var label = await db.ObjectLabels.FindAsync(new object[] { id }, ct);
@@ -127,6 +131,8 @@ public class ObjetosModel : PageModel
 
     public async Task<IActionResult> OnPostAlternarAsync(int id, CancellationToken ct)
     {
+        if (!Services.RoleGuard.CanEdit(User)) return Forbid();
+
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         var label = await db.ObjectLabels.FindAsync(new object[] { id }, ct);

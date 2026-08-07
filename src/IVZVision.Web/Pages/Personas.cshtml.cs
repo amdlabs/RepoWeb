@@ -1,5 +1,6 @@
 using IVZVision.Data;
 using IVZVision.Data.Entities;
+using IVZVision.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -35,6 +36,8 @@ public class PersonasModel : PageModel
 
     public async Task<IActionResult> OnPostCrearAsync(CancellationToken ct)
     {
+        if (!RoleGuard.CanEdit(User)) return Forbid();
+
         if (string.IsNullOrWhiteSpace(NewPerson.FullName))
         {
             TempData["Error"] = "El nombre es obligatorio.";
@@ -62,6 +65,8 @@ public class PersonasModel : PageModel
 
     public async Task<IActionResult> OnPostEliminarAsync(int id, CancellationToken ct)
     {
+        if (!RoleGuard.CanEdit(User)) return Forbid();
+
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         var person = await db.Persons.FirstOrDefaultAsync(p => p.Id == id, ct);
