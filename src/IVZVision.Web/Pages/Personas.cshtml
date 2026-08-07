@@ -15,20 +15,32 @@
     </div>
 }
 
-@if (Model.UnknownFaces.Count > 0)
-{
-    <div class="card" style="margin-bottom:16px">
-        <h2>Detectadas sin identificar</h2>
-        <p class="subtitle">
-            Rostros vistos por las cámaras que no coinciden con nadie del padrón.
-            Póngales nombre para darlas de alta con ese mismo rostro (quedan como
-            «no autorizadas» hasta que las revise).
-        </p>
+<div class="card" style="margin-bottom:16px">
+    <h2>Detectadas sin identificar (@Model.UnknownFacesTotal)</h2>
+    <p class="subtitle">
+        Rostros vistos por las cámaras que no coinciden con nadie del padrón — se muestran los
+        últimos @Model.UnknownFaces.Count. Póngales nombre para darlas de alta con ese mismo
+        rostro (quedan como «no autorizadas» hasta que las revise). Doble clic amplía la foto.
+        <a asp-page="/Eventos" asp-route-Tipo="rostro" asp-route-Estado="desconocido">Ver el histórico completo →</a>
+    </p>
+    @if (Model.UnknownFaces.Count == 0)
+    {
+        <div class="empty">Todavía no hay rostros pendientes: cuando una cámara vea una cara que no reconozca, aparecerá aquí.</div>
+    }
+    else
+    {
         <div class="unknown-faces">
             @foreach (var face in Model.UnknownFaces)
             {
                 <div class="unknown-face">
-                    <img src="data:image/jpeg;base64,@face.CropBase64" alt="Rostro sin identificar" />
+                    @if (!string.IsNullOrEmpty(face.CropBase64))
+                    {
+                        <img src="data:image/jpeg;base64,@face.CropBase64" alt="Rostro sin identificar" />
+                    }
+                    else
+                    {
+                        <img src="/media/recorte?path=@Uri.EscapeDataString(face.CropPath!)" alt="Rostro sin identificar" loading="lazy" />
+                    }
                     <div class="hint">@face.OccurredAt.ToLocalTime().ToString("dd/MM HH:mm") · @face.CameraName</div>
                     <form method="post" asp-page-handler="AltaDesdeEvento" class="actions" style="gap:6px">
                         <input type="hidden" name="eventoId" value="@face.EventId" />
@@ -38,8 +50,8 @@
                 </div>
             }
         </div>
-    </div>
-}
+    }
+</div>
 
 <div class="grid grid-live">
     <div class="card">

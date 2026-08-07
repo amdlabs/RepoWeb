@@ -196,6 +196,11 @@ public sealed class RecognitionEngine : IDisposable
                 if (string.IsNullOrEmpty(text) || text.Length < 2) continue;
                 if (reading.Confidence < rec.TextMinConfidence) continue;
 
+                // Los relojes y fechas sobreimpresos del DVR cambian cada minuto y
+                // generarían miles de eventos sin valor: se descarta lo mayormente numérico.
+                var digits = text.Count(c => char.IsDigit(c) || c is ':' or '-' or '/' or '+');
+                if (digits >= text.Length * 0.5) continue;
+
                 items.Add(new AnalysisItem
                 {
                     Kind = ObservationKind.Text,

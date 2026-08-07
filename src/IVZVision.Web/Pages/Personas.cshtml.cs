@@ -35,20 +35,34 @@ public class PersonasModel : PageModel
     }
 
     /// <summary>Rostro no identificado visto por las cámaras, con su recorte (zoom de la cara).</summary>
-    public sealed record UnknownFace(long EventId, DateTime OccurredAt, string CameraName, string? CropBase64);
+    public sealed record UnknownFace(long EventId, DateTime OccurredAt, string CameraName,
+                                     string? CropBase64, string? CropPath);
 
     public IReadOnlyList<UnknownFace> UnknownFaces { get; private set; } = Array.Empty<UnknownFace>();
 
+    /// <summary>Total de detecciones de rostros sin identificar en el histórico.</summary>
+    public int UnknownFacesTotal { get; private set; }
+
     private async Task LoadUnknownFacesAsync(VisionDbContext db, CancellationToken ct)
     {
-        UnknownFaces = (await db.RecognitionEvents
-                .AsNoTracking()
-                .Where(e => e.Kind == RecognitionKind.Face && !e.IsKnown && e.CropBase64 != null)
+        // Rostros no reconocidos + personas vistas por el detector de objetos (cuando
+        // la cara queda demasiado pequeña para el detector facial, la persona entra
+        // igualmente por aquí con el recorte de su figura).
+        var query = db.RecognitionEvents
+            .AsNoTracking()
+            .Where(e => (e.CropBase64 != null || e.CropPath != null)
+                        && ((e.Kind == RecognitionKind.Face && !e.IsKnown)
+                            || (e.Kind == RecognitionKind.Object
+                                && (e.ObjectClass == "persona" || e.ObjectClass == "person"))));
+
+        UnknownFacesTotal = await query.CountAsync(ct);
+
+        UnknownFaces = (await query
                 .OrderByDescending(e => e.OccurredAt)
-                .Take(12)
-                .Select(e => new { e.Id, e.OccurredAt, e.CameraName, e.CropBase64 })
+                .Take(48)
+                .Select(e => new { e.Id, e.OccurredAt, e.CameraName, e.CropBase64, e.CropPath })
                 .ToListAsync(ct))
-            .Select(e => new UnknownFace(e.Id, e.OccurredAt, e.CameraName, e.CropBase64))
+            .Select(e => new UnknownFace(e.Id, e.OccurredAt, e.CameraName, e.CropBase64, e.CropPath))
             .ToList();
     }
 
@@ -68,9 +82,22 @@ public class PersonasModel : PageModel
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         var evento = await db.RecognitionEvents.AsNoTracking()
-            .FirstOrDefaultAsync(e => e.Id == eventoId && e.Kind == RecognitionKind.Face, ct);
+            .FirstOrDefaultAsync(e => e.Id == eventoId
+                                      && (e.Kind == RecognitionKind.Face || e.Kind == RecognitionKind.Object), ct);
 
-        if (evento?.CropBase64 is null)
+        byte[]? imagen = null;
+        if (evento?.CropBase64 is not null)
+        {
+            imagen = Convert.FromBase64String(evento.CropBase64);
+        }
+        else if (evento?.CropPath is not null)
+        {
+            var resolved = HttpContext.RequestServices.GetRequiredService<SnapshotPathResolver>().Resolve(evento.CropPath);
+            if (resolved is not null && System.IO.File.Exists(resolved))
+                imagen = await System.IO.File.ReadAllBytesAsync(resolved, ct);
+        }
+
+        if (imagen is null)
         {
             TempData["Error"] = "El evento ya no existe o no conserva el recorte del rostro.";
             return RedirectToPage();
@@ -80,7 +107,7 @@ public class PersonasModel : PageModel
         db.Persons.Add(person);
         await db.SaveChangesAsync(ct);
 
-        var result = await enrollment.EnrollFromBytesAsync(person.Id, Convert.FromBase64String(evento.CropBase64), ct);
+        var result = await enrollment.EnrollFromBytesAsync(person.Id, imagen, ct);
         if (!result.Success)
         {
             // Sin plantilla la persona no aporta nada: se revierte el alta.
