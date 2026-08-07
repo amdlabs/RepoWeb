@@ -74,6 +74,12 @@ public sealed class HikvisionIsapiClient : IDisposable
             if (response.StatusCode == HttpStatusCode.Unauthorized)
                 return new IsapiDeviceInfo(false, "Usuario o contraseña incorrectos (HTTP 401).");
 
+            if (response.StatusCode == HttpStatusCode.NotFound)
+                return new IsapiDeviceInfo(false,
+                    $"El puerto {_camera.HttpPort} respondió HTTP pero no tiene el interfaz ISAPI (404): " +
+                    "probablemente no es el puerto HTTP del DVR/cámara. Compruebe el puerto HTTP del equipo " +
+                    "(por defecto 80) y, si accede desde fuera, que el router lo reenvíe al DVR.");
+
             if (!response.IsSuccessStatusCode)
                 return new IsapiDeviceInfo(false, $"La cámara respondió {(int)response.StatusCode} {response.ReasonPhrase}.");
 
@@ -94,9 +100,22 @@ public sealed class HikvisionIsapiClient : IDisposable
         }
         catch (Exception ex)
         {
-            return new IsapiDeviceInfo(false, $"No se pudo contactar con la cámara: {ex.Message}");
+            return new IsapiDeviceInfo(false, $"No se pudo contactar con la cámara: {RootMessage(ex)}{PortHint()}");
         }
     }
+
+    /// <summary>Mensaje de la excepción más interna: la causa real, no el envoltorio genérico.</summary>
+    private static string RootMessage(Exception ex)
+    {
+        var current = ex;
+        while (current.InnerException is not null) current = current.InnerException;
+        return current.Message;
+    }
+
+    private string PortHint() => _camera.HttpPort == 8000
+        ? " Nota: el puerto 8000 suele ser el puerto SDK de Hikvision (iVMS/Hik-Connect), que no habla HTTP; " +
+          "el interfaz ISAPI usa el puerto HTTP del equipo (por defecto 80)."
+        : "";
 
     /// <summary>
     /// Lista los canales de vídeo que publica un DVR/NVR: los canales IP
@@ -110,6 +129,12 @@ public sealed class HikvisionIsapiClient : IDisposable
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeout.CancelAfter(TimeSpan.FromSeconds(12));
+
+            // Primero se valida la conexión ISAPI: así el error que llega al usuario es
+            // el concreto (credenciales, puerto equivocado, equipo inalcanzable…).
+            var device = await GetDeviceInfoAsync(timeout.Token).ConfigureAwait(false);
+            if (!device.Success)
+                return new IsapiChannelList(false, device.Message, Array.Empty<IsapiChannel>());
 
             var channels = new List<IsapiChannel>();
 
