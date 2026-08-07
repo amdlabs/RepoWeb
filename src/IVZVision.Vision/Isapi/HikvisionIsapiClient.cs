@@ -12,6 +12,11 @@ public sealed record IsapiDeviceInfo(bool Success, string Message, string? Model
 /// <summary>Matrícula leída por el propio ANPR de la cámara.</summary>
 public sealed record CameraPlateEvent(string Plate, DateTimeOffset Timestamp, string? Country, string? Direction);
 
+/// <summary>Canal de vídeo publicado por un DVR/NVR.</summary>
+public sealed record IsapiChannel(int Channel, string Name, bool? Online);
+
+public sealed record IsapiChannelList(bool Success, string Message, IReadOnlyList<IsapiChannel> Channels);
+
 /// <summary>
 /// Cliente del interfaz ISAPI de Hikvision. Sirve para dos cosas:
 /// comprobar que las credenciales HTTP son correctas y, opcionalmente,
@@ -92,6 +97,118 @@ public sealed class HikvisionIsapiClient : IDisposable
             return new IsapiDeviceInfo(false, $"No se pudo contactar con la cámara: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// Lista los canales de vídeo que publica un DVR/NVR: los canales IP
+    /// (<c>/ISAPI/ContentMgmt/InputProxy/channels</c>) y los analógicos
+    /// (<c>/ISAPI/System/Video/inputs/channels</c>). El número de canal devuelto es
+    /// el que se usa en la URL RTSP (canal×100 + perfil).
+    /// </summary>
+    public async Task<IsapiChannelList> ListChannelsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(TimeSpan.FromSeconds(12));
+
+            var channels = new List<IsapiChannel>();
+
+            // Canales IP (NVR y DVR híbridos).
+            var proxyXml = await GetXmlOrNullAsync("/ISAPI/ContentMgmt/InputProxy/channels", timeout.Token)
+                .ConfigureAwait(false);
+            if (proxyXml is not null)
+            {
+                var online = await GetProxyOnlineMapAsync(timeout.Token).ConfigureAwait(false);
+
+                foreach (var ch in proxyXml.Descendants()
+                             .Where(e => e.Name.LocalName.Equals("InputProxyChannel", StringComparison.OrdinalIgnoreCase)))
+                {
+                    var id = ChildValue(ch, "id");
+                    if (!int.TryParse(id, out var number)) continue;
+
+                    var name = ChildValue(ch, "name");
+                    channels.Add(new IsapiChannel(number,
+                        string.IsNullOrWhiteSpace(name) ? $"Canal {number}" : name.Trim(),
+                        online.TryGetValue(number, out var isOn) ? isOn : null));
+                }
+            }
+
+            // Canales analógicos (DVR clásicos) o el propio canal de una cámara standalone.
+            var inputsXml = await GetXmlOrNullAsync("/ISAPI/System/Video/inputs/channels", timeout.Token)
+                .ConfigureAwait(false);
+            if (inputsXml is not null)
+            {
+                foreach (var ch in inputsXml.Descendants()
+                             .Where(e => e.Name.LocalName.Equals("VideoInputChannel", StringComparison.OrdinalIgnoreCase)))
+                {
+                    var id = ChildValue(ch, "id");
+                    if (!int.TryParse(id, out var number)) continue;
+                    if (channels.Any(c => c.Channel == number)) continue;
+
+                    var enabled = ChildValue(ch, "videoInputEnabled");
+                    var name = ChildValue(ch, "name");
+                    channels.Add(new IsapiChannel(number,
+                        string.IsNullOrWhiteSpace(name) ? $"Canal {number}" : name.Trim(),
+                        bool.TryParse(enabled, out var on) ? on : null));
+                }
+            }
+
+            if (channels.Count == 0)
+                return new IsapiChannelList(false,
+                    "El dispositivo no publicó ningún canal por ISAPI. Compruebe credenciales y que sea un DVR/NVR Hikvision o compatible.",
+                    Array.Empty<IsapiChannel>());
+
+            var ordered = channels.OrderBy(c => c.Channel).ToList();
+            return new IsapiChannelList(true, $"Se han encontrado {ordered.Count} canal(es).", ordered);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return new IsapiChannelList(false, "Tiempo de espera agotado al consultar los canales.", Array.Empty<IsapiChannel>());
+        }
+        catch (Exception ex)
+        {
+            return new IsapiChannelList(false, $"No se pudieron consultar los canales: {ex.Message}", Array.Empty<IsapiChannel>());
+        }
+    }
+
+    /// <summary>Estado en línea de cada canal IP, si el equipo lo publica.</summary>
+    private async Task<Dictionary<int, bool>> GetProxyOnlineMapAsync(CancellationToken ct)
+    {
+        var map = new Dictionary<int, bool>();
+
+        var xml = await GetXmlOrNullAsync("/ISAPI/ContentMgmt/InputProxy/channels/status", ct).ConfigureAwait(false);
+        if (xml is null) return map;
+
+        foreach (var st in xml.Descendants()
+                     .Where(e => e.Name.LocalName.Equals("InputProxyChannelStatus", StringComparison.OrdinalIgnoreCase)))
+        {
+            if (int.TryParse(ChildValue(st, "id"), out var number)
+                && bool.TryParse(ChildValue(st, "online"), out var online))
+                map[number] = online;
+        }
+
+        return map;
+    }
+
+    private async Task<XDocument?> GetXmlOrNullAsync(string path, CancellationToken ct)
+    {
+        try
+        {
+            using var response = await _http.GetAsync(path, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return null;
+
+            var xml = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            return XDocument.Parse(xml);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "ISAPI {Path} no disponible", path);
+            return null;
+        }
+    }
+
+    private static string? ChildValue(XElement parent, string name) => parent.Elements()
+        .FirstOrDefault(e => e.Name.LocalName.Equals(name, StringComparison.OrdinalIgnoreCase))?.Value;
 
     /// <summary>
     /// Se suscribe a <c>/ISAPI/Event/notification/alertStream</c> y va devolviendo

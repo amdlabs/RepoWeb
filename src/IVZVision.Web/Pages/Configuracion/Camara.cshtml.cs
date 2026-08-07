@@ -133,6 +133,100 @@ public class CamaraModel : PageModel
         }
     }
 
+    /// <summary>Consulta al DVR/NVR los canales de vídeo que publica.</summary>
+    public async Task<IActionResult> OnPostBuscarCanalesAsync([FromBody] CameraConfig? camera, CancellationToken ct)
+    {
+        try
+        {
+            if (camera is null)
+                return new JsonResult(new { ok = false, mensaje = "No se recibieron los datos del formulario. Recargue la página (Ctrl+F5) y vuelva a intentarlo." });
+
+            if (camera.IsUsb)
+                return new JsonResult(new { ok = false, mensaje = "Una cámara USB no publica canales: esta función es para DVR/NVR de red." });
+
+            if (string.IsNullOrWhiteSpace(camera.Host))
+                return new JsonResult(new { ok = false, mensaje = "Indique la dirección IP o el nombre del DVR/NVR." });
+
+            RestoreStoredPassword(camera);
+
+            using var client = new IVZVision.Vision.Isapi.HikvisionIsapiClient(camera, _logger);
+            var result = await client.ListChannelsAsync(ct);
+
+            return new JsonResult(new
+            {
+                ok = result.Success,
+                mensaje = result.Message,
+                canales = result.Channels.Select(c => new { canal = c.Channel, nombre = c.Name, enLinea = c.Online }),
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fallo inesperado al buscar canales del DVR");
+            return new JsonResult(new { ok = false, mensaje = $"Error inesperado: {ex.Message}" });
+        }
+    }
+
+    public sealed class CanalSeleccionado
+    {
+        public int Canal { get; set; }
+        public string? Nombre { get; set; }
+    }
+
+    public sealed class AgregarCanalesRequest
+    {
+        public CameraConfig Camera { get; set; } = new();
+        public List<CanalSeleccionado> Canales { get; set; } = new();
+    }
+
+    /// <summary>Da de alta una cámara por cada canal del DVR seleccionado, con la misma conexión.</summary>
+    public async Task<IActionResult> OnPostAgregarCanalesAsync([FromBody] AgregarCanalesRequest? request, CancellationToken ct)
+    {
+        try
+        {
+            if (request is null || request.Canales.Count == 0)
+                return new JsonResult(new { ok = false, mensaje = "Seleccione al menos un canal." });
+
+            RestoreStoredPassword(request.Camera);
+
+            var dvrName = string.IsNullOrWhiteSpace(request.Camera.Name) ? request.Camera.Host : request.Camera.Name.Trim();
+
+            await _config.UpdateAsync(cfg =>
+            {
+                foreach (var canal in request.Canales)
+                {
+                    // Un canal ya dado de alta del mismo equipo no se duplica.
+                    if (cfg.Cameras.Any(c => !c.IsUsb
+                                             && c.Host.Equals(request.Camera.Host, StringComparison.OrdinalIgnoreCase)
+                                             && c.Channel == canal.Canal))
+                        continue;
+
+                    var json = System.Text.Json.JsonSerializer.Serialize(request.Camera, ConfigJson.Options);
+                    var copy = System.Text.Json.JsonSerializer.Deserialize<CameraConfig>(json, ConfigJson.Options)!;
+
+                    copy.Id = Guid.NewGuid();
+                    copy.Channel = canal.Canal;
+                    copy.RtspUrlOverride = "";
+                    copy.Name = string.IsNullOrWhiteSpace(canal.Nombre)
+                        ? $"{dvrName} · canal {canal.Canal}"
+                        : $"{dvrName} · {canal.Nombre!.Trim()}";
+
+                    cfg.Cameras.Add(copy);
+                }
+            }, ct);
+
+            return new JsonResult(new
+            {
+                ok = true,
+                mensaje = $"Se han añadido {request.Canales.Count} cámara(s) del DVR. La captura se está reiniciando.",
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fallo inesperado al añadir canales del DVR");
+            return new JsonResult(new { ok = false, mensaje = $"Error inesperado: {ex.Message}" });
+        }
+    }
+
     /// <summary>Si la contraseña llegó en blanco, recupera la almacenada para esa cámara.</summary>
     private void RestoreStoredPassword(CameraConfig camera)
     {

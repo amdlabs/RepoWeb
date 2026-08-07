@@ -126,9 +126,19 @@
             <div class="actions">
                 <button type="button" class="btn secondary" id="btnProbarRtsp">Probar vídeo</button>
                 <button type="button" class="btn secondary" id="btnProbarIsapi">Probar ISAPI</button>
+                <button type="button" class="btn secondary" id="btnBuscarCanales">Buscar cámaras del DVR/NVR</button>
             </div>
             <div class="test-output" id="outRtsp" hidden></div>
             <div class="test-output" id="outIsapi" hidden></div>
+            <div class="test-output" id="outCanales" hidden></div>
+            <div id="listaCanales" hidden style="margin-top:10px">
+                <div class="hint">
+                    Canales publicados por el equipo. Marque los que quiera dar de alta: se creará una
+                    cámara por canal con estos mismos datos de conexión y reconocimiento.
+                </div>
+                <div id="canalesItems" style="margin:8px 0"></div>
+                <button type="button" class="btn" id="btnAgregarCanales">Añadir seleccionadas</button>
+            </div>
         </div>
 
         <div class="card">
