@@ -19,9 +19,12 @@
             } else if (el.tagName === "SELECT") {
                 // Las listas de enumerados llevan el valor numérico: hay que enviarlo como número.
                 result[key] = /^-?\d+$/.test(el.value) ? Number(el.value) : el.value;
+            } else if (el.type === "hidden") {
+                // Los ocultos viajan (el Id permite recuperar la contraseña guardada),
+                // pero sin pisar nada ya recogido: cada checkbox de ASP.NET lleva un
+                // oculto acompañante con "false" que corrompería el booleano.
+                if (!(key in result)) result[key] = el.value;
             } else {
-                // Los ocultos también viajan: el Id permite al servidor recuperar la
-                // contraseña guardada cuando el campo se deja en blanco al editar.
                 result[key] = el.value;
             }
         });
