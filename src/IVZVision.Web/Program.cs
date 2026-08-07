@@ -9,6 +9,10 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Permite ejecutar la aplicación como servicio de Windows (scripts/instalar-servicio.ps1).
+// Fuera de un servicio esta llamada no cambia nada.
+builder.Host.UseWindowsService(options => options.ServiceName = "IVZVision");
+
 var contentRoot = builder.Environment.ContentRootPath;
 var settingsFile = builder.Configuration["IVZVision:SettingsFile"] ?? "App_Data/ivzvision.settings.json";
 if (!Path.IsPathRooted(settingsFile))
