@@ -7,6 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Servidor MCP para integrar el procesamiento visual con otros asistentes. -->
+    <PackageReference Include="ModelContextProtocol.AspNetCore" Version="2.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\IVZVision.Core\IVZVision.Core.csproj" />
     <ProjectReference Include="..\IVZVision.Data\IVZVision.Data.csproj" />
     <ProjectReference Include="..\IVZVision.Vision\IVZVision.Vision.csproj" />

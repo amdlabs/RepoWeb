@@ -82,3 +82,74 @@
     wire("btnProbarRtsp", "outRtsp", "probarRtsp", "Camera");
     wire("btnProbarIsapi", "outIsapi", "probarIsapi", "Camera");
 })();
+
+/* Alterna los bloques de cámara IP y USB según el origen elegido, y busca
+   dispositivos USB en el equipo donde corre la aplicación. */
+(function () {
+    "use strict";
+
+    const source = document.getElementById("camSource");
+    if (!source) return;
+
+    const usbBlock = document.getElementById("bloqueUsb");
+    const ipBlock = document.getElementById("bloqueIp");
+    const isapiButton = document.getElementById("btnProbarIsapi");
+
+    function applySource() {
+        // El valor del enum llega como número: 0 = Ip, 1 = Usb.
+        const isUsb = String(source.value) === "1";
+
+        if (usbBlock) usbBlock.hidden = !isUsb;
+        if (ipBlock) ipBlock.hidden = isUsb;
+        if (isapiButton) isapiButton.hidden = isUsb;
+    }
+
+    source.addEventListener("change", applySource);
+    applySource();
+
+    // Elegir de la lista rellena índice y ruta del dispositivo.
+    const picker = document.getElementById("usbPicker");
+    if (picker) {
+        picker.addEventListener("change", function () {
+            const option = picker.selectedOptions[0];
+            if (!option || !option.value) return;
+
+            const index = document.querySelector('[name="Camera.DeviceIndex"]');
+            const path = document.querySelector('[name="Camera.DevicePath"]');
+            if (index) index.value = option.value;
+            if (path) path.value = option.dataset.path || "";
+        });
+    }
+
+    const search = document.getElementById("btnBuscarUsb");
+    if (!search) return;
+
+    search.addEventListener("click", async function () {
+        const box = document.getElementById("outUsb");
+        const original = search.textContent;
+
+        search.disabled = true;
+        search.textContent = "Buscando…";
+        box.hidden = false;
+        box.className = "test-output";
+        box.textContent = "Explorando los dispositivos del equipo…";
+
+        try {
+            const token = document.querySelector('input[name="__RequestVerificationToken"]');
+            const response = await fetch("?handler=buscarUsb", {
+                method: "POST",
+                headers: { "RequestVerificationToken": token ? token.value : "" }
+            });
+
+            const data = await response.json();
+            box.className = "test-output " + (data.ok ? "ok" : "ko");
+            box.textContent = data.mensaje;
+        } catch (err) {
+            box.className = "test-output ko";
+            box.textContent = "No se pudo completar la búsqueda: " + err.message;
+        } finally {
+            search.disabled = false;
+            search.textContent = original;
+        }
+    });
+})();

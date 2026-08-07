@@ -64,7 +64,7 @@ public sealed class EventRecorder
             {
                 CameraId = obs.CameraId,
                 CameraName = Truncate(obs.CameraName, 150),
-                Kind = obs.Kind == ObservationKind.Plate ? RecognitionKind.Plate : RecognitionKind.Face,
+                Kind = (RecognitionKind)(int)obs.Kind,
                 Source = source,
                 OccurredAt = obs.Timestamp.UtcDateTime,
                 DetectionScore = obs.DetectionScore,
@@ -73,9 +73,17 @@ public sealed class EventRecorder
                 IsAuthorized = obs.Match.IsKnown && obs.Match.IsAuthorized,
                 PersonId = obs.Match.PersonId,
                 VehicleId = obs.Match.VehicleId,
+                KnownObjectId = obs.Match.ObjectId,
                 Label = Truncate(obs.DisplayLabel, 200),
                 PlateText = obs.PlateText is null ? null : Truncate(obs.PlateText, 20),
                 OcrConfidence = obs.OcrConfidence,
+                ObjectClass = obs.ObjectClass is null ? null : Truncate(obs.ObjectClass, 80),
+                CodeValue = obs.CodeValue is null ? null : Truncate(obs.CodeValue, 2000),
+                CodeFormat = obs.CodeFormat is null ? null : Truncate(obs.CodeFormat, 40),
+                TextValue = obs.TextValue is null ? null : Truncate(obs.TextValue, 2000),
+                ActivityKind = (int)obs.Activity,
+                Severity = (int)obs.Severity,
+                Explanation = obs.Explanation is null ? null : Truncate(obs.Explanation, 500),
                 BoxX = (int)Math.Round(obs.Box.X),
                 BoxY = (int)Math.Round(obs.Box.Y),
                 BoxWidth = (int)Math.Round(obs.Box.Width),
@@ -136,9 +144,17 @@ public sealed class EventRecorder
 
     private static string BuildKey(Observation obs)
     {
-        var subject = obs.Kind == ObservationKind.Plate
-            ? (obs.PlateText ?? "desconocida")
-            : (obs.Match.PersonId?.ToString() ?? "desconocido");
+        var subject = obs.Kind switch
+        {
+            ObservationKind.Plate => obs.PlateText ?? "desconocida",
+            ObservationKind.Code => obs.CodeValue ?? "codigo",
+            ObservationKind.Text => obs.TextValue ?? "texto",
+            // Las alertas se agrupan por objeto seguido: dos personas distintas
+            // merodeando a la vez generan dos avisos, no uno.
+            ObservationKind.Activity => $"{obs.Activity}|{obs.TrackId?.ToString() ?? "-"}",
+            ObservationKind.Object => obs.Match.ObjectId?.ToString() ?? obs.ObjectClass ?? "objeto",
+            _ => obs.Match.PersonId?.ToString() ?? "desconocido",
+        };
 
         return $"{obs.CameraId}|{obs.Kind}|{subject}";
     }

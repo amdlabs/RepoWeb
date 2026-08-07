@@ -1,0 +1,154 @@
+@page
+@using IVZVision.Data.Entities
+@model PendientesModel
+@{
+    ViewData["Title"] = "Sin identificar";
+}
+
+<h1>Sin identificar</h1>
+<p class="subtitle">
+    Todo lo que el sistema detecta pero no reconoce acaba aquí, agrupado por sujeto.
+    Al ponerle nombre se convierte en una plantilla de reconocimiento y a partir de ese
+    momento el sistema lo identifica solo.
+</p>
+
+@if (Model.DatabaseError is not null)
+{
+    <div class="alert alert-error">
+        <b>No se pudo consultar la base de datos:</b> @Model.DatabaseError<br />
+        Revise los datos en <a asp-page="/Configuracion/Index">Configuración → Base de datos</a>.
+    </div>
+}
+
+<nav class="tabs">
+    <a asp-page="/Pendientes" class="@(string.IsNullOrEmpty(Model.Tipo) ? "active" : "")">
+        Todos (@(Model.TotalFaces + Model.TotalPlates + Model.TotalObjects))
+    </a>
+    <a asp-page="/Pendientes" asp-route-tipo="Face" class="@(Model.Tipo == "Face" ? "active" : "")">
+        Rostros (@Model.TotalFaces)
+    </a>
+    <a asp-page="/Pendientes" asp-route-tipo="Plate" class="@(Model.Tipo == "Plate" ? "active" : "")">
+        Matrículas (@Model.TotalPlates)
+    </a>
+    <a asp-page="/Pendientes" asp-route-tipo="Object" class="@(Model.Tipo == "Object" ? "active" : "")">
+        Objetos (@Model.TotalObjects)
+    </a>
+</nav>
+
+@if (Model.Items.Count == 0)
+{
+    <div class="card">
+        <div class="empty">No hay nada pendiente de identificar.</div>
+    </div>
+}
+else
+{
+    <div class="pending-grid">
+    @foreach (var item in Model.Items)
+    {
+        <div class="pending-card">
+            <div class="shot">
+                @if (!string.IsNullOrEmpty(item.CropPath))
+                {
+                    <img src="/media/recorte?path=@Uri.EscapeDataString(item.CropPath)" alt="Muestra" loading="lazy" />
+                }
+                else
+                {
+                    <span class="none">sin imagen</span>
+                }
+            </div>
+
+            <div class="info">
+                <div class="who">
+                    @switch (item.Kind)
+                    {
+                        case RecognitionKind.Plate:
+                            <span class="hit-title plate">@item.PlateText</span>
+                            break;
+                        case RecognitionKind.Object:
+                            <text>@(item.ObjectClass ?? "objeto")</text>
+                            break;
+                        default:
+                            <text>Rostro desconocido</text>
+                            break;
+                    }
+                    <span class="badge badge-muted">@item.Occurrences ×</span>
+                </div>
+                <div class="when">
+                    @item.CameraName · última vez @item.LastSeenAt.ToLocalTime().ToString("dd/MM HH:mm")
+                </div>
+                @if (!item.CanLearn)
+                {
+                    <div class="when">
+                        <span class="badge badge-warn">no aprendible</span>
+                        sin vector de características
+                    </div>
+                }
+            </div>
+
+            @if (item.Kind == RecognitionKind.Face)
+            {
+                <form method="post" asp-page-handler="AsignarRostro">
+                    <input type="hidden" name="id" value="@item.Id" />
+                    <select name="personaId">
+                        <option value="0">— crear persona nueva —</option>
+                        @foreach (var p in Model.People)
+                        {
+                            <option value="@p.Value">@p.Text</option>
+                        }
+                    </select>
+                    <input type="text" name="nombre" placeholder="Nombre de la persona nueva" />
+                    <div class="check">
+                        <input type="checkbox" name="autorizado" value="true" checked id="aut-@item.Id" />
+                        <label for="aut-@item.Id">Acceso autorizado</label>
+                    </div>
+                    <div class="row">
+                        <button type="submit" class="btn small" @(item.CanLearn ? "" : "disabled")>Asignar</button>
+                        <button type="submit" class="btn small secondary" asp-page-handler="Ignorar"
+                                asp-route-id="@item.Id" formnovalidate>Descartar</button>
+                    </div>
+                </form>
+            }
+            else if (item.Kind == RecognitionKind.Plate)
+            {
+                <form method="post" asp-page-handler="AsignarMatricula">
+                    <input type="hidden" name="id" value="@item.Id" />
+                    <input type="text" name="descripcion" placeholder="Marca, modelo o titular (opcional)" />
+                    <div class="check">
+                        <input type="checkbox" name="autorizado" value="true" checked id="autv-@item.Id" />
+                        <label for="autv-@item.Id">Acceso autorizado</label>
+                    </div>
+                    <div class="row">
+                        <button type="submit" class="btn small">Registrar vehículo</button>
+                        <button type="submit" class="btn small secondary" asp-page-handler="Ignorar"
+                                asp-route-id="@item.Id" formnovalidate>Descartar</button>
+                    </div>
+                </form>
+            }
+            else
+            {
+                <form method="post" asp-page-handler="AsignarObjeto">
+                    <input type="hidden" name="id" value="@item.Id" />
+                    <select name="objetoId">
+                        <option value="0">— crear objeto nuevo —</option>
+                        @foreach (var o in Model.Objects)
+                        {
+                            <option value="@o.Value">@o.Text</option>
+                        }
+                    </select>
+                    <input type="text" name="nombre" placeholder="Nombre del objeto" />
+                    <div class="check">
+                        <input type="checkbox" name="autorizado" value="true" checked id="auto-@item.Id" />
+                        <label for="auto-@item.Id">Permitido</label>
+                    </div>
+                    <div class="row">
+                        <button type="submit" class="btn small">Nombrar</button>
+                        <button type="submit" class="btn small secondary" asp-page-handler="Ignorar"
+                                asp-route-id="@item.Id" formnovalidate>Descartar</button>
+                    </div>
+                </form>
+            }
+        </div>
+    }
+    </div>
+}

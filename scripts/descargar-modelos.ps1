@@ -62,5 +62,10 @@ foreach ($m in $modelos) {
 
 Write-Host ""
 Write-Host "Modelos de rostros listos." -ForegroundColor Green
-Write-Host "Faltan los de matrículas (detector YOLO y OCR CTC): consulte el README." -ForegroundColor Yellow
+Write-Host ""
+Write-Host "Los códigos QR y de barras ya funcionan: no necesitan modelo." -ForegroundColor Green
+Write-Host "Faltan, y los aporta usted (consulte el README):" -ForegroundColor Yellow
+Write-Host "  · matrículas: detector YOLO + OCR CTC" -ForegroundColor Yellow
+Write-Host "  · objetos:    un YOLO entrenado en COCO (necesario para el análisis de actividad)" -ForegroundColor Yellow
+Write-Host "  · texto:      detector DB + reconocedor CTC" -ForegroundColor Yellow
 Write-Host "Después, en la web: Configuración -> Modelos -> Verificar modelos."

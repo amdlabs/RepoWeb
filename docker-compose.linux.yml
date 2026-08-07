@@ -1,0 +1,21 @@
+# Añadido para equipos Linux: da acceso a las cámaras USB del host.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.linux.yml up -d --build
+#
+#   devices     Expone las webcam del host dentro del contenedor. Ajuste la lista a
+#               los dispositivos que tenga: ls -l /dev/video*
+#   group_add   El proceso necesita el grupo propietario de esos dispositivos para
+#               poder leerlos. En Ubuntu y Debian es «video» (GID 44); compruebe el
+#               suyo con: getent group video
+#
+# Las cámaras IP no necesitan nada de esto: el contenedor ya alcanza la red local.
+
+services:
+  ivzvision:
+    devices:
+      - /dev/video0:/dev/video0
+      # Descomente los que necesite:
+      # - /dev/video1:/dev/video1
+      # - /dev/video2:/dev/video2
+    group_add:
+      - video

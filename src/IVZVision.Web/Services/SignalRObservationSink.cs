@@ -20,7 +20,10 @@ public sealed record ObservationDto(
     int Similitud,
     string? Miniatura,
     long? EventoId,
-    string? Detalle);
+    string? Detalle,
+    string? Gravedad = null,
+    string? Motivo = null,
+    string? Clase = null);
 
 public sealed record CameraStatusDto(
     string CamaraId,
@@ -65,11 +68,11 @@ public sealed class SignalRObservationSink : IObservationSink
 
     public static ObservationDto ToDto(Observation o) => new(
         o.Id,
-        o.Kind == ObservationKind.Plate ? "matricula" : "rostro",
+        LiveViewService.DescribeKind(o.Kind),
         o.CameraId.ToString(),
         o.CameraName,
         o.Timestamp.ToLocalTime().ToString("HH:mm:ss"),
-        o.Kind == ObservationKind.Plate ? (o.PlateText ?? "?") : o.Match.Label,
+        o.DisplayLabel,
         o.PlateText,
         o.Match.IsKnown,
         o.Match.IsKnown && o.Match.IsAuthorized,
@@ -77,5 +80,8 @@ public sealed class SignalRObservationSink : IObservationSink
         (int)Math.Round((o.Kind == ObservationKind.Plate ? (o.OcrConfidence ?? 0) : o.Match.Score) * 100),
         o.CropJpegBase64 is null ? null : $"data:image/jpeg;base64,{o.CropJpegBase64}",
         o.EventId,
-        o.Kind == ObservationKind.Plate && o.Match.IsKnown ? o.Match.Label : o.Match.Notes);
+        o.Kind == ObservationKind.Plate && o.Match.IsKnown ? o.Match.Label : o.Match.Notes,
+        o.Kind == ObservationKind.Activity ? o.Severity.ToString() : null,
+        o.Explanation,
+        o.ObjectClass);
 }

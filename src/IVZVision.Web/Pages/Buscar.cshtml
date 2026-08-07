@@ -1,0 +1,138 @@
+@page
+@using IVZVision.Data.Entities
+@using IVZVision.Data.Search
+@model BuscarModel
+@{
+    ViewData["Title"] = "Buscar";
+}
+
+<h1>Buscar</h1>
+<p class="subtitle">
+    Escriba lo que quiere encontrar en lenguaje natural. Se busca a la vez en el histórico
+    de reconocimientos y entre los sujetos aún sin identificar.
+</p>
+
+<div class="card">
+    <form method="get" class="prompt-box">
+        <div class="field">
+            <label for="Prompt">Consulta</label>
+            <input type="search" id="Prompt" name="Prompt" value="@Model.Prompt"
+                   placeholder="personas desconocidas de anoche en la entrada" autofocus />
+        </div>
+        <button type="submit" class="btn">Buscar</button>
+        @if (!string.IsNullOrWhiteSpace(Model.Prompt))
+        {
+            <a class="btn secondary" asp-page="/Buscar">Limpiar</a>
+        }
+    </form>
+
+    <div class="prompt-examples">
+        @foreach (var example in BuscarModel.Examples)
+        {
+            <button type="button" onclick="document.getElementById('Prompt').value=this.textContent.trim();this.closest('form,.card').querySelector('form').submit();">@example</button>
+        }
+    </div>
+
+    @if (Model.Interpretation is not null)
+    {
+        <div class="interpretation">
+            Interpretado como → <b>@Model.Interpretation</b>
+            · @Model.Total evento(s) en el histórico
+        </div>
+    }
+</div>
+
+@if (Model.DatabaseError is not null)
+{
+    <div class="alert alert-error">
+        <b>No se pudo consultar la base de datos:</b> @Model.DatabaseError
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(Model.Prompt) && Model.DatabaseError is null)
+{
+    <div class="card">
+        @if (Model.Hits.Count == 0)
+        {
+            <div class="empty">No se ha encontrado nada que encaje con esa consulta.</div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Imagen</th>
+                            <th>Cuándo</th>
+                            <th>Cámara</th>
+                            <th>Tipo</th>
+                            <th>Qué</th>
+                            <th>Estado</th>
+                            <th>Origen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var hit in Model.Hits)
+                    {
+                        <tr>
+                            <td class="thumb-cell">
+                                @if (!string.IsNullOrEmpty(hit.CropPath))
+                                {
+                                    <img src="/media/recorte?path=@Uri.EscapeDataString(hit.CropPath)" alt="" loading="lazy" />
+                                }
+                            </td>
+                            <td>@hit.OccurredAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
+                            <td>@hit.CameraName</td>
+                            <td>@SearchQuery.DescribeKind(hit.Kind)</td>
+                            <td class="@(hit.Kind == RecognitionKind.Plate ? "plate" : "")">
+                                @hit.Label
+                                @if (!string.IsNullOrEmpty(hit.Explanation))
+                                {
+                                    <div class="hint">@hit.Explanation</div>
+                                }
+                                @if (!string.IsNullOrEmpty(hit.CodeValue))
+                                {
+                                    <div class="hint">@hit.CodeValue</div>
+                                }
+                                @if (!string.IsNullOrEmpty(hit.TextValue))
+                                {
+                                    <div class="hint">@hit.TextValue</div>
+                                }
+                            </td>
+                            <td>
+                                @if (hit.Origen == "pendiente")
+                                {
+                                    <span class="badge badge-warn">sin identificar</span>
+                                    <span class="hint">@hit.Occurrences aparición(es)</span>
+                                }
+                                else if (!hit.IsKnown)
+                                {
+                                    <span class="badge badge-danger">no registrado</span>
+                                }
+                                else if (!hit.IsAuthorized)
+                                {
+                                    <span class="badge badge-warn">sin autorización</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-ok">autorizado</span>
+                                }
+                            </td>
+                            <td>
+                                @if (hit.Origen == "pendiente")
+                                {
+                                    <a asp-page="/Pendientes">poner nombre</a>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-muted">histórico</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}

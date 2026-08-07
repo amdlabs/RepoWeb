@@ -6,6 +6,10 @@ public enum RecognitionKind
 {
     Face = 0,
     Plate = 1,
+    Object = 2,
+    Code = 3,
+    Text = 4,
+    Activity = 5,
 }
 
 public enum RecognitionSource
@@ -16,7 +20,7 @@ public enum RecognitionSource
     CameraEvent = 1,
 }
 
-/// <summary>Registro histórico de cada rostro o matrícula reconocidos.</summary>
+/// <summary>Registro histórico de todo lo que el sistema ha reconocido.</summary>
 public class RecognitionEvent
 {
     public long Id { get; set; }
@@ -48,7 +52,10 @@ public class RecognitionEvent
     public int? VehicleId { get; set; }
     public Vehicle? Vehicle { get; set; }
 
-    /// <summary>Texto mostrado: nombre de la persona o matrícula leída.</summary>
+    public int? KnownObjectId { get; set; }
+    public KnownObject? KnownObject { get; set; }
+
+    /// <summary>Texto mostrado: nombre de la persona, matrícula, clase del objeto…</summary>
     [MaxLength(200)]
     public string Label { get; set; } = "";
 
@@ -56,6 +63,31 @@ public class RecognitionEvent
     public string? PlateText { get; set; }
 
     public float? OcrConfidence { get; set; }
+
+    /// <summary>Clase del detector de objetos.</summary>
+    [MaxLength(80)]
+    public string? ObjectClass { get; set; }
+
+    /// <summary>Contenido del código QR o de barras.</summary>
+    [MaxLength(2000)]
+    public string? CodeValue { get; set; }
+
+    [MaxLength(40)]
+    public string? CodeFormat { get; set; }
+
+    /// <summary>Texto leído de la escena.</summary>
+    [MaxLength(2000)]
+    public string? TextValue { get; set; }
+
+    /// <summary>Tipo de actividad sospechosa (0 = ninguna).</summary>
+    public int ActivityKind { get; set; }
+
+    /// <summary>0 = informativa, 1 = aviso, 2 = crítica.</summary>
+    public int Severity { get; set; }
+
+    /// <summary>Explicación de por qué se disparó la alerta.</summary>
+    [MaxLength(500)]
+    public string? Explanation { get; set; }
 
     // Cuadrante dentro del fotograma
     public int BoxX { get; set; }

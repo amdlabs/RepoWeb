@@ -45,5 +45,10 @@ done
 
 echo
 echo "Modelos de rostros listos."
-echo "Faltan los de matrículas (detector YOLO y OCR CTC): consulte el README."
+echo
+echo "Los códigos QR y de barras ya funcionan: no necesitan modelo."
+echo "Faltan, y los aporta usted (consulte el README):"
+echo "  · matrículas: detector YOLO + OCR CTC"
+echo "  · objetos:    un YOLO entrenado en COCO (necesario para el análisis de actividad)"
+echo "  · texto:      detector DB + reconocedor CTC"
 echo "Después, en la web: Configuración -> Modelos -> Verificar modelos."

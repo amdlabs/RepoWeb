@@ -20,6 +20,7 @@ public sealed class CameraPipelineManager : IHostedService, IDisposable
     private readonly IConfigStore _config;
     private readonly RecognitionEngine _engine;
     private readonly EventRecorder _recorder;
+    private readonly PendingSubjectService _pending;
     private readonly KnownSubjectsIndex _index;
     private readonly DatabaseProvisioner _provisioner;
     private readonly FrameBroadcaster _broadcaster;
@@ -36,13 +37,15 @@ public sealed class CameraPipelineManager : IHostedService, IDisposable
     private DateTime _lastPurgeDate = DateTime.MinValue;
 
     public CameraPipelineManager(IConfigStore config, RecognitionEngine engine, EventRecorder recorder,
-                                 KnownSubjectsIndex index, DatabaseProvisioner provisioner,
-                                 FrameBroadcaster broadcaster, IEnumerable<IObservationSink> sinks,
+                                 PendingSubjectService pending, KnownSubjectsIndex index,
+                                 DatabaseProvisioner provisioner, FrameBroadcaster broadcaster,
+                                 IEnumerable<IObservationSink> sinks,
                                  ILoggerFactory loggerFactory, string contentRoot)
     {
         _config = config;
         _engine = engine;
         _recorder = recorder;
+        _pending = pending;
         _index = index;
         _provisioner = provisioner;
         _broadcaster = broadcaster;
@@ -59,6 +62,16 @@ public sealed class CameraPipelineManager : IHostedService, IDisposable
 
     public CameraStatus? GetStatus(Guid cameraId) =>
         _workers.TryGetValue(cameraId, out var running) ? running.Worker.Status : null;
+
+    /// <summary>Lo que cada cámara está viendo en este instante: base de <c>/api/ver</c>.</summary>
+    public IReadOnlyList<(CameraStatus Status, CameraConfig Camera, IReadOnlyList<Observation> Seeing)> Snapshot(Guid? cameraId = null)
+    {
+        return _workers.Values
+            .Where(w => cameraId is null || w.Worker.CameraId == cameraId)
+            .Select(w => (w.Worker.Status, w.Worker.Camera, w.Worker.CurrentObservations))
+            .OrderBy(x => x.Status.Name, StringComparer.CurrentCulture)
+            .ToList();
+    }
 
     public IReadOnlyList<Observation> GetRecentObservations(Guid? cameraId = null, int take = 40)
     {
@@ -179,8 +192,8 @@ public sealed class CameraPipelineManager : IHostedService, IDisposable
             {
                 var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
 
-                var worker = new CameraWorker(camera, _config, _engine, _recorder, _broadcaster, _sinks,
-                                              snapshotsRoot, _loggerFactory.CreateLogger<CameraWorker>());
+                var worker = new CameraWorker(camera, _config, _engine, _recorder, _pending, _broadcaster,
+                                              _sinks, snapshotsRoot, _loggerFactory.CreateLogger<CameraWorker>());
 
                 // Hilo dedicado: VideoCapture.Read es una llamada nativa bloqueante.
                 var task = Task.Factory.StartNew(
@@ -190,13 +203,12 @@ public sealed class CameraPipelineManager : IHostedService, IDisposable
                     TaskScheduler.Default).Unwrap();
 
                 Task? isapi = null;
-                if (camera.UseCameraAnprEvents)
+                if (camera.UseCameraAnprEvents && camera.Source == CameraSource.Ip)
                     isapi = Task.Run(() => ListenCameraAnprAsync(worker, camera, cts.Token), CancellationToken.None);
 
                 _workers[camera.Id] = new Running(worker, task, isapi, cts);
 
-                _logger.LogInformation("Cámara {Name} arrancada ({Url})", camera.Name,
-                                       camera.BuildRtspUrl(maskCredentials: true));
+                _logger.LogInformation("Cámara {Name} arrancada ({Source})", camera.Name, camera.DescribeSource());
             }
 
             if (_workers.IsEmpty)
@@ -216,9 +228,11 @@ public sealed class CameraPipelineManager : IHostedService, IDisposable
     /// </summary>
     private void ApplyFfmpegOptions()
     {
-        var useTcp = _config.Current.Cameras.Any(c => c.Enabled && c.UseTcpTransport);
-        var timeoutMicroseconds = Math.Max(5, _config.Current.Cameras
-            .Where(c => c.Enabled)
+        var ipCameras = _config.Current.Cameras.Where(c => c.Enabled && c.Source == CameraSource.Ip).ToList();
+        if (ipCameras.Count == 0) return;   // sólo hay cámaras USB: FFmpeg no interviene
+
+        var useTcp = ipCameras.Any(c => c.UseTcpTransport);
+        var timeoutMicroseconds = Math.Max(5, ipCameras
             .Select(c => c.ReadTimeoutSeconds)
             .DefaultIfEmpty(15)
             .Max()) * 1_000_000L;

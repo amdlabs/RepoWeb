@@ -25,6 +25,71 @@
             </div>
 
             <div class="field">
+                <label asp-for="Camera.Source">Origen</label>
+                <select asp-for="Camera.Source" asp-items="Html.GetEnumSelectList<CameraSource>()" id="camSource"></select>
+                <div class="hint">
+                    <b>Ip</b>: cámara de red por RTSP. <b>Usb</b>: webcam conectada al equipo donde corre la aplicación.
+                </div>
+            </div>
+
+            <div id="bloqueUsb">
+                <h3>Dispositivo USB</h3>
+                @if (Model.UsbCameras.Count > 0)
+                {
+                    <div class="field">
+                        <label for="usbPicker">Cámaras detectadas en este equipo</label>
+                        <select id="usbPicker">
+                            <option value="">— elegir de la lista —</option>
+                            @foreach (var device in Model.UsbCameras)
+                            {
+                                <option value="@device.Index" data-path="@device.DevicePath">@device.Display</option>
+                            }
+                        </select>
+                    </div>
+                }
+                else
+                {
+                    <div class="hint" style="margin-bottom:12px">
+                        No se ha detectado ninguna cámara USB en este equipo. Pulse «Buscar cámaras USB»
+                        o indique el índice a mano.
+                    </div>
+                }
+
+                <div class="grid grid-3">
+                    <div class="field">
+                        <label asp-for="Camera.DeviceIndex">Índice del dispositivo</label>
+                        <input asp-for="Camera.DeviceIndex" type="number" min="0" max="16" />
+                    </div>
+                    <div class="field">
+                        <label asp-for="Camera.DevicePath">Ruta (Linux)</label>
+                        <input asp-for="Camera.DevicePath" placeholder="/dev/video0" />
+                        <div class="hint">Más estable que el índice.</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-3">
+                    <div class="field">
+                        <label asp-for="Camera.CaptureWidth">Ancho de captura</label>
+                        <input asp-for="Camera.CaptureWidth" type="number" min="0" max="3840" />
+                    </div>
+                    <div class="field">
+                        <label asp-for="Camera.CaptureHeight">Alto de captura</label>
+                        <input asp-for="Camera.CaptureHeight" type="number" min="0" max="2160" />
+                    </div>
+                    <div class="field">
+                        <label asp-for="Camera.CaptureFps">Fps (0 = por defecto)</label>
+                        <input asp-for="Camera.CaptureFps" type="number" step="1" min="0" max="120" />
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button type="button" class="btn secondary" id="btnBuscarUsb">Buscar cámaras USB</button>
+                </div>
+                <div class="test-output" id="outUsb" hidden></div>
+            </div>
+
+            <div id="bloqueIp">
+            <div class="field">
                 <label asp-for="Camera.Vendor">Marca / protocolo</label>
                 <select asp-for="Camera.Vendor" asp-items="Html.GetEnumSelectList<CameraVendor>()"></select>
                 <div class="hint">
@@ -90,8 +155,10 @@
                 <div class="hint">Si se rellena, sustituye a todo lo anterior para el vídeo.</div>
             </div>
 
+            </div>
+
             <div class="actions">
-                <button type="button" class="btn secondary" id="btnProbarRtsp">Probar vídeo RTSP</button>
+                <button type="button" class="btn secondary" id="btnProbarRtsp">Probar vídeo</button>
                 <button type="button" class="btn secondary" id="btnProbarIsapi">Probar ISAPI</button>
             </div>
             <div class="test-output" id="outRtsp" hidden></div>
@@ -117,11 +184,35 @@
             </div>
 
             <div class="check">
+                <input asp-for="Camera.EnableObjectDetection" type="checkbox" />
+                <label asp-for="Camera.EnableObjectDetection">Detectar objetos (personas, animales, vehículos…)</label>
+            </div>
+
+            <div class="check">
+                <input asp-for="Camera.EnableCodeReading" type="checkbox" />
+                <label asp-for="Camera.EnableCodeReading">Leer códigos QR y de barras</label>
+            </div>
+
+            <div class="check">
+                <input asp-for="Camera.EnableTextReading" type="checkbox" />
+                <label asp-for="Camera.EnableTextReading">Leer texto y escritura de la escena</label>
+            </div>
+
+            <div class="check">
+                <input asp-for="Camera.EnableActivityAnalysis" type="checkbox" />
+                <label asp-for="Camera.EnableActivityAnalysis">Analizar actividad sospechosa</label>
+            </div>
+            <div class="hint" style="margin:-6px 0 14px">
+                Requiere la detección de objetos. Las reglas se ajustan en
+                <a asp-page="/Configuracion/Index">Configuración → Actividad</a>.
+            </div>
+
+            <div class="check">
                 <input asp-for="Camera.UseCameraAnprEvents" type="checkbox" />
                 <label asp-for="Camera.UseCameraAnprEvents">Escuchar el ANPR propio de la cámara (ISAPI)</label>
             </div>
             <div class="hint" style="margin:-6px 0 14px">
-                Sólo para modelos Hikvision con ANPR de fábrica. Se puede combinar con el OCR local.
+                Sólo para cámaras IP Hikvision con ANPR de fábrica. Se puede combinar con el OCR local.
             </div>
 
             <div class="grid grid-3">
@@ -162,6 +253,34 @@
                 <div class="field">
                     <label asp-for="Camera.RoiHeightPercent">Alto</label>
                     <input asp-for="Camera.RoiHeightPercent" type="number" step="1" min="1" max="100" />
+                </div>
+            </div>
+
+            <h3>Zona restringida (%)</h3>
+            <p class="hint" style="margin-top:-6px">
+                Si una persona o un animal entra aquí se genera una alerta de intrusión.
+                Se dibuja sobre el vídeo con un trazo discontinuo.
+            </p>
+            <div class="check">
+                <input asp-for="Camera.RestrictedZoneEnabled" type="checkbox" />
+                <label asp-for="Camera.RestrictedZoneEnabled">Vigilar una zona restringida</label>
+            </div>
+            <div class="grid grid-3">
+                <div class="field">
+                    <label asp-for="Camera.RestrictedXPercent">X</label>
+                    <input asp-for="Camera.RestrictedXPercent" type="number" step="1" min="0" max="99" />
+                </div>
+                <div class="field">
+                    <label asp-for="Camera.RestrictedYPercent">Y</label>
+                    <input asp-for="Camera.RestrictedYPercent" type="number" step="1" min="0" max="99" />
+                </div>
+                <div class="field">
+                    <label asp-for="Camera.RestrictedWidthPercent">Ancho</label>
+                    <input asp-for="Camera.RestrictedWidthPercent" type="number" step="1" min="1" max="100" />
+                </div>
+                <div class="field">
+                    <label asp-for="Camera.RestrictedHeightPercent">Alto</label>
+                    <input asp-for="Camera.RestrictedHeightPercent" type="number" step="1" min="1" max="100" />
                 </div>
             </div>
         </div>

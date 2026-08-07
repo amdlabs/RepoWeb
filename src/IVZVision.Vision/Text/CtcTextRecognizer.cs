@@ -5,44 +5,64 @@ using Microsoft.Extensions.Logging;
 using Microsoft.ML.OnnxRuntime;
 using OpenCvSharp;
 
-namespace IVZVision.Vision.Plates;
+namespace IVZVision.Vision.Text;
 
-public sealed record PlateReading(string Text, float Confidence);
+public sealed record TextReading(string Text, float Confidence);
+
+/// <summary>Parámetros de preproceso y decodificación de un reconocedor CRNN/CTC.</summary>
+public sealed record CtcOptions(
+    int InputHeight,
+    int InputWidth,
+    bool Grayscale,
+    float Mean,
+    float Std,
+    bool BlankFirst)
+{
+    public static CtcOptions ForPlates(ModelsConfig m) => new(
+        m.PlateOcrInputHeight, m.PlateOcrInputWidth, m.PlateOcrGrayscale,
+        m.PlateOcrMean, m.PlateOcrStd, m.PlateOcrBlankFirst);
+
+    public static CtcOptions ForText(ModelsConfig m) => new(
+        m.TextRecognizerInputHeight, m.TextRecognizerInputWidth, m.TextRecognizerGrayscale,
+        m.TextRecognizerMean, m.TextRecognizerStd, m.TextRecognizerBlankFirst);
+}
 
 /// <summary>
-/// OCR de matrículas basado en un reconocedor de texto CRNN con decodificación CTC
-/// (compatible con los modelos <c>rec</c> de PP-OCR y con CRNN genéricos).
-/// El diccionario se carga de un fichero de texto con un carácter por línea.
+/// Reconocedor de texto CRNN con decodificación CTC. Vale tanto para matrículas como
+/// para escritura general: la diferencia está en el modelo y el diccionario que se
+/// le pasen. Compatible con los modelos <c>rec</c> de PP-OCR y con CRNN genéricos.
 /// </summary>
-public sealed class CtcPlateOcr : IDisposable
+public sealed class CtcTextRecognizer : IDisposable
 {
     private readonly InferenceSession _session;
     private readonly string _inputName;
     private readonly string[] _charset;
-    private readonly ModelsConfig _models;
+    private readonly CtcOptions _options;
     private readonly ILogger _logger;
 
-    public CtcPlateOcr(string modelPath, string charsetPath, ModelsConfig models, ILogger logger)
+    public CtcTextRecognizer(string modelPath, string charsetPath, CtcOptions options,
+                             ModelsConfig models, ILogger logger)
     {
-        _models = models;
+        _options = options;
         _logger = logger;
         _session = OnnxSessionFactory.Create(modelPath, models, logger);
         _inputName = _session.InputMetadata.Keys.First();
         _charset = LoadCharset(charsetPath);
 
-        _logger.LogInformation("OCR de matrículas cargado desde {Path} ({Count} caracteres)", modelPath, _charset.Length);
+        _logger.LogInformation("Reconocedor de texto cargado desde {Path} ({Count} caracteres)",
+            modelPath, _charset.Length);
     }
 
-    public PlateReading Read(Mat plateBgr)
+    public TextReading Read(Mat imageBgr)
     {
-        if (plateBgr.Width < 4 || plateBgr.Height < 4)
-            return new PlateReading("", 0);
+        if (imageBgr.Width < 4 || imageBgr.Height < 4)
+            return new TextReading("", 0);
 
-        using var prepared = Preprocess(plateBgr);
+        using var prepared = Preprocess(imageBgr);
 
-        var tensor = _models.PlateOcrGrayscale
-            ? OnnxSessionFactory.ToGrayTensor(prepared, 1f / 255f, _models.PlateOcrMean, _models.PlateOcrStd)
-            : OnnxSessionFactory.ToTensor(prepared, swapRb: true, 1f / 255f, _models.PlateOcrMean, _models.PlateOcrStd);
+        var tensor = _options.Grayscale
+            ? OnnxSessionFactory.ToGrayTensor(prepared, 1f / 255f, _options.Mean, _options.Std)
+            : OnnxSessionFactory.ToTensor(prepared, swapRb: true, 1f / 255f, _options.Mean, _options.Std);
 
         using var results = _session.Run(new[] { NamedOnnxValue.CreateFromTensor(_inputName, tensor) });
 
@@ -50,28 +70,26 @@ public sealed class CtcPlateOcr : IDisposable
         var shape = output.AsTensor<float>().Dimensions.ToArray();
         var data = output.AsEnumerable<float>().ToArray();
 
-        // Se espera [1, T, C] (PP-OCR) o [T, 1, C] (CRNN clásico).
-        var (steps, classes, timeMajor) = shape.Length switch
+        // Se espera [1, T, C] (PP-OCR) o [T, 1, C] (CRNN clásico); ambos comparten la
+        // misma disposición lineal (t * C + c), así que el decodificador es el mismo.
+        var (steps, classes) = shape.Length switch
         {
-            3 when shape[0] == 1 => (shape[1], shape[2], false),
-            3 => (shape[0], shape[2], true),
-            2 => (shape[0], shape[1], false),
+            3 when shape[0] == 1 => (shape[1], shape[2]),
+            3 => (shape[0], shape[2]),
+            2 => (shape[0], shape[1]),
             _ => throw new InvalidOperationException(
                     $"Salida de OCR no soportada [{string.Join(",", shape)}]."),
         };
 
-        // [1, T, C] y [T, 1, C] comparten la misma disposición lineal (t * C + c),
-        // así que el decodificador es el mismo en ambos casos.
-        _ = timeMajor;
         return GreedyDecode(data, steps, classes);
     }
 
-    private Mat Preprocess(Mat plateBgr)
+    private Mat Preprocess(Mat imageBgr)
     {
-        var targetH = _models.PlateOcrInputHeight > 0 ? _models.PlateOcrInputHeight : 48;
-        var targetW = _models.PlateOcrInputWidth > 0 ? _models.PlateOcrInputWidth : 320;
+        var targetH = _options.InputHeight > 0 ? _options.InputHeight : 48;
+        var targetW = _options.InputWidth > 0 ? _options.InputWidth : 320;
 
-        using var source = _models.PlateOcrGrayscale ? ToGray(plateBgr) : plateBgr.Clone();
+        using var source = _options.Grayscale ? ToGray(imageBgr) : imageBgr.Clone();
 
         // Se conserva la relación de aspecto y se rellena por la derecha, como PaddleOCR.
         var ratio = (double)source.Width / source.Height;
@@ -94,7 +112,7 @@ public sealed class CtcPlateOcr : IDisposable
         return gray;
     }
 
-    private PlateReading GreedyDecode(float[] data, int steps, int classes)
+    private TextReading GreedyDecode(float[] data, int steps, int classes)
     {
         var sb = new StringBuilder();
         double confidenceSum = 0;
@@ -121,7 +139,7 @@ public sealed class CtcPlateOcr : IDisposable
                 if (probs[c] > bestProb) { bestProb = probs[c]; bestIndex = c; }
             }
 
-            var isBlank = _models.PlateOcrBlankFirst ? bestIndex == 0 : bestIndex == classes - 1;
+            var isBlank = _options.BlankFirst ? bestIndex == 0 : bestIndex == classes - 1;
 
             if (!isBlank && bestIndex != previousIndex)
             {
@@ -138,12 +156,12 @@ public sealed class CtcPlateOcr : IDisposable
         }
 
         var confidence = kept == 0 ? 0f : (float)(confidenceSum / kept);
-        return new PlateReading(sb.ToString(), confidence);
+        return new TextReading(sb.ToString(), confidence);
     }
 
     private string? MapCharacter(int index)
     {
-        var charIndex = _models.PlateOcrBlankFirst ? index - 1 : index;
+        var charIndex = _options.BlankFirst ? index - 1 : index;
         if (charIndex < 0 || charIndex >= _charset.Length) return null;
 
         var value = _charset[charIndex];

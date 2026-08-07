@@ -7,7 +7,7 @@
 <h1>Vigilancia en directo</h1>
 <p class="subtitle">Vídeo con los objetos identificados, rostros reconocidos y matrículas leídas en tiempo real.</p>
 
-@if (!Model.Models.FacesAvailable || !Model.Models.PlatesAvailable)
+@if (!Model.Models.FacesAvailable || !Model.Models.PlatesAvailable || !Model.Models.ObjectsAvailable || !Model.Models.TextAvailable)
 {
     <div class="alert alert-info">
         @if (!Model.Models.FacesAvailable)
@@ -17,6 +17,14 @@
         @if (!Model.Models.PlatesAvailable)
         {
             <div><b>Lectura de matrículas no disponible:</b> @(Model.Models.PlateError ?? "modelos sin cargar").</div>
+        }
+        @if (!Model.Models.ObjectsAvailable)
+        {
+            <div><b>Detección de objetos y actividad no disponible:</b> @(Model.Models.ObjectError ?? "modelos sin cargar").</div>
+        }
+        @if (!Model.Models.TextAvailable)
+        {
+            <div><b>Lectura de texto no disponible:</b> @(Model.Models.TextError ?? "modelos sin cargar").</div>
         }
         <div>Revise las rutas en <a asp-page="/Configuracion/Index">Configuración → Modelos</a>.</div>
     </div>
@@ -32,11 +40,15 @@
 }
 else
 {
-    <div class="cam-tabs" id="camTabs">
-        @foreach (var cam in Model.Cameras)
-        {
-            <button type="button" class="cam-tab" data-camera="@cam.Id">@cam.Name</button>
-        }
+    <div class="cam-picker">
+        <label for="camSelect">Cámara</label>
+        <select id="camSelect">
+            @foreach (var cam in Model.Cameras)
+            {
+                <option value="@cam.Id">@cam.Name — @cam.DescribeSource()</option>
+            }
+        </select>
+        <span class="hint" id="camKinds"></span>
     </div>
 
     <div class="grid grid-live">
@@ -54,6 +66,10 @@ else
         </div>
 
         <div>
+            <div class="card alerts-card">
+                <h3>Alertas de actividad</h3>
+                <div class="feed" id="feedAlerts"></div>
+            </div>
             <div class="card">
                 <h3>Rostros</h3>
                 <div class="feed" id="feedFaces"></div>
@@ -61,6 +77,10 @@ else
             <div class="card">
                 <h3>Matrículas</h3>
                 <div class="feed" id="feedPlates"></div>
+            </div>
+            <div class="card">
+                <h3>Objetos, códigos y texto</h3>
+                <div class="feed" id="feedOthers"></div>
             </div>
         </div>
     </div>
@@ -71,7 +91,20 @@ else
     <script>
         window.IVZ = {
             camaras: @Html.Raw(WebJson.Serialize(
-                Model.Cameras.Select(c => new { id = c.Id.ToString(), nombre = c.Name }))),
+                Model.Cameras.Select(c => new {
+                    id = c.Id.ToString(),
+                    nombre = c.Name,
+                    origen = c.DescribeSource(),
+                    usb = c.IsUsb,
+                    reconoce = new {
+                        rostros = c.EnableFaceRecognition,
+                        matriculas = c.EnablePlateRecognition,
+                        objetos = c.EnableObjectDetection,
+                        codigos = c.EnableCodeReading,
+                        texto = c.EnableTextReading,
+                        actividad = c.EnableActivityAnalysis
+                    }
+                }))),
             estados: @Html.Raw(WebJson.Serialize(
                 Model.Statuses.Select(s => new CameraStatusDto(
                     s.CameraId.ToString(), s.Name, s.Connected, s.State, s.LastError,

@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\IVZVision.Core\IVZVision.Core.csproj" />
+    <ProjectReference Include="..\..\src\IVZVision.Data\IVZVision.Data.csproj" />
     <ProjectReference Include="..\..\src\IVZVision.Vision\IVZVision.Vision.csproj" />
   </ItemGroup>
 

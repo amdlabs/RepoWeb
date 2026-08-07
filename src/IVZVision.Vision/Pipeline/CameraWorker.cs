@@ -3,6 +3,8 @@ using IVZVision.Core.Configuration;
 using IVZVision.Core.Detection;
 using IVZVision.Data;
 using IVZVision.Data.Entities;
+using IVZVision.Vision.Activity;
+using IVZVision.Vision.Capture;
 using IVZVision.Vision.Drawing;
 using IVZVision.Vision.Engine;
 using IVZVision.Vision.Imaging;
@@ -12,9 +14,10 @@ using OpenCvSharp;
 namespace IVZVision.Vision.Pipeline;
 
 /// <summary>
-/// Procesa una cámara de principio a fin: abre el RTSP, reconecta si se cae,
-/// analiza fotogramas al ritmo configurado, dibuja los cuadrantes, publica el
-/// vídeo anotado y registra los reconocimientos en la base de datos.
+/// Procesa una cámara de principio a fin: abre el origen (RTSP o USB), reconecta si
+/// se cae, analiza fotogramas al ritmo configurado, sigue los objetos, aplica las
+/// reglas de actividad, dibuja los cuadrantes, publica el vídeo anotado y registra
+/// los reconocimientos en la base de datos.
 /// </summary>
 public sealed class CameraWorker
 {
@@ -22,25 +25,30 @@ public sealed class CameraWorker
     private readonly IConfigStore _config;
     private readonly RecognitionEngine _engine;
     private readonly EventRecorder _recorder;
+    private readonly PendingSubjectService _pending;
     private readonly FrameBroadcaster _broadcaster;
     private readonly IReadOnlyList<IObservationSink> _sinks;
     private readonly string _snapshotsRoot;
     private readonly ILogger _logger;
 
+    private readonly ObjectTracker _tracker = new();
+    private readonly ActivityAnalyzer _analyzer = new();
     private readonly Dictionary<string, PlateTrack> _plateTracks = new(StringComparer.Ordinal);
     private readonly List<Observation> _recent = new();
     private readonly object _recentGate = new();
 
     private IReadOnlyList<Observation> _overlay = Array.Empty<Observation>();
+    private BoxF? _restrictedZone;
 
     public CameraWorker(CameraConfig camera, IConfigStore config, RecognitionEngine engine,
-                        EventRecorder recorder, FrameBroadcaster broadcaster,
+                        EventRecorder recorder, PendingSubjectService pending, FrameBroadcaster broadcaster,
                         IEnumerable<IObservationSink> sinks, string snapshotsRoot, ILogger logger)
     {
         _camera = camera;
         _config = config;
         _engine = engine;
         _recorder = recorder;
+        _pending = pending;
         _broadcaster = broadcaster;
         _sinks = sinks.ToList();
         _snapshotsRoot = snapshotsRoot;
@@ -51,7 +59,7 @@ public sealed class CameraWorker
             CameraId = camera.Id,
             Name = camera.Name,
             Enabled = camera.Enabled,
-            RtspUrlMasked = camera.BuildRtspUrl(maskCredentials: true),
+            SourceDescription = camera.DescribeSource(),
             State = "Iniciando",
         };
     }
@@ -60,7 +68,12 @@ public sealed class CameraWorker
 
     public Guid CameraId => _camera.Id;
 
-    /// <summary>Últimas detecciones publicadas, para rellenar el panel al abrir la web.</summary>
+    public CameraConfig Camera => _camera;
+
+    /// <summary>Lo que la cámara está viendo ahora mismo. Es la respuesta de <c>/api/ver</c>.</summary>
+    public IReadOnlyList<Observation> CurrentObservations => _overlay;
+
+    /// <summary>Últimas detecciones registradas, para rellenar el panel al abrir la web.</summary>
     public IReadOnlyList<Observation> RecentObservations
     {
         get { lock (_recentGate) return _recent.ToList(); }
@@ -103,30 +116,27 @@ public sealed class CameraWorker
 
         Status.Connected = false;
         Status.State = "Detenida";
+        _overlay = Array.Empty<Observation>();
         await NotifyStatusAsync(CancellationToken.None).ConfigureAwait(false);
     }
 
     private async Task RunSessionAsync(CancellationToken ct)
     {
-        var url = _camera.BuildRtspUrl();
-
         Status.State = "Conectando";
         Status.LastError = null;
         await NotifyStatusAsync(ct).ConfigureAwait(false);
 
-        using var capture = new VideoCapture(url, VideoCaptureAPIs.FFMPEG);
+        using var capture = CameraSourceFactory.Open(_camera, _logger);
 
         if (!capture.IsOpened())
-            throw new IOException($"No se pudo abrir el flujo RTSP {_camera.BuildRtspUrl(maskCredentials: true)}. " +
-                                  "Compruebe IP, puerto, usuario, contraseña y que el canal exista.");
+            throw new IOException(CameraSourceFactory.DescribeOpenFailure(_camera));
 
-        // Búfer mínimo: interesa el fotograma más reciente, no el histórico.
-        capture.Set(VideoCaptureProperties.BufferSize, 1);
+        _tracker.Reset();
 
         Status.Connected = true;
         Status.State = "En directo";
         await NotifyStatusAsync(ct).ConfigureAwait(false);
-        _logger.LogInformation("Cámara {Name}: conectada", _camera.Name);
+        _logger.LogInformation("Cámara {Name}: conectada ({Source})", _camera.Name, _camera.DescribeSource());
 
         var frame = new Mat();
         var analysisClock = Stopwatch.StartNew();
@@ -162,6 +172,8 @@ public sealed class CameraWorker
                 Status.LastFrameAt = lastFrameAt;
                 Status.FrameWidth = frame.Width;
                 Status.FrameHeight = frame.Height;
+
+                _restrictedZone ??= ActivityAnalyzer.ResolveRestrictedZone(_camera, frame.Width, frame.Height);
 
                 framesInWindow++;
                 if (fpsClock.Elapsed.TotalSeconds >= 2)
@@ -203,6 +215,8 @@ public sealed class CameraWorker
 
         if (rec.DrawOverlay)
         {
+            if (_restrictedZone is BoxF zone) Annotator.DrawRestrictedZone(canvas, zone);
+
             var overlay = _overlay;
             if (overlay.Count > 0) Annotator.Draw(canvas, overlay);
         }
@@ -242,14 +256,60 @@ public sealed class CameraWorker
                 DetectionScore = item.Score,
                 PlateText = item.PlateText,
                 OcrConfidence = item.OcrConfidence,
+                ObjectClass = item.ObjectClass,
+                CodeValue = item.CodeValue,
+                CodeFormat = item.CodeFormat,
+                TextValue = item.TextValue,
+                Embedding = item.Embedding,
                 Match = item.Match,
             });
         }
+
+        if (_camera.EnableActivityAnalysis)
+            observations.AddRange(EvaluateActivity(observations, frame.Width, frame.Height));
 
         _overlay = observations;
 
         foreach (var obs in observations)
             await MaybeRegisterAsync(frame, obs, rec, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Sigue a los objetos entre fotogramas y aplica las reglas de comportamiento.</summary>
+    private IReadOnlyList<Observation> EvaluateActivity(List<Observation> observations, int frameWidth, int frameHeight)
+    {
+        var now = DateTimeOffset.Now;
+        var activityConfig = _config.Current.Activity;
+
+        var detections = observations
+            .Where(o => o.Kind == ObservationKind.Object && o.ObjectClass is not null)
+            .Select(o => (o.Box, o.DetectionScore, ClassName: o.ObjectClass!))
+            .ToList();
+
+        var faces = observations
+            .Where(o => o.Kind == ObservationKind.Face)
+            .Select(o => o.Box)
+            .ToList();
+
+        var tracks = _tracker.Update(detections, now, activityConfig);
+
+        var zone = _restrictedZone ?? ActivityAnalyzer.ResolveRestrictedZone(_camera, frameWidth, frameHeight);
+        var alerts = _analyzer.Evaluate(tracks, faces, zone, frameWidth, now, activityConfig);
+
+        return alerts.Select(alert => new Observation
+        {
+            Kind = ObservationKind.Activity,
+            CameraId = _camera.Id,
+            CameraName = _camera.Name,
+            Timestamp = now,
+            Box = alert.Box,
+            DetectionScore = 1f,
+            Activity = alert.Kind,
+            Severity = alert.Severity,
+            Explanation = alert.Explanation,
+            TrackId = alert.TrackId,
+            ObjectClass = alert.ClassName,
+            Match = IdentityMatch.Unknown,
+        }).ToList();
     }
 
     private async Task MaybeRegisterAsync(Mat frame, Observation obs, RecognitionConfig rec, CancellationToken ct)
@@ -260,12 +320,24 @@ public sealed class CameraWorker
             if (!IsPlateConfirmed(obs.PlateText, rec)) return;    // aún no hay lecturas suficientes
         }
 
-        if (!obs.Match.IsKnown && !rec.RegisterUnknown) return;
+        // Un objeto desconocido y corriente no merece una fila por fotograma; sólo
+        // se registran los reconocidos y los que van a la lista de aprendizaje.
+        if (obs.Kind == ObservationKind.Object && !obs.Match.IsKnown
+            && !rec.RegisterUnknown && !rec.QueueUnknownForLearning) return;
+
+        if (!obs.Match.IsKnown && obs.Kind is ObservationKind.Face or ObservationKind.Plate or ObservationKind.Object
+            && !rec.RegisterUnknown && !rec.QueueUnknownForLearning) return;
+
         if (_recorder.IsThrottled(obs)) return;
 
         AttachCrop(frame, obs, rec);
 
         await _recorder.RecordAsync(obs, RecognitionSource.Local, ct).ConfigureAwait(false);
+
+        // Lo que no se ha sabido identificar pasa a la lista de pendientes: cuando
+        // alguien le ponga nombre, el sistema lo reconocerá a partir de ese momento.
+        if (!obs.Match.IsKnown)
+            await _pending.CaptureAsync(obs, ct).ConfigureAwait(false);
 
         TrimRecent(obs, Math.Max(5, rec.RecentDetectionsBuffer));
 
@@ -289,14 +361,21 @@ public sealed class CameraWorker
     /// <summary>Recorta el sujeto del fotograma para el panel de la web y, si procede, lo guarda en disco.</summary>
     private void AttachCrop(Mat frame, Observation obs, RecognitionConfig rec)
     {
-        var margin = obs.Kind == ObservationKind.Face ? 0.25f : 0.10f;
+        var margin = obs.Kind switch
+        {
+            ObservationKind.Face => 0.25f,
+            ObservationKind.Plate => 0.10f,
+            ObservationKind.Text => 0.15f,
+            _ => 0.05f,
+        };
 
         using var crop = ImageOps.SafeCrop(frame, obs.Box.Expand(margin, frame.Width, frame.Height));
         if (crop is null) return;
 
         try
         {
-            using var thumb = Thumbnail(crop, obs.Kind == ObservationKind.Face ? 180 : 320);
+            var maxSide = obs.Kind == ObservationKind.Face ? 180 : 320;
+            using var thumb = Thumbnail(crop, maxSide);
             var jpeg = ImageOps.EncodeJpeg(thumb, 85);
             obs.CropJpegBase64 = Convert.ToBase64String(jpeg);
 
@@ -412,6 +491,9 @@ public sealed class CameraWorker
         if (_recorder.IsThrottled(obs)) return;
 
         await _recorder.RecordAsync(obs, RecognitionSource.CameraEvent, ct).ConfigureAwait(false);
+
+        if (!obs.Match.IsKnown)
+            await _pending.CaptureAsync(obs, ct).ConfigureAwait(false);
 
         TrimRecent(obs, Math.Max(5, _config.Current.Recognition.RecentDetectionsBuffer));
 

@@ -1,10 +1,12 @@
 using System.Diagnostics;
 using IVZVision.Core.Configuration;
 using IVZVision.Data;
+using IVZVision.Vision.Capture;
 using IVZVision.Vision.Imaging;
 using IVZVision.Vision.Faces;
 using IVZVision.Vision.Isapi;
-using IVZVision.Vision.Plates;
+using IVZVision.Vision.Objects;
+using IVZVision.Vision.Text;
 using OpenCvSharp;
 
 namespace IVZVision.Web.Services;
@@ -26,24 +28,25 @@ public sealed class DiagnosticsService
     public Task<DatabaseCheckResult> TestDatabaseAsync(DatabaseConfig db, CancellationToken ct)
         => DatabaseProvisioner.TestAsync(db, ct);
 
-    /// <summary>Abre el RTSP, captura un fotograma y lo devuelve como vista previa.</summary>
+    /// <summary>Abre la cámara (RTSP o USB), captura un fotograma y lo devuelve como vista previa.</summary>
     public async Task<TestResult> TestRtspAsync(CameraConfig camera, CancellationToken ct)
     {
-        var masked = camera.BuildRtspUrl(maskCredentials: true);
+        var source = camera.DescribeSource();
 
         return await Task.Run(() =>
         {
             try
             {
-                // La prueba usa siempre TCP: es el transporte fiable para diagnosticar.
-                Environment.SetEnvironmentVariable("OPENCV_FFMPEG_CAPTURE_OPTIONS",
-                    "rtsp_transport;tcp|stimeout;8000000");
+                // Para la prueba se fuerza TCP: es el transporte fiable para diagnosticar.
+                if (camera.Source == CameraSource.Ip)
+                {
+                    Environment.SetEnvironmentVariable("OPENCV_FFMPEG_CAPTURE_OPTIONS",
+                        "rtsp_transport;tcp|stimeout;8000000");
+                }
 
-                using var capture = new VideoCapture(camera.BuildRtspUrl(), VideoCaptureAPIs.FFMPEG);
+                using var capture = CameraSourceFactory.Open(camera, _logger);
                 if (!capture.IsOpened())
-                    return new TestResult(false,
-                        $"No se pudo abrir {masked}. Revise IP/puerto, usuario y contraseña, " +
-                        "y que el canal y el perfil existan en la cámara.");
+                    return new TestResult(false, CameraSourceFactory.DescribeOpenFailure(camera));
 
                 using var frame = new Mat();
                 var stopwatch = Stopwatch.StartNew();
@@ -61,11 +64,11 @@ public sealed class DiagnosticsService
                     }
                 }
 
-                return new TestResult(false, "Se abrió el flujo pero no llegó ningún fotograma en 10 segundos.");
+                return new TestResult(false, "Se abrió el origen pero no llegó ningún fotograma en 10 segundos.");
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Prueba RTSP fallida para {Url}", masked);
+                _logger.LogWarning(ex, "Prueba de captura fallida para {Source}", source);
                 return new TestResult(false, $"Error al conectar: {ex.Message}");
             }
         }, ct).ConfigureAwait(false);
@@ -101,18 +104,53 @@ public sealed class DiagnosticsService
 
         var plates = TryLoad(lines, "Lectura de matrículas", () =>
         {
-            using var detector = new YoloPlateDetector(
-                models.Resolve(models.PlateDetectorPath, _environment.ContentRootPath), models, _logger);
-            using var ocr = new CtcPlateOcr(
+            using var detector = new YoloDetector(
+                models.Resolve(models.PlateDetectorPath, _environment.ContentRootPath),
+                models.PlateDetectorInputSize, classNamesPath: null, models, _logger);
+            using var ocr = new CtcTextRecognizer(
                 models.Resolve(models.PlateOcrPath, _environment.ContentRootPath),
-                models.Resolve(models.PlateOcrCharsetPath, _environment.ContentRootPath), models, _logger);
+                models.Resolve(models.PlateOcrCharsetPath, _environment.ContentRootPath),
+                CtcOptions.ForPlates(models), models, _logger);
         });
 
+        var objects = TryLoad(lines, "Detección de objetos", () =>
+        {
+            using var detector = new YoloDetector(
+                models.Resolve(models.ObjectDetectorPath, _environment.ContentRootPath),
+                models.ObjectDetectorInputSize,
+                models.Resolve(models.ObjectClassesPath, _environment.ContentRootPath), models, _logger);
+            lines.Add($"       {detector.ClassNames.Count} clases disponibles.");
+        });
+
+        if (!string.IsNullOrWhiteSpace(models.ObjectEmbedderPath))
+        {
+            TryLoad(lines, "Características de objetos", () =>
+            {
+                using var embedder = new ObjectEmbedder(
+                    models.Resolve(models.ObjectEmbedderPath, _environment.ContentRootPath), models, _logger);
+            });
+        }
+        else
+        {
+            lines.Add("--  Características de objetos: sin configurar (los objetos no se reconocerán por su apariencia).");
+        }
+
+        var text = TryLoad(lines, "Lectura de texto", () =>
+        {
+            using var detector = new DbTextDetector(
+                models.Resolve(models.TextDetectorPath, _environment.ContentRootPath), models, _logger);
+            using var recognizer = new CtcTextRecognizer(
+                models.Resolve(models.TextRecognizerPath, _environment.ContentRootPath),
+                models.Resolve(models.TextCharsetPath, _environment.ContentRootPath),
+                CtcOptions.ForText(models), models, _logger);
+        });
+
+        lines.Add("OK · Códigos QR y de barras: siempre disponibles (no necesitan modelo).");
         lines.Add("");
         lines.Add($"Proveedor de ejecución: {models.ExecutionProvider}");
         lines.Add($"Carpeta de modelos: {models.Resolve(".", _environment.ContentRootPath)}");
 
-        return new TestResult(faces || plates, string.Join('\n', lines));
+        return new TestResult(faces || plates || objects || text, string.Join('\n', lines));
     }
 
     private bool TryLoad(List<string> lines, string label, Action load)

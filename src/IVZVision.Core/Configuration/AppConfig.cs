@@ -16,6 +16,10 @@ public sealed class AppConfig
 
     public StorageConfig Storage { get; set; } = new();
 
+    public ActivityConfig Activity { get; set; } = new();
+
+    public ApiConfig Api { get; set; } = new();
+
     /// <summary>Marca de la última modificación, útil para saber si hay que reiniciar el pipeline.</summary>
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 

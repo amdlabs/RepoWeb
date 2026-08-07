@@ -27,6 +27,8 @@ public class IndexModel : PageModel
     [BindProperty] public ModelsConfig Models { get; set; } = new();
     [BindProperty] public RecognitionConfig Recognition { get; set; } = new();
     [BindProperty] public StorageConfig Storage { get; set; } = new();
+    [BindProperty] public ActivityConfig Activity { get; set; } = new();
+    [BindProperty] public ApiConfig Api { get; set; } = new();
 
     public ModelStatus ModelStatus { get; private set; } = new();
     public string SettingsPath => _config.FilePath;
@@ -41,6 +43,8 @@ public class IndexModel : PageModel
         Models = current.Models;
         Recognition = current.Recognition;
         Storage = current.Storage;
+        Activity = current.Activity;
+        Api = current.Api;
         ModelStatus = _engine.Status;
     }
 
@@ -58,9 +62,51 @@ public class IndexModel : PageModel
             cfg.Models = Models;
             cfg.Recognition = Recognition;
             cfg.Storage = Storage;
+            cfg.Activity = Activity;
+
+            // Los tokens se administran con sus propios botones: el formulario general
+            // no debe borrarlos ni reescribir sus valores.
+            cfg.Api.RestEnabled = Api.RestEnabled;
+            cfg.Api.McpEnabled = Api.McpEnabled;
+            cfg.Api.McpRequiresToken = Api.McpRequiresToken;
+            cfg.Api.RequestsPerMinute = Api.RequestsPerMinute;
         });
 
         TempData["Ok"] = "Configuración guardada. Los modelos y las cámaras se están reiniciando con los nuevos valores.";
+        return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostCrearTokenAsync(string nombre)
+    {
+        var token = new ApiToken
+        {
+            Name = string.IsNullOrWhiteSpace(nombre) ? "Integración" : nombre.Trim(),
+            Value = ApiToken.GenerateValue(),
+        };
+
+        await _config.UpdateAsync(cfg => cfg.Api.Tokens.Add(token));
+
+        // Es la única vez que se muestra completo: después sólo se ven los últimos caracteres.
+        TempData["Ok"] = $"Token «{token.Name}» creado. Cópielo ahora, no se volverá a mostrar entero: {token.Value}";
+        return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostBorrarTokenAsync(string id)
+    {
+        await _config.UpdateAsync(cfg => cfg.Api.Tokens.RemoveAll(t => t.Id == id));
+        TempData["Ok"] = "Token eliminado.";
+        return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostAlternarTokenAsync(string id)
+    {
+        await _config.UpdateAsync(cfg =>
+        {
+            var token = cfg.Api.Tokens.FirstOrDefault(t => t.Id == id);
+            if (token is not null) token.Enabled = !token.Enabled;
+        });
+
+        TempData["Ok"] = "Token actualizado.";
         return RedirectToPage();
     }
 

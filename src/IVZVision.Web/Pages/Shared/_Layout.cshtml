@@ -19,6 +19,14 @@
         </a>
         <nav class="nav">
             <a asp-page="/Directo" class="@(Active("/Directo") ? "active" : "")">Directo</a>
+            <a asp-page="/Pendientes" class="@(Active("/Pendientes") ? "active" : "")">
+                Sin identificar
+                @if (ViewData["Pendientes"] is int pendientes && pendientes > 0)
+                {
+                    <span class="badge badge-warn">@pendientes</span>
+                }
+            </a>
+            <a asp-page="/Buscar" class="@(Active("/Buscar") ? "active" : "")">Buscar</a>
             <a asp-page="/Personas" class="@(Active("/Personas") ? "active" : "")">Personas</a>
             <a asp-page="/Vehiculos" class="@(Active("/Vehiculos") ? "active" : "")">Vehículos</a>
             <a asp-page="/Eventos" class="@(Active("/Eventos") ? "active" : "")">Eventos</a>
