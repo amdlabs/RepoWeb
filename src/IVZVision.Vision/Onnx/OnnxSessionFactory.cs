@@ -33,6 +33,9 @@ public static class OnnxSessionFactory
                     options.AppendExecutionProvider_CUDA(cfg.GpuDeviceId);
                     break;
                 case ExecutionProviderKind.DirectMl:
+                    // Requisitos del proveedor DirectML según la documentación de ONNX Runtime.
+                    options.EnableMemoryPattern = false;
+                    options.ExecutionMode = ExecutionMode.ORT_SEQUENTIAL;
                     options.AppendExecutionProvider_DML(cfg.GpuDeviceId);
                     break;
             }

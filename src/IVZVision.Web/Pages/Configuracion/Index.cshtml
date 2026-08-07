@@ -319,6 +319,17 @@
                 </div>
             </div>
 
+            <h3>Seguridad de la API</h3>
+            <div class="field">
+                <label asp-for="Security.ApiKey">Clave de la API (cabecera X-Api-Key)</label>
+                <input asp-for="Security.ApiKey" autocomplete="off" />
+                <div class="hint">
+                    Para integraciones externas con <code>/api/camaras</code>. Los usuarios con sesión no
+                    la necesitan. Vacía = la API sólo responde a sesiones iniciadas (recomendado si el
+                    sitio es público). Se guarda cifrada.
+                </div>
+            </div>
+
             <h3>Estado actual</h3>
             <div class="kv"><span>Plantillas faciales cargadas</span><span>@Model.KnownFaces</span></div>
             <div class="kv"><span>Matrículas registradas</span><span>@Model.KnownPlates</span></div>

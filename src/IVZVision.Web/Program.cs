@@ -148,7 +148,17 @@ builder.Services.AddSwaggerGen(options =>
         Title = "IVZ Vision API",
         Version = "v1",
         Description = "API JSON para integraciones: lista de cámaras configuradas y " +
-                      "detecciones (objetos, rostros y matrículas) de cada cámara.",
+                      "detecciones (objetos, rostros y matrículas) de cada cámara. " +
+                      "Autenticación: sesión del navegador o cabecera X-Api-Key " +
+                      "(clave definida en Configuración → Seguridad de la API).",
+    });
+
+    options.AddSecurityDefinition("ApiKey", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Name = "X-Api-Key",
+        Description = "Clave de la API definida en Configuración → Seguridad de la API.",
     });
 });
 
@@ -158,6 +168,14 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
 }
+
+// Tras un proxy inverso con HTTPS (Caddy, nginx, IIS) la aplicación debe ver el
+// esquema y la IP reales del cliente. Sólo se confía en proxies de la propia máquina.
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor
+                     | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto,
+});
 
 app.UseStaticFiles();
 app.UseRouting();

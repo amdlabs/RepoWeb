@@ -60,6 +60,7 @@ public static class SecretProtector
     public static void ProtectSecrets(AppConfig config)
     {
         config.Database.Password = Protect(config.Database.Password);
+        config.Security.ApiKey = Protect(config.Security.ApiKey);
         foreach (var camera in config.Cameras)
             camera.Password = Protect(camera.Password);
     }
@@ -68,6 +69,7 @@ public static class SecretProtector
     public static void UnprotectSecrets(AppConfig config)
     {
         config.Database.Password = Unprotect(config.Database.Password);
+        config.Security.ApiKey = Unprotect(config.Security.ApiKey);
         foreach (var camera in config.Cameras)
             camera.Password = Unprotect(camera.Password);
     }

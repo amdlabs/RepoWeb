@@ -70,7 +70,7 @@ public sealed class CameraConfig
     public bool UseTcpTransport { get; set; } = true;
 
     /// <summary>Fotogramas por segundo que se envían al motor de reconocimiento (no afecta al vídeo mostrado).</summary>
-    public double AnalysisFps { get; set; } = 6;
+    public double AnalysisFps { get; set; } = 3;
 
     public bool EnableFaceRecognition { get; set; } = true;
 
@@ -89,7 +89,7 @@ public sealed class CameraConfig
     public double RoiHeightPercent { get; set; } = 100;
 
     /// <summary>Ancho máximo al que se reescala el frame antes de inferir (0 = sin reescalado).</summary>
-    public int MaxAnalysisWidth { get; set; } = 1280;
+    public int MaxAnalysisWidth { get; set; } = 960;
 
     /// <summary>Segundos sin frames tras los cuales se reconecta.</summary>
     public int ReadTimeoutSeconds { get; set; } = 15;

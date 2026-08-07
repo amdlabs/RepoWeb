@@ -9,6 +9,8 @@ namespace IVZVision.Web.Controllers;
 /// API JSON para integraciones externas:
 ///  - GET /api/camaras                      → lista de cámaras configuradas y su estado.
 ///  - GET /api/camaras/{id}/detecciones     → últimos objetos/rostros/matrículas de esa cámara.
+/// Autenticación: sesión iniciada (navegador) o cabecera <c>X-Api-Key</c> con la clave
+/// definida en Configuración → Seguridad. Sin clave configurada, sólo sesiones.
 /// </summary>
 [ApiController]
 [Route("api/camaras")]
@@ -23,9 +25,26 @@ public class CamerasApiController : ControllerBase
         _pipeline = pipeline;
     }
 
+    /// <summary>Sesión iniciada, o clave de API válida en la cabecera X-Api-Key.</summary>
+    private bool IsAllowed()
+    {
+        if (User.Identity?.IsAuthenticated == true) return true;
+
+        var configured = _config.Current.Security.ApiKey;
+        if (string.IsNullOrEmpty(configured)) return false;
+
+        return Request.Headers.TryGetValue("X-Api-Key", out var provided)
+               && string.Equals(provided.ToString(), configured, StringComparison.Ordinal);
+    }
+
+    private IActionResult Denied() =>
+        Unauthorized(new { error = "Falta la sesión o la cabecera X-Api-Key con una clave válida." });
+
     [HttpGet]
     public IActionResult List()
     {
+        if (!IsAllowed()) return Denied();
+
         var cameras = _config.Current.Cameras.Select(c =>
         {
             var status = _pipeline.GetStatus(c.Id);
@@ -58,6 +77,8 @@ public class CamerasApiController : ControllerBase
     [HttpGet("{id:guid}/detecciones")]
     public IActionResult Detections(Guid id, [FromQuery] int take = 50, [FromQuery] bool incluirImagen = false)
     {
+        if (!IsAllowed()) return Denied();
+
         var camera = _config.Current.FindCamera(id);
         if (camera is null)
             return NotFound(new { error = "La cámara indicada no existe." });

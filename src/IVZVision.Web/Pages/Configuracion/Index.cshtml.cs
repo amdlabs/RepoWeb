@@ -28,6 +28,7 @@ public class IndexModel : PageModel
     [BindProperty] public ModelsConfig Models { get; set; } = new();
     [BindProperty] public RecognitionConfig Recognition { get; set; } = new();
     [BindProperty] public StorageConfig Storage { get; set; } = new();
+    [BindProperty] public SecurityConfig Security { get; set; } = new();
 
     public ModelStatus ModelStatus { get; private set; } = new();
     public string SettingsPath => _config.FilePath;
@@ -91,6 +92,7 @@ public class IndexModel : PageModel
         Models = current.Models;
         Recognition = current.Recognition;
         Storage = current.Storage;
+        Security = current.Security;
         ModelStatus = _engine.Status;
         ScanModelFiles();
     }
@@ -115,6 +117,7 @@ public class IndexModel : PageModel
             cfg.Models = Models;
             cfg.Recognition = Recognition;
             cfg.Storage = Storage;
+            cfg.Security = Security;
         });
 
         TempData["Ok"] = "Configuración guardada. Los modelos y las cámaras se están reiniciando con los nuevos valores.";
