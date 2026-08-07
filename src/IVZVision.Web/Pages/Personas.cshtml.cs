@@ -102,7 +102,8 @@ public class PersonasModel : PageModel
 
     /// <summary>Da de alta una persona nueva usando el rostro de un evento no identificado.</summary>
     public async Task<IActionResult> OnPostAltaDesdeEventoAsync(long eventoId, string nombre,
-                                                                EnrollmentService enrollment, CancellationToken ct)
+                                                                [FromServices] EnrollmentService enrollment,
+                                                                CancellationToken ct)
     {
         if (!RoleGuard.CanEdit(User)) return Forbid();
 
