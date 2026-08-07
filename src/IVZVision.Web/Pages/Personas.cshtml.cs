@@ -36,7 +36,8 @@ public class PersonasModel : PageModel
 
     /// <summary>Persona detectada por las cámaras (rostro u objeto persona), con su recorte.</summary>
     public sealed record UnknownFace(long EventId, DateTime OccurredAt, string CameraName,
-                                     string Label, bool IsKnown, string? CropBase64, string? CropPath);
+                                     string Label, bool IsKnown, string? CropBase64, string? CropPath,
+                                     int Repeticiones);
 
     public IReadOnlyList<UnknownFace> UnknownFaces { get; private set; } = Array.Empty<UnknownFace>();
 
@@ -61,18 +62,41 @@ public class PersonasModel : PageModel
                             || (e.Kind == RecognitionKind.Object
                                 && (e.ObjectClass == "persona" || e.ObjectClass == "person"))));
 
-        UnknownFacesTotal = await query.CountAsync(ct);
+        // Se agrupan las repeticiones (misma cámara e identificación dentro de una ventana
+        // de 10 minutos) en una sola fila con contador, para no llenar la tabla con la
+        // misma persona vista una y otra vez.
+        var raw = await query
+            .OrderByDescending(e => e.OccurredAt)
+            .Take(600)
+            .Select(e => new { e.Id, e.OccurredAt, e.CameraName, e.Label, e.IsKnown, e.CropBase64, e.CropPath })
+            .ToListAsync(ct);
+
+        var grouped = new List<UnknownFace>();
+        foreach (var e in raw)
+        {
+            var previous = grouped.FindIndex(g =>
+                g.CameraName == e.CameraName
+                && g.IsKnown == e.IsKnown
+                && (!e.IsKnown || g.Label == e.Label)
+                && (g.OccurredAt - e.OccurredAt) < TimeSpan.FromMinutes(10));
+
+            if (previous >= 0)
+            {
+                grouped[previous] = grouped[previous] with { Repeticiones = grouped[previous].Repeticiones + 1 };
+                continue;
+            }
+
+            grouped.Add(new UnknownFace(e.Id, e.OccurredAt, e.CameraName, e.Label, e.IsKnown,
+                                        e.CropBase64, e.CropPath, 1));
+        }
+
+        UnknownFacesTotal = grouped.Count;
         TotalPaginas = Math.Max(1, (int)Math.Ceiling(UnknownFacesTotal / (double)DetectionsPageSize));
         Pagina = Math.Clamp(Pagina, 1, TotalPaginas);
 
-        UnknownFaces = (await query
-                .OrderByDescending(e => e.OccurredAt)
-                .Skip((Pagina - 1) * DetectionsPageSize)
-                .Take(DetectionsPageSize)
-                .Select(e => new { e.Id, e.OccurredAt, e.CameraName, e.Label, e.IsKnown, e.CropBase64, e.CropPath })
-                .ToListAsync(ct))
-            .Select(e => new UnknownFace(e.Id, e.OccurredAt, e.CameraName, e.Label, e.IsKnown,
-                                         e.CropBase64, e.CropPath))
+        UnknownFaces = grouped
+            .Skip((Pagina - 1) * DetectionsPageSize)
+            .Take(DetectionsPageSize)
             .ToList();
     }
 

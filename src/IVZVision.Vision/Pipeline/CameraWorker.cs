@@ -36,6 +36,56 @@ public sealed class CameraWorker
     /// <summary>1 mientras hay un análisis de esta cámara en curso (el vídeo nunca lo espera).</summary>
     private int _analysisBusy;
 
+    /// <summary>Rostros desconocidos ya registrados hace poco (embedding normalizado + última vez).</summary>
+    private readonly List<UnknownFaceMemory> _recentUnknownFaces = new();
+    private readonly object _unknownFacesGate = new();
+
+    private sealed class UnknownFaceMemory
+    {
+        public required float[] Embedding { get; init; }
+        public DateTimeOffset LastSeen { get; set; }
+    }
+
+    /// <summary>
+    /// True si este rostro desconocido se parece a uno registrado recientemente: es la
+    /// misma persona mirando a la cámara, no un desconocido nuevo, y no se anexa otra vez.
+    /// </summary>
+    private bool IsRepeatedUnknownFace(Observation obs, RecognitionConfig rec)
+    {
+        if (obs.FaceEmbedding is null || obs.FaceEmbedding.Length == 0) return false;
+
+        var probe = IVZVision.Core.Util.VectorMath.L2Normalize(obs.FaceEmbedding);
+        var window = TimeSpan.FromMinutes(Math.Max(1, rec.UnknownFaceDedupWindowMinutes));
+        var threshold = Math.Clamp(rec.UnknownFaceDedupSimilarity, 0.05f, 0.99f);
+        var now = DateTimeOffset.UtcNow;
+
+        lock (_unknownFacesGate)
+        {
+            _recentUnknownFaces.RemoveAll(f => now - f.LastSeen > window);
+
+            foreach (var known in _recentUnknownFaces)
+            {
+                if (known.Embedding.Length != probe.Length) continue;
+
+                float dot = 0;
+                for (var i = 0; i < probe.Length; i++)
+                    dot += probe[i] * known.Embedding[i];
+
+                if (dot >= threshold)
+                {
+                    known.LastSeen = now; // sigue siendo la misma persona: se refresca la memoria
+                    return true;
+                }
+            }
+
+            _recentUnknownFaces.Add(new UnknownFaceMemory { Embedding = probe, LastSeen = now });
+            if (_recentUnknownFaces.Count > 50)
+                _recentUnknownFaces.RemoveAt(0);
+        }
+
+        return false;
+    }
+
     public CameraWorker(CameraConfig camera, IConfigStore config, RecognitionEngine engine,
                         EventRecorder recorder, FrameBroadcaster broadcaster,
                         IEnumerable<IObservationSink> sinks, string snapshotsRoot, ILogger logger)
@@ -289,6 +339,7 @@ public sealed class CameraWorker
                 OcrConfidence = item.OcrConfidence,
                 ObjectClass = item.ObjectClass,
                 Annotation = item.Annotation,
+                FaceEmbedding = item.FaceEmbedding,
                 Match = item.Match,
             });
         }
@@ -387,6 +438,11 @@ public sealed class CameraWorker
         }
 
         if (!obs.Match.IsKnown && !rec.RegisterUnknown) return;
+
+        // El mismo desconocido delante de la cámara no se anexa una y otra vez: si su
+        // rostro se parece a uno registrado hace poco, sólo se refresca su marca de tiempo.
+        if (obs.Kind == ObservationKind.Face && !obs.Match.IsKnown && IsRepeatedUnknownFace(obs, rec)) return;
+
         if (_recorder.IsThrottled(obs)) return;
 
         AttachCrop(frame, obs, rec);

@@ -68,7 +68,13 @@
                             }
                         </td>
                         <td>@local.ToString("dd/MM/yyyy")</td>
-                        <td>@local.ToString("HH:mm:ss")</td>
+                        <td>
+                            @local.ToString("HH:mm:ss")
+                            @if (face.Repeticiones > 1)
+                            {
+                                <span class="badge badge-muted" title="Detecciones agrupadas de la misma cámara en 10 minutos">×@face.Repeticiones</span>
+                            }
+                        </td>
                         <td>@face.CameraName</td>
                         <td>
                             @if (!face.IsKnown)

@@ -89,6 +89,10 @@ public sealed class Observation
     /// <summary>Dato asociado a posteriori, p. ej. la matrícula leída dentro de un vehículo detectado.</summary>
     public string? Annotation { get; set; }
 
+    /// <summary>Embedding facial transitorio (no se serializa): deduplicación de desconocidos.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public float[]? FaceEmbedding { get; init; }
+
     public IdentityMatch Match { get; init; } = IdentityMatch.Unknown;
 
     /// <summary>Recorte JPEG del sujeto, en base64, para mostrarlo en la web.</summary>

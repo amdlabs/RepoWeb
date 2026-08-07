@@ -23,6 +23,8 @@ public sealed class AnalysisItem
     public string? ObjectClass { get; init; }
     /// <summary>Dato adicional resuelto durante el análisis (p. ej. marca/modelo del vehículo).</summary>
     public string? Annotation { get; init; }
+    /// <summary>Embedding del rostro (solo caras): permite no registrar dos veces al mismo desconocido.</summary>
+    public float[]? FaceEmbedding { get; init; }
     public IdentityMatch Match { get; init; } = IdentityMatch.Unknown;
 }
 
@@ -354,9 +356,10 @@ public sealed class RecognitionEngine : IDisposable
             foreach (var face in faces)
             {
                 IdentityMatch match;
+                float[]? embedding = null;
                 try
                 {
-                    var embedding = embedder.Embed(frame, face.Landmarks);
+                    embedding = embedder.Embed(frame, face.Landmarks);
                     match = _index.MatchFace(embedding, rec.FaceMatchThreshold);
                 }
                 catch (Exception ex)
@@ -370,6 +373,7 @@ public sealed class RecognitionEngine : IDisposable
                     Kind = ObservationKind.Face,
                     Box = face.Box,
                     Score = face.Score,
+                    FaceEmbedding = embedding,
                     Match = match,
                 });
             }

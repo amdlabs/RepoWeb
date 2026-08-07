@@ -69,6 +69,18 @@ public sealed class RecognitionConfig
     /// <summary>Registra también rostros/matrículas no reconocidos en la base de datos.</summary>
     public bool RegisterUnknown { get; set; } = true;
 
+    /// <summary>
+    /// Similitud coseno a partir de la cual un rostro desconocido se considera «el mismo
+    /// de antes» y no se registra otra vez (deduplicación de desconocidos).
+    /// </summary>
+    public float UnknownFaceDedupSimilarity { get; set; } = 0.45f;
+
+    /// <summary>Minutos que se recuerda a un desconocido para no volver a anexarlo.</summary>
+    public int UnknownFaceDedupWindowMinutes { get; set; } = 120;
+
+    /// <summary>Tiempo de guarda específico para personas sin identificar (segundos).</summary>
+    public int UnknownPersonCooldownSeconds { get; set; } = 300;
+
     /// <summary>Guarda en disco el recorte del rostro/matrícula de cada evento.</summary>
     public bool SaveSnapshots { get; set; } = true;
 

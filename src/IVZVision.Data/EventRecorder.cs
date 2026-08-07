@@ -28,7 +28,18 @@ public sealed class EventRecorder
     /// <summary>true si el sujeto está dentro del tiempo de guarda y no debe registrarse otra vez.</summary>
     public bool IsThrottled(Observation obs)
     {
-        var cooldown = TimeSpan.FromSeconds(Math.Max(0, _config.Current.Recognition.EventCooldownSeconds));
+        var rec = _config.Current.Recognition;
+
+        // Las personas sin identificar (rostros desconocidos y objetos «persona») usan un
+        // tiempo de guarda más largo: la misma persona parada no debe llenar la base.
+        var seconds = !obs.Match.IsKnown
+                      && (obs.Kind == ObservationKind.Face
+                          || (obs.Kind == ObservationKind.Object
+                              && (obs.ObjectClass == "persona" || obs.ObjectClass == "person")))
+            ? Math.Max(rec.EventCooldownSeconds, rec.UnknownPersonCooldownSeconds)
+            : rec.EventCooldownSeconds;
+
+        var cooldown = TimeSpan.FromSeconds(Math.Max(0, seconds));
         if (cooldown <= TimeSpan.Zero) return false;
 
         var key = BuildKey(obs);
