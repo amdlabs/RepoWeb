@@ -144,18 +144,24 @@ public sealed class DiagnosticsService
 
         var objects = TryLoad(lines, "Detección de objetos", () =>
         {
-            using var detector = new YoloObjectDetector(
-                models.Resolve(models.ObjectDetectorPath, _environment.ContentRootPath),
-                models.Resolve(models.ObjectLabelsPath, _environment.ContentRootPath),
-                models, _logger);
-            detector.Detect(dummy, 0.9f, 0.45f);
+            foreach (var path in models.GetObjectDetectorPaths())
+            {
+                using var detector = new YoloObjectDetector(
+                    models.Resolve(path, _environment.ContentRootPath),
+                    models.Resolve(models.ObjectLabelsPath, _environment.ContentRootPath),
+                    models, _logger);
+                detector.Detect(dummy, 0.9f, 0.45f);
+            }
         });
 
         var texts = TryLoad(lines, "Lectura de textos", () =>
         {
-            using var detector = new Vision.Text.SceneTextDetector(
-                models.Resolve(models.SceneTextDetectorPath, _environment.ContentRootPath), models, _logger);
-            detector.Detect(dummy, 0.3f, 4);
+            foreach (var path in models.GetSceneTextDetectorPaths())
+            {
+                using var detector = new Vision.Text.SceneTextDetector(
+                    models.Resolve(path, _environment.ContentRootPath), models, _logger);
+                detector.Detect(dummy, 0.3f, 4);
+            }
         });
 
         lines.Add("");

@@ -1,4 +1,4 @@
-@page
+﻿@page
 @model VehiculosModel
 @{
     ViewData["Title"] = "Vehículos";
@@ -6,6 +6,8 @@
 
 <h1>Vehículos</h1>
 <p class="subtitle">Padrón de matrículas conocidas. Al leer una matrícula se compara contra esta tabla.</p>
+
+<partial name="_DeteccionesTabs" model="@("vehiculos")" />
 
 @if (Model.DatabaseError is not null)
 {

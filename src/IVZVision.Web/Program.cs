@@ -121,7 +121,7 @@ builder.Services.AddAuthorization(options =>
 
 builder.Services.AddRazorPages(options =>
 {
-    options.Conventions.AddPageRoute("/Directo", "");
+    options.Conventions.AddPageRoute("/Dashboard", "");
 
     // Toda la web exige sesión iniciada, salvo el login y la página de error.
     options.Conventions.AuthorizeFolder("/");

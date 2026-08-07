@@ -1,0 +1,6 @@
+@model string
+<nav class="tabs">
+    <a asp-page="/Personas" class="@(Model == "personas" ? "active" : "")">Personas</a>
+    <a asp-page="/Vehiculos" class="@(Model == "vehiculos" ? "active" : "")">Vehículos</a>
+    <a asp-page="/Objetos" class="@(Model == "objetos" ? "active" : "")">Objetos</a>
+</nav>

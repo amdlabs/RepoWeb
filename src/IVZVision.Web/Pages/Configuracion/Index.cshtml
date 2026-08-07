@@ -25,7 +25,7 @@
                 </div>
             }
 
-            <div class="field">
+            <div class="field campo-clave">
                 <label asp-for="Database.Server">Servidor / instancia</label>
                 <input asp-for="Database.Server" placeholder=".\SQLEXPRESS" />
                 <div class="hint">Ejemplos: <code>.\SQLEXPRESS</code>, <code>localhost\SQLEXPRESS</code>, <code>192.168.1.10,1433</code></div>
@@ -157,10 +157,20 @@
             </div>
 
             <h3>Objetos (COCO)</h3>
-            <div class="field">
-                <label asp-for="Models.ObjectDetectorPath">Detector de objetos (YOLO ONNX)</label>
-                <select asp-for="Models.ObjectDetectorPath" asp-items="Model.ModelOptions(Model.Models.ObjectDetectorPath, onnx: true)"></select>
-                <div class="hint">Modelo COCO en formato YOLO (p. ej. yolov8n.onnx). Detecta personas, vehículos, animales…</div>
+            <div class="field campo-clave">
+                <label>Detectores de objetos activos (se combinan los resultados)</label>
+                @foreach (var file in Model.OnnxFiles)
+                {
+                    <label class="check" style="margin:2px 0">
+                        <input type="checkbox" name="Models.ObjectDetectorPaths" value="@file"
+                               checked="@(Model.Models.GetObjectDetectorPaths().Contains(file, StringComparer.OrdinalIgnoreCase))" />
+                        @file
+                    </label>
+                }
+                <div class="hint">
+                    Marque uno o varios modelos YOLO: todos analizan cada fotograma y los
+                    duplicados se resuelven quedándose la detección de mayor confianza.
+                </div>
             </div>
             <div class="grid grid-3">
                 <div class="field">
@@ -190,9 +200,16 @@
 
             <h3>Textos de la escena</h3>
             <div class="field">
-                <label asp-for="Models.SceneTextDetectorPath">Detector de texto (DBNet ONNX)</label>
-                <select asp-for="Models.SceneTextDetectorPath" asp-items="Model.ModelOptions(Model.Models.SceneTextDetectorPath, onnx: true)"></select>
-                <div class="hint">Localiza carteles y rótulos; el OCR de matrículas lee lo encontrado.</div>
+                <label>Detectores de texto activos (prevalece la mejor lectura)</label>
+                @foreach (var file in Model.OnnxFiles)
+                {
+                    <label class="check" style="margin:2px 0">
+                        <input type="checkbox" name="Models.SceneTextDetectorPaths" value="@file"
+                               checked="@(Model.Models.GetSceneTextDetectorPaths().Contains(file, StringComparer.OrdinalIgnoreCase))" />
+                        @file
+                    </label>
+                }
+                <div class="hint">Las zonas encontradas por todos se combinan y el OCR lee cada una una sola vez.</div>
             </div>
 
             <h3>Actualizaciones automáticas</h3>
@@ -237,12 +254,21 @@
         <div class="card">
             <h2>Umbrales de reconocimiento</h2>
 
+            <div class="actions">
+                <button type="button" class="btn secondary" id="btnProbarUmbrales">Probar umbrales sobre una imagen</button>
+            </div>
+            <div class="hint" style="margin:-6px 0 12px">
+                Toma el último fotograma de la primera cámara conectada, aplica los valores de este
+                formulario (sin guardarlos) y muestra el resultado anotado.
+            </div>
+            <div class="test-output" id="outUmbrales" hidden></div>
+
             <h3>Rostros</h3>
             <div class="field">
                 <label asp-for="Recognition.FaceDetectionThreshold">Confianza mínima del detector (0-1)</label>
                 <input asp-for="Recognition.FaceDetectionThreshold" type="number" step="0.01" min="0" max="1" />
             </div>
-            <div class="field">
+            <div class="field campo-clave">
                 <label asp-for="Recognition.FaceMatchThreshold">Similitud mínima para identificar (0-1)</label>
                 <input asp-for="Recognition.FaceMatchThreshold" type="number" step="0.001" min="0" max="1" />
                 <div class="hint">0,363 es el valor recomendado para SFace. Súbalo para reducir falsos positivos.</div>

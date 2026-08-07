@@ -34,35 +34,45 @@ public class PersonasModel : PageModel
         await LoadAsync(ct);
     }
 
-    /// <summary>Rostro no identificado visto por las cámaras, con su recorte (zoom de la cara).</summary>
+    /// <summary>Persona detectada por las cámaras (rostro u objeto persona), con su recorte.</summary>
     public sealed record UnknownFace(long EventId, DateTime OccurredAt, string CameraName,
-                                     string? CropBase64, string? CropPath);
+                                     string Label, bool IsKnown, string? CropBase64, string? CropPath);
 
     public IReadOnlyList<UnknownFace> UnknownFaces { get; private set; } = Array.Empty<UnknownFace>();
 
-    /// <summary>Total de detecciones de rostros sin identificar en el histórico.</summary>
+    /// <summary>Total de detecciones de personas en el histórico.</summary>
     public int UnknownFacesTotal { get; private set; }
+
+    private const int DetectionsPageSize = 20;
+
+    [BindProperty(SupportsGet = true)] public int Pagina { get; set; } = 1;
+
+    public int TotalPaginas { get; private set; } = 1;
 
     private async Task LoadUnknownFacesAsync(VisionDbContext db, CancellationToken ct)
     {
-        // Rostros no reconocidos + personas vistas por el detector de objetos (cuando
-        // la cara queda demasiado pequeña para el detector facial, la persona entra
-        // igualmente por aquí con el recorte de su figura).
+        // Rostros (reconocidos o no) + personas vistas por el detector de objetos
+        // (cuando la cara queda demasiado pequeña para el detector facial, la persona
+        // entra igualmente por aquí con el recorte de su figura).
         var query = db.RecognitionEvents
             .AsNoTracking()
             .Where(e => (e.CropBase64 != null || e.CropPath != null)
-                        && ((e.Kind == RecognitionKind.Face && !e.IsKnown)
+                        && (e.Kind == RecognitionKind.Face
                             || (e.Kind == RecognitionKind.Object
                                 && (e.ObjectClass == "persona" || e.ObjectClass == "person"))));
 
         UnknownFacesTotal = await query.CountAsync(ct);
+        TotalPaginas = Math.Max(1, (int)Math.Ceiling(UnknownFacesTotal / (double)DetectionsPageSize));
+        Pagina = Math.Clamp(Pagina, 1, TotalPaginas);
 
         UnknownFaces = (await query
                 .OrderByDescending(e => e.OccurredAt)
-                .Take(48)
-                .Select(e => new { e.Id, e.OccurredAt, e.CameraName, e.CropBase64, e.CropPath })
+                .Skip((Pagina - 1) * DetectionsPageSize)
+                .Take(DetectionsPageSize)
+                .Select(e => new { e.Id, e.OccurredAt, e.CameraName, e.Label, e.IsKnown, e.CropBase64, e.CropPath })
                 .ToListAsync(ct))
-            .Select(e => new UnknownFace(e.Id, e.OccurredAt, e.CameraName, e.CropBase64, e.CropPath))
+            .Select(e => new UnknownFace(e.Id, e.OccurredAt, e.CameraName, e.Label, e.IsKnown,
+                                         e.CropBase64, e.CropPath))
             .ToList();
     }
 

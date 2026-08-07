@@ -1,4 +1,4 @@
-@page
+﻿@page
 @using IVZVision.Data.Entities
 @model UsuariosModel
 @{
@@ -14,6 +14,8 @@
 
 <h1>Usuarios del sistema</h1>
 <p class="subtitle">Cuentas de acceso a la aplicación, con su rol y estado.</p>
+
+<partial name="_ConfigTabs" model="@("usuarios")" />
 
 @if (Model.DatabaseError is not null)
 {

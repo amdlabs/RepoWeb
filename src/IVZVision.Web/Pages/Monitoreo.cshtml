@@ -36,6 +36,22 @@
     <a class="btn" asp-page="/Configuracion/Camaras">Ir a cámaras</a>
 </div>
 
+<div class="grid grid-3" style="margin-top:16px">
+    <div class="card">
+        <h3>Rostros</h3>
+        <div class="feed" id="feedFaces"></div>
+    </div>
+    <div class="card">
+        <h3>Matrículas</h3>
+        <div class="feed" id="feedPlates"></div>
+    </div>
+    <div class="card">
+        <h3>Objetos y textos</h3>
+        <div class="feed" id="feedObjects"></div>
+    </div>
+</div>
+
 @section Scripts {
+    <script src="~/lib/signalr/signalr.min.js"></script>
     <script src="~/js/monitoreo.js" asp-append-version="true"></script>
 }

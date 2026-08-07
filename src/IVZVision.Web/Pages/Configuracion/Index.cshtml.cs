@@ -156,6 +156,82 @@ public class IndexModel : PageModel
         }
     }
 
+    /// <summary>
+    /// Aplica los umbrales del formulario (sin guardarlos) sobre el último fotograma
+    /// de la primera cámara conectada y devuelve la imagen anotada.
+    /// </summary>
+    public IActionResult OnPostProbarUmbrales([FromBody] RecognitionConfig? recognition)
+    {
+        try
+        {
+            if (recognition is null)
+                return new JsonResult(new { ok = false, mensaje = "No se recibieron los datos del formulario. Recargue la página (Ctrl+F5) y vuelva a intentarlo." });
+
+            var broadcaster = HttpContext.RequestServices.GetRequiredService<IVZVision.Vision.Pipeline.FrameBroadcaster>();
+
+            byte[]? jpeg = null;
+            string? cameraName = null;
+            foreach (var camera in _config.Current.Cameras.Where(c => c.Enabled))
+            {
+                jpeg = broadcaster.GetLatest(camera.Id);
+                if (jpeg is not null) { cameraName = camera.Name; break; }
+            }
+
+            if (jpeg is null)
+                return new JsonResult(new { ok = false, mensaje = "Ninguna cámara tiene todavía un fotograma disponible." });
+
+            using var frame = OpenCvSharp.Cv2.ImDecode(jpeg, OpenCvSharp.ImreadModes.Color);
+            if (frame.Empty())
+                return new JsonResult(new { ok = false, mensaje = "No se pudo decodificar el fotograma de prueba." });
+
+            var testCamera = new CameraConfig
+            {
+                Name = cameraName ?? "prueba",
+                EnableFaceRecognition = true,
+                EnablePlateRecognition = true,
+                EnableObjectDetection = true,
+                EnableTextReading = true,
+            };
+
+            var items = _engine.Analyze(frame, testCamera, recognition);
+
+            var observations = items.Select(i => new IVZVision.Core.Detection.Observation
+            {
+                Kind = i.Kind,
+                Box = i.Box,
+                DetectionScore = i.Score,
+                PlateText = i.PlateText,
+                OcrConfidence = i.OcrConfidence,
+                ObjectClass = i.ObjectClass,
+                Annotation = i.Annotation,
+                Match = i.Match,
+            }).ToList();
+
+            IVZVision.Vision.Drawing.Annotator.Draw(frame, observations);
+
+            var annotated = IVZVision.Vision.Imaging.ImageOps.EncodeJpeg(frame, 82);
+            var counts = observations.GroupBy(o => o.Kind)
+                .Select(g => $"{g.Count()} {g.Key switch
+                {
+                    IVZVision.Core.Detection.ObservationKind.Face => "rostro(s)",
+                    IVZVision.Core.Detection.ObservationKind.Plate => "matrícula(s)",
+                    IVZVision.Core.Detection.ObservationKind.Object => "objeto(s)",
+                    _ => "texto(s)",
+                }}");
+
+            return new JsonResult(new
+            {
+                ok = true,
+                mensaje = $"Cámara «{cameraName}»: {(observations.Count == 0 ? "sin detecciones con estos umbrales" : string.Join(", ", counts))}.",
+                vistaPrevia = $"data:image/jpeg;base64,{Convert.ToBase64String(annotated)}",
+            });
+        }
+        catch (Exception ex)
+        {
+            return new JsonResult(new { ok = false, mensaje = $"Error inesperado: {ex.Message}" });
+        }
+    }
+
     /// <summary>Comprueba que los modelos ONNX existen y se pueden cargar.</summary>
     public IActionResult OnPostVerificarModelos([FromBody] ModelsConfig? models)
     {

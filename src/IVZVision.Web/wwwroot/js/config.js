@@ -89,6 +89,7 @@
     }
 
     wire("btnProbarBd", "outBd", "probarBd", "Database");
+    wire("btnProbarUmbrales", "outUmbrales", "probarUmbrales", "Recognition");
     wire("btnVerificarModelos", "outModelos", "verificarModelos", "Models");
     wire("btnProbarRtsp", "outRtsp", "probarRtsp", "Camera");
     wire("btnProbarIsapi", "outIsapi", "probarIsapi", "Camera");

@@ -341,4 +341,196 @@
         if (rotateTimer) clearInterval(rotateTimer);
         stopWs();
     });
+
+    /* ---------- Paneles de detecciones en tiempo real (SignalR) ---------- */
+
+    (function () {
+        var feedFaces = document.getElementById("feedFaces");
+        var feedPlates = document.getElementById("feedPlates");
+        var feedObjects = document.getElementById("feedObjects");
+        if (!feedFaces || typeof signalR === "undefined") return;
+
+        var MAX_ITEMS = 30;
+
+        function badge(hit) {
+            if (hit.tipo === "texto") return '<span class="badge badge-muted">Texto leído</span>';
+            if (!hit.conocido) {
+                if (hit.tipo === "matricula") return '<span class="badge badge-danger">No registrada</span>';
+                if (hit.tipo === "objeto") return '<span class="badge badge-warn">Sin etiquetar</span>';
+                return '<span class="badge badge-danger">Desconocido</span>';
+            }
+            return hit.autorizado
+                ? '<span class="badge badge-ok">Autorizado</span>'
+                : '<span class="badge badge-warn">No autorizado</span>';
+        }
+
+        function render(hit) {
+            var item = document.createElement("div");
+            item.className = "hit " + (hit.tipo === "texto" ? "known"
+                : !hit.conocido ? "unknown" : hit.autorizado ? "known" : "restricted");
+
+            var img = document.createElement("img");
+            img.alt = hit.etiqueta || "";
+            if (hit.tipo === "matricula") img.className = "thumb-plate";
+            img.src = hit.miniatura || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E";
+
+            var body = document.createElement("div");
+            body.className = "hit-body";
+
+            var title = document.createElement("div");
+            title.className = "hit-title" + (hit.tipo === "matricula" ? " plate" : "");
+            title.textContent = hit.etiqueta || "—";
+
+            var meta = document.createElement("div");
+            meta.className = "hit-meta";
+            meta.textContent = [hit.hora, hit.camara].filter(Boolean).join(" · ");
+
+            body.appendChild(title);
+            body.appendChild(meta);
+
+            var flag = document.createElement("div");
+            flag.innerHTML = badge(hit);
+
+            item.appendChild(img);
+            item.appendChild(body);
+            item.appendChild(flag);
+            return item;
+        }
+
+        function push(hit) {
+            var target = hit.tipo === "matricula" ? feedPlates
+                       : (hit.tipo === "objeto" || hit.tipo === "texto") ? feedObjects
+                       : feedFaces;
+            if (!target) return;
+            var item = render(hit);
+            item.dataset.hit = JSON.stringify(hit);
+            if (!hit.conocido && hit.tipo !== "texto") {
+                item.style.cursor = "pointer";
+                item.title = "Clic para completar los datos de esta detección";
+            }
+            target.insertBefore(item, target.firstChild);
+            while (target.children.length > MAX_ITEMS) target.removeChild(target.lastChild);
+        }
+
+        /* ---- Diálogo para completar los datos de una detección ---- */
+
+        function abrirDialogo(hit) {
+            var overlay = document.createElement("div");
+            overlay.className = "mon-overlay";
+
+            var card = document.createElement("div");
+            card.className = "card dlg-card";
+
+            var titulo = hit.tipo === "matricula" ? "Registrar vehículo"
+                       : hit.tipo === "objeto" ? "Categorizar objeto"
+                       : "Dar de alta a la persona";
+
+            var campos = "";
+            if (hit.tipo === "matricula") {
+                campos =
+                    '<div class="field"><label>Matrícula</label><input id="dlgMatricula" value="' + (hit.matricula || "") + '" /></div>' +
+                    '<div class="field"><label>Marca</label><input id="dlgMarca" placeholder="(opcional)" /></div>' +
+                    '<div class="field"><label>Modelo</label><input id="dlgModelo" placeholder="(opcional)" /></div>' +
+                    '<label class="check"><input type="checkbox" id="dlgAutorizado" checked /> Autorizado</label>';
+            } else if (hit.tipo === "objeto") {
+                campos =
+                    '<div class="field"><label>Clase detectada</label><input value="' + (hit.detalle || "") + '" disabled /></div>' +
+                    '<div class="field"><label>Categoría real</label><input id="dlgNombre" placeholder="p. ej. Portón" /></div>' +
+                    '<label class="check"><input type="checkbox" id="dlgAutorizado" checked /> Autorizado</label>';
+            } else {
+                campos =
+                    (hit.miniatura ? '<img src="' + hit.miniatura + '" style="width:120px;border-radius:8px;display:block;margin:0 auto 10px" />' : "") +
+                    '<div class="field"><label>Nombre de la persona</label><input id="dlgNombre" autofocus /></div>' +
+                    '<div class="hint">Se creará con este rostro como plantilla, marcada como no autorizada.</div>';
+            }
+
+            card.innerHTML =
+                "<h2>" + titulo + "</h2>" +
+                '<div class="hint">' + [hit.hora, hit.camara].filter(Boolean).join(" · ") + "</div>" +
+                campos +
+                '<div class="test-output" id="dlgOut" hidden></div>' +
+                '<div class="actions" style="margin-top:12px">' +
+                '<button class="btn" id="dlgGuardar" type="button">Guardar</button>' +
+                '<button class="btn secondary" id="dlgCancelar" type="button">Cancelar</button></div>';
+
+            function cerrar() { overlay.remove(); document.removeEventListener("keydown", onKey); }
+            function onKey(ev) { if (ev.key === "Escape") cerrar(); }
+            document.addEventListener("keydown", onKey);
+
+            overlay.addEventListener("click", function (ev) { if (ev.target === overlay) cerrar(); });
+            card.querySelector("#dlgCancelar").addEventListener("click", cerrar);
+
+            card.querySelector("#dlgGuardar").addEventListener("click", function () {
+                var out = card.querySelector("#dlgOut");
+                var url, payload;
+
+                if (hit.tipo === "matricula") {
+                    url = "/api/detecciones/vehiculo";
+                    payload = {
+                        matricula: card.querySelector("#dlgMatricula").value,
+                        marca: card.querySelector("#dlgMarca").value,
+                        modelo: card.querySelector("#dlgModelo").value,
+                        autorizado: card.querySelector("#dlgAutorizado").checked
+                    };
+                } else if (hit.tipo === "objeto") {
+                    url = "/api/detecciones/objeto";
+                    payload = {
+                        clase: hit.detalle || "",
+                        nombre: card.querySelector("#dlgNombre").value,
+                        autorizado: card.querySelector("#dlgAutorizado").checked
+                    };
+                } else {
+                    url = "/api/detecciones/persona";
+                    payload = { eventoId: hit.eventoId, nombre: card.querySelector("#dlgNombre").value };
+                }
+
+                fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    out.hidden = false;
+                    out.className = "test-output " + (data.ok ? "ok" : "ko");
+                    out.textContent = data.mensaje;
+                    if (data.ok) setTimeout(cerrar, 1400);
+                })
+                .catch(function (err) {
+                    out.hidden = false;
+                    out.className = "test-output ko";
+                    out.textContent = "No se pudo guardar: " + err.message;
+                });
+            });
+
+            overlay.appendChild(card);
+            document.body.appendChild(overlay);
+        }
+
+        document.addEventListener("click", function (e) {
+            var item = e.target.closest(".hit");
+            if (!item || !item.dataset.hit) return;
+            var hit = JSON.parse(item.dataset.hit);
+            if (hit.conocido || hit.tipo === "texto") return;
+            abrirDialogo(hit);
+        });
+
+        // Relleno inicial con lo más reciente y conexión en tiempo real.
+        fetch("/api/directo/estado")
+            .then(function (r) { return r.json(); })
+            .then(function (estado) {
+                (estado.recientes || []).slice(0, MAX_ITEMS).reverse().forEach(push);
+            })
+            .catch(function () { });
+
+        var connection = new signalR.HubConnectionBuilder()
+            .withUrl("/hubs/detecciones")
+            .withAutomaticReconnect()
+            .build();
+
+        connection.on("deteccion", push);
+        connection.start().catch(function (err) {
+            console.error("No se pudo abrir el canal en tiempo real", err);
+        });
+    })();
 })();

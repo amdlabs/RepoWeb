@@ -4,8 +4,10 @@
     ViewData["Title"] = "Personas";
 }
 
-<h1>Personas</h1>
-<p class="subtitle">Padrón de personas conocidas. Cada persona puede tener varias fotos registradas para mejorar el reconocimiento.</p>
+<h1>Detecciones</h1>
+<p class="subtitle">Personas vistas por las cámaras y padrón de personas conocidas.</p>
+
+<partial name="_DeteccionesTabs" model="@("personas")" />
 
 @if (Model.DatabaseError is not null)
 {
@@ -16,40 +18,90 @@
 }
 
 <div class="card" style="margin-bottom:16px">
-    <h2>Detectadas sin identificar (@Model.UnknownFacesTotal)</h2>
+    <h2>Personas detectadas (@Model.UnknownFacesTotal)</h2>
     <p class="subtitle">
-        Rostros vistos por las cámaras que no coinciden con nadie del padrón — se muestran los
-        últimos @Model.UnknownFaces.Count. Póngales nombre para darlas de alta con ese mismo
-        rostro (quedan como «no autorizadas» hasta que las revise). Doble clic amplía la foto.
-        <a asp-page="/Eventos" asp-route-Tipo="rostro" asp-route-Estado="desconocido">Ver el histórico completo →</a>
+        Todas las personas vistas por las cámaras, de la más reciente a la más antigua.
+        A las no identificadas puede ponerles nombre para darlas de alta con ese mismo rostro
+        (quedan como «no autorizadas» hasta revisarlas). Doble clic sobre la foto la amplía.
     </p>
     @if (Model.UnknownFaces.Count == 0)
     {
-        <div class="empty">Todavía no hay rostros pendientes: cuando una cámara vea una cara que no reconozca, aparecerá aquí.</div>
+        <div class="empty">Todavía no hay detecciones de personas.</div>
     }
     else
     {
-        <div class="unknown-faces">
-            @foreach (var face in Model.UnknownFaces)
-            {
-                <div class="unknown-face">
-                    @if (!string.IsNullOrEmpty(face.CropBase64))
-                    {
-                        <img src="data:image/jpeg;base64,@face.CropBase64" alt="Rostro sin identificar" />
-                    }
-                    else
-                    {
-                        <img src="/media/recorte?path=@Uri.EscapeDataString(face.CropPath!)" alt="Rostro sin identificar" loading="lazy" />
-                    }
-                    <div class="hint">@face.OccurredAt.ToLocalTime().ToString("dd/MM HH:mm") · @face.CameraName</div>
-                    <form method="post" asp-page-handler="AltaDesdeEvento" class="actions" style="gap:6px">
-                        <input type="hidden" name="eventoId" value="@face.EventId" />
-                        <input name="nombre" placeholder="Nombre" required style="min-width:0" />
-                        <button class="btn small" type="submit">Alta</button>
-                    </form>
-                </div>
-            }
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Foto</th>
+                        <th>Nombre</th>
+                        <th>Fecha</th>
+                        <th>Hora</th>
+                        <th>Cámara</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var face in Model.UnknownFaces)
+                {
+                    var local = face.OccurredAt.ToLocalTime();
+                    <tr>
+                        <td class="thumb-cell">
+                            @if (!string.IsNullOrEmpty(face.CropBase64))
+                            {
+                                <img src="data:image/jpeg;base64,@face.CropBase64" alt="Persona detectada" />
+                            }
+                            else
+                            {
+                                <img src="/media/recorte?path=@Uri.EscapeDataString(face.CropPath!)" alt="Persona detectada" loading="lazy" />
+                            }
+                        </td>
+                        <td>
+                            @if (face.IsKnown)
+                            {
+                                <b>@face.Label</b> <span class="badge badge-ok">identificada</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-danger">sin identificar</span>
+                            }
+                        </td>
+                        <td>@local.ToString("dd/MM/yyyy")</td>
+                        <td>@local.ToString("HH:mm:ss")</td>
+                        <td>@face.CameraName</td>
+                        <td>
+                            @if (!face.IsKnown)
+                            {
+                                <form method="post" asp-page-handler="AltaDesdeEvento" class="actions" style="gap:6px">
+                                    <input type="hidden" name="eventoId" value="@face.EventId" />
+                                    <input name="nombre" placeholder="Nombre" required style="max-width:140px" />
+                                    <button class="btn small" type="submit">Alta</button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
         </div>
+
+        @if (Model.TotalPaginas > 1)
+        {
+            <div class="actions" style="margin-top:12px; align-items:center">
+                @if (Model.Pagina > 1)
+                {
+                    <a class="btn small secondary" asp-page="/Personas"
+                       asp-route-Buscar="@Model.Buscar" asp-route-Pagina="@(Model.Pagina - 1)">← Anteriores</a>
+                }
+                <span class="hint">Página @Model.Pagina de @Model.TotalPaginas</span>
+                @if (Model.Pagina < Model.TotalPaginas)
+                {
+                    <a class="btn small secondary" asp-page="/Personas"
+                       asp-route-Buscar="@Model.Buscar" asp-route-Pagina="@(Model.Pagina + 1)">Siguientes →</a>
+                }
+            </div>
+        }
     }
 </div>
 

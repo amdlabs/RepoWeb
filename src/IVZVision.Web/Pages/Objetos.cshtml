@@ -1,10 +1,11 @@
-@page
+﻿@page
 @model ObjetosModel
 @{
     ViewData["Title"] = "Objetos";
 }
 
 <h1>Objetos</h1>
+<partial name="_DeteccionesTabs" model="@("objetos")" />
 <p class="subtitle">
     Clases de objeto detectadas por las cámaras. Póngales su <b>categoría real</b> — si el detector
     dice «horno» pero es su portón, etiquételo como «Portón» — y las siguientes detecciones saldrán

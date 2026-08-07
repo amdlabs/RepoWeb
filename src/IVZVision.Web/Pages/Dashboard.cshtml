@@ -12,31 +12,34 @@
     <div class="alert alert-error">No se pudo consultar la base de datos: @Model.DatabaseError</div>
 }
 
+@{
+    var hoy = DateTime.Today.ToString("yyyy-MM-dd");
+}
 <div class="grid grid-3" id="dashCards">
-    <div class="card dash-card">
+    <a class="card dash-card" asp-page="/Eventos" asp-route-Tipo="matricula" asp-route-Desde="@hoy" title="Ver los vehículos de hoy">
         <div class="dash-num" data-campo="vehiculosHoy">@Model.Summary.VehiculosHoy</div>
         <div class="dash-label">Vehículos hoy</div>
         <div class="hint">
             <span data-campo="vehiculosNuevosHoy">@Model.Summary.VehiculosNuevosHoy</span> nuevos ·
             <span data-campo="vehiculosRecurrentesHoy">@Model.Summary.VehiculosRecurrentesHoy</span> ya vistos antes
         </div>
-    </div>
-    <div class="card dash-card">
+    </a>
+    <a class="card dash-card" asp-page="/Eventos" asp-route-Tipo="matricula" title="Ver todos los vehículos del histórico">
         <div class="dash-num" data-campo="vehiculosTotal">@Model.Summary.VehiculosTotal</div>
         <div class="dash-label">Vehículos distintos (histórico)</div>
-    </div>
-    <div class="card dash-card">
+    </a>
+    <a class="card dash-card" asp-page="/Personas" title="Ver las personas detectadas">
         <div class="dash-num" data-campo="rostrosHoy">@Model.Summary.RostrosHoy</div>
         <div class="dash-label">Rostros hoy</div>
-    </div>
-    <div class="card dash-card">
+    </a>
+    <a class="card dash-card" asp-page="/Eventos" asp-route-Tipo="objeto" asp-route-Desde="@hoy" title="Ver los objetos de hoy">
         <div class="dash-num" data-campo="objetosHoy">@Model.Summary.ObjetosHoy</div>
         <div class="dash-label">Objetos hoy</div>
-    </div>
-    <div class="card dash-card">
+    </a>
+    <a class="card dash-card" asp-page="/Eventos" asp-route-Desde="@hoy" title="Ver todos los eventos de hoy">
         <div class="dash-num" data-campo="eventosHoy">@Model.Summary.EventosHoy</div>
         <div class="dash-label">Eventos totales hoy</div>
-    </div>
+    </a>
 </div>
 
 <div class="card" style="margin-top:16px">

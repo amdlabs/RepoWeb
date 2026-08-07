@@ -53,8 +53,24 @@ public sealed class ModelsConfig
     public bool PlateOcrBlankFirst { get; set; } = true;
 
     // ---- Objetos genéricos ----------------------------------------------
-    /// <summary>Detector de objetos COCO en formato YOLO (v5/v8/v11) exportado a ONNX.</summary>
+    /// <summary>Detector de objetos COCO en formato YOLO (v5/v8/v11) exportado a ONNX (compatibilidad).</summary>
     public string ObjectDetectorPath { get; set; } = "yolov5s.onnx";
+
+    /// <summary>
+    /// Detectores de objetos activos (selección múltiple): todos se aplican a cada
+    /// fotograma y sus resultados se combinan eliminando duplicados.
+    /// </summary>
+    public List<string> ObjectDetectorPaths { get; set; } = new() { "yolov5s.onnx" };
+
+    /// <summary>Lista efectiva de detectores: la selección múltiple o, si está vacía, el campo clásico.</summary>
+    public IReadOnlyList<string> GetObjectDetectorPaths()
+    {
+        var list = ObjectDetectorPaths.Where(p => !string.IsNullOrWhiteSpace(p)).Distinct().ToList();
+        if (list.Count > 0) return list;
+        return string.IsNullOrWhiteSpace(ObjectDetectorPath)
+            ? Array.Empty<string>()
+            : new[] { ObjectDetectorPath };
+    }
 
     public int ObjectDetectorInputSize { get; set; } = 640;
 
@@ -69,8 +85,20 @@ public sealed class ModelsConfig
     public string VehicleModelLabelsPath { get; set; } = "vehicle_model_labels.txt";
 
     // ---- Textos de la escena ---------------------------------------------
-    /// <summary>Detector de texto DBNet (PP-OCR det) exportado a ONNX; el OCR de matrículas lee lo localizado.</summary>
+    /// <summary>Detector de texto DBNet (PP-OCR det) exportado a ONNX (compatibilidad).</summary>
     public string SceneTextDetectorPath { get; set; } = "text_detector.onnx";
+
+    /// <summary>Detectores de texto activos (selección múltiple): las zonas encontradas se combinan y prevalece la mejor lectura.</summary>
+    public List<string> SceneTextDetectorPaths { get; set; } = new() { "text_detector.onnx" };
+
+    public IReadOnlyList<string> GetSceneTextDetectorPaths()
+    {
+        var list = SceneTextDetectorPaths.Where(p => !string.IsNullOrWhiteSpace(p)).Distinct().ToList();
+        if (list.Count > 0) return list;
+        return string.IsNullOrWhiteSpace(SceneTextDetectorPath)
+            ? Array.Empty<string>()
+            : new[] { SceneTextDetectorPath };
+    }
 
     // ---- Actualizaciones automáticas ---------------------------------------
     /// <summary>Comprueba periódicamente las fuentes oficiales de los modelos e instala las versiones nuevas.</summary>

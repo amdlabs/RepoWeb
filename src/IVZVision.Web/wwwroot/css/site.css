@@ -490,3 +490,39 @@ body {
     margin: 0 auto 6px;
 }
 .unknown-face input { width: 100%; }
+
+/* ---- Dialogo de completar deteccion ---- */
+.dlg-card {
+    max-width: 420px;
+    width: 92vw;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+/* ---- Tarjetas del dashboard clicables ---- */
+a.dash-card {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    transition: transform .12s ease, box-shadow .12s ease;
+}
+a.dash-card:hover {
+    text-decoration: none;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .35);
+}
+
+/* ---- Agrupacion visual en Configuracion ---- */
+.card h3 {
+    margin: 20px -8px 12px;
+    padding: 7px 10px;
+    border-left: 3px solid var(--accent, #4f8ff7);
+    background: rgba(79, 143, 247, .08);
+    border-radius: 6px;
+}
+.campo-clave {
+    border: 1px solid var(--accent, #4f8ff7);
+    border-radius: 8px;
+    padding: 10px;
+    background: rgba(79, 143, 247, .05);
+}

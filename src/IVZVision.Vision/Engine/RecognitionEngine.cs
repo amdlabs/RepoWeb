@@ -70,8 +70,8 @@ public sealed class RecognitionEngine : IDisposable
     private SFaceEmbedder? _faceEmbedder;
     private YoloPlateDetector? _plateDetector;
     private CtcPlateOcr? _plateOcr;
-    private YoloObjectDetector? _objectDetector;
-    private SceneTextDetector? _textDetector;
+    private readonly List<YoloObjectDetector> _objectDetectors = new();
+    private readonly List<SceneTextDetector> _textDetectors = new();
     private VehicleModelClassifier? _vehicleModel;
     private bool _loaded;
 
@@ -79,6 +79,52 @@ public sealed class RecognitionEngine : IDisposable
     {
         "coche", "camion", "moto", "autobus", "car", "truck", "motorcycle", "bus",
     };
+
+    /// <summary>Combina detecciones de varios modelos: misma clase y solape alto → prevalece la de mayor confianza.</summary>
+    private static IReadOnlyList<DetectedObject> MergeDetections(List<DetectedObject> all)
+    {
+        var result = new List<DetectedObject>();
+
+        foreach (var group in all.GroupBy(d => d.ClassName, StringComparer.OrdinalIgnoreCase))
+        {
+            var ordered = group.OrderByDescending(d => d.Score).ToList();
+            var kept = new List<DetectedObject>();
+
+            foreach (var candidate in ordered)
+            {
+                if (kept.Any(k => BoxF.IntersectionOverUnion(k.Box, candidate.Box) > 0.55f)) continue;
+                kept.Add(candidate);
+            }
+
+            result.AddRange(kept);
+        }
+
+        return result;
+    }
+
+    /// <summary>Funde zonas de texto solapadas de varios detectores en una sola (la envolvente).</summary>
+    private static IEnumerable<BoxF> MergeBoxes(List<BoxF> boxes, float iouThreshold)
+    {
+        var merged = new List<BoxF>();
+
+        foreach (var box in boxes.OrderByDescending(b => b.Area))
+        {
+            var overlap = merged.FindIndex(m => BoxF.IntersectionOverUnion(m, box) > iouThreshold);
+            if (overlap >= 0)
+            {
+                var m = merged[overlap];
+                var x = Math.Min(m.X, box.X);
+                var y = Math.Min(m.Y, box.Y);
+                merged[overlap] = new BoxF(x, y, Math.Max(m.Right, box.Right) - x, Math.Max(m.Bottom, box.Bottom) - y);
+            }
+            else
+            {
+                merged.Add(box);
+            }
+        }
+
+        return merged;
+    }
     private bool _disposed;
 
     public RecognitionEngine(IConfigStore config, KnownSubjectsIndex index,
@@ -141,11 +187,11 @@ public sealed class RecognitionEngine : IDisposable
     /// </summary>
     private readonly SemaphoreSlim _inferenceGate = new(1, 1);
 
-    public IReadOnlyList<AnalysisItem> Analyze(Mat analysisFrame, CameraConfig camera)
+    public IReadOnlyList<AnalysisItem> Analyze(Mat analysisFrame, CameraConfig camera, RecognitionConfig? recOverride = null)
     {
         EnsureLoaded();
 
-        var rec = _config.Current.Recognition;
+        var rec = recOverride ?? _config.Current.Recognition;
         var items = new List<AnalysisItem>();
 
         _inferenceGate.Wait();
@@ -171,17 +217,25 @@ public sealed class RecognitionEngine : IDisposable
         return items;
     }
 
-    /// <summary>Localiza los textos de la escena y los lee con el OCR CRNN.</summary>
+    /// <summary>Localiza los textos de la escena (todos los detectores marcados) y los lee con el OCR CRNN.</summary>
     private void AnalyzeTexts(Mat frame, RecognitionConfig rec, List<AnalysisItem> items)
     {
-        SceneTextDetector? detector;
+        List<SceneTextDetector> detectors;
         CtcPlateOcr? ocr;
-        lock (_gate) { detector = _textDetector; ocr = _plateOcr; }
-        if (detector is null || ocr is null) return;
+        lock (_gate) { detectors = _textDetectors.ToList(); ocr = _plateOcr; }
+        if (detectors.Count == 0 || ocr is null) return;
 
         try
         {
-            var boxes = detector.Detect(frame, rec.TextDetectionThreshold, rec.MaxTextsPerFrame);
+            // Se combinan las zonas de todos los detectores: las que se solapan se
+            // funden en una sola y prevalece la lectura de mejor confianza.
+            var candidates = new List<BoxF>();
+            foreach (var detector in detectors)
+                candidates.AddRange(detector.Detect(frame, rec.TextDetectionThreshold, rec.MaxTextsPerFrame));
+
+            var boxes = MergeBoxes(candidates, iouThreshold: 0.4f)
+                .Take(Math.Max(1, rec.MaxTextsPerFrame))
+                .ToList();
 
             foreach (var box in boxes)
             {
@@ -223,14 +277,21 @@ public sealed class RecognitionEngine : IDisposable
 
     private void AnalyzeObjects(Mat frame, RecognitionConfig rec, List<AnalysisItem> items)
     {
-        YoloObjectDetector? detector;
+        List<YoloObjectDetector> detectors;
         VehicleModelClassifier? vehicleModel;
-        lock (_gate) { detector = _objectDetector; vehicleModel = _vehicleModel; }
-        if (detector is null) return;
+        lock (_gate) { detectors = _objectDetectors.ToList(); vehicleModel = _vehicleModel; }
+        if (detectors.Count == 0) return;
 
         try
         {
-            var objects = detector.Detect(frame, rec.ObjectDetectionThreshold, rec.ObjectNmsThreshold);
+            // Todos los detectores marcados analizan el fotograma y sus resultados se
+            // combinan; los duplicados (misma clase y solape alto) se quedan con el
+            // de mayor confianza.
+            var all = new List<DetectedObject>();
+            foreach (var detector in detectors)
+                all.AddRange(detector.Detect(frame, rec.ObjectDetectionThreshold, rec.ObjectNmsThreshold));
+
+            var objects = detectors.Count == 1 ? (IReadOnlyList<DetectedObject>)all : MergeDetections(all);
 
             foreach (var obj in objects)
             {
@@ -435,15 +496,16 @@ public sealed class RecognitionEngine : IDisposable
 
         // Registro de ficheros ausentes para poder recargar cuando aparezcan.
         _missingModelFiles.Clear();
-        foreach (var path in new[]
-                 {
-                     models.Resolve(models.FaceDetectorPath, _contentRoot),
-                     models.Resolve(models.FaceEmbedderPath, _contentRoot),
-                     models.Resolve(models.PlateDetectorPath, _contentRoot),
-                     models.Resolve(models.PlateOcrPath, _contentRoot),
-                     models.Resolve(models.ObjectDetectorPath, _contentRoot),
-                     models.Resolve(models.SceneTextDetectorPath, _contentRoot),
-                 })
+        var watchedPaths = new List<string>
+        {
+            models.Resolve(models.FaceDetectorPath, _contentRoot),
+            models.Resolve(models.FaceEmbedderPath, _contentRoot),
+            models.Resolve(models.PlateDetectorPath, _contentRoot),
+            models.Resolve(models.PlateOcrPath, _contentRoot),
+        };
+        watchedPaths.AddRange(models.GetObjectDetectorPaths().Select(p => models.Resolve(p, _contentRoot)));
+        watchedPaths.AddRange(models.GetSceneTextDetectorPaths().Select(p => models.Resolve(p, _contentRoot)));
+        foreach (var path in watchedPaths)
         {
             if (!string.IsNullOrEmpty(path) && !File.Exists(path))
                 _missingModelFiles.Add(path);
@@ -483,19 +545,21 @@ public sealed class RecognitionEngine : IDisposable
             _logger.LogError(ex, "No se pudieron cargar los modelos de matrículas");
         }
 
-        try
+        var labelsPathShared = models.Resolve(models.ObjectLabelsPath, _contentRoot);
+        foreach (var path in models.GetObjectDetectorPaths())
         {
-            var objectPath = models.Resolve(models.ObjectDetectorPath, _contentRoot);
-            var labelsPath = models.Resolve(models.ObjectLabelsPath, _contentRoot);
-            _objectDetector = new YoloObjectDetector(objectPath, labelsPath, models,
-                _loggerFactory.CreateLogger<YoloObjectDetector>());
-            status.ObjectDetectorReady = true;
+            try
+            {
+                _objectDetectors.Add(new YoloObjectDetector(models.Resolve(path, _contentRoot),
+                    labelsPathShared, models, _loggerFactory.CreateLogger<YoloObjectDetector>()));
+            }
+            catch (Exception ex)
+            {
+                status.ObjectError = status.ObjectError is null ? ex.Message : $"{status.ObjectError} · {ex.Message}";
+                _logger.LogError(ex, "No se pudo cargar el detector de objetos {Path}", path);
+            }
         }
-        catch (Exception ex)
-        {
-            status.ObjectError = ex.Message;
-            _logger.LogError(ex, "No se pudo cargar el modelo de detección de objetos");
-        }
+        status.ObjectDetectorReady = _objectDetectors.Count > 0;
 
         // Clasificador de marca/modelo de vehículo: totalmente opcional, solo si el
         // usuario ha dejado el modelo y sus etiquetas en la carpeta.
@@ -514,18 +578,20 @@ public sealed class RecognitionEngine : IDisposable
             }
         }
 
-        try
+        foreach (var path in models.GetSceneTextDetectorPaths())
         {
-            var textPath = models.Resolve(models.SceneTextDetectorPath, _contentRoot);
-            _textDetector = new SceneTextDetector(textPath, models,
-                _loggerFactory.CreateLogger<SceneTextDetector>());
-            status.TextDetectorReady = true;
+            try
+            {
+                _textDetectors.Add(new SceneTextDetector(models.Resolve(path, _contentRoot), models,
+                    _loggerFactory.CreateLogger<SceneTextDetector>()));
+            }
+            catch (Exception ex)
+            {
+                status.TextError = status.TextError is null ? ex.Message : $"{status.TextError} · {ex.Message}";
+                _logger.LogError(ex, "No se pudo cargar el detector de texto {Path}", path);
+            }
         }
-        catch (Exception ex)
-        {
-            status.TextError = ex.Message;
-            _logger.LogError(ex, "No se pudo cargar el detector de texto");
-        }
+        status.TextDetectorReady = _textDetectors.Count > 0;
 
         Status = status;
         _loaded = true;
@@ -537,8 +603,10 @@ public sealed class RecognitionEngine : IDisposable
         _faceEmbedder?.Dispose(); _faceEmbedder = null;
         _plateDetector?.Dispose(); _plateDetector = null;
         _plateOcr?.Dispose(); _plateOcr = null;
-        _objectDetector?.Dispose(); _objectDetector = null;
-        _textDetector?.Dispose(); _textDetector = null;
+        foreach (var d in _objectDetectors) d.Dispose();
+        _objectDetectors.Clear();
+        foreach (var d in _textDetectors) d.Dispose();
+        _textDetectors.Clear();
         _vehicleModel?.Dispose(); _vehicleModel = null;
         Status = new ModelStatus();
     }
