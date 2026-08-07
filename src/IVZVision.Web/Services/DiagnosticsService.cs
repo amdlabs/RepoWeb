@@ -117,12 +117,18 @@ public sealed class DiagnosticsService
     public TestResult CheckModels(ModelsConfig models)
     {
         var lines = new List<string>();
+
+        // La inferencia de prueba sobre un fotograma sintético detecta problemas que
+        // la simple carga no ve (p. ej. modelos exportados en float16).
+        using var dummy = new Mat(new Size(320, 240), MatType.CV_8UC3, new Scalar(96, 96, 96));
+
         var faces = TryLoad(lines, "Reconocimiento facial", () =>
         {
             using var detector = new YuNetFaceDetector(
                 models.Resolve(models.FaceDetectorPath, _environment.ContentRootPath), models, _logger);
             using var embedder = new SFaceEmbedder(
                 models.Resolve(models.FaceEmbedderPath, _environment.ContentRootPath), models, _logger);
+            detector.Detect(dummy, 0.9f, 0.3f, 48);
         });
 
         var plates = TryLoad(lines, "Lectura de matrículas", () =>
@@ -132,6 +138,8 @@ public sealed class DiagnosticsService
             using var ocr = new CtcPlateOcr(
                 models.Resolve(models.PlateOcrPath, _environment.ContentRootPath),
                 models.Resolve(models.PlateOcrCharsetPath, _environment.ContentRootPath), models, _logger);
+            detector.Detect(dummy, 0.9f, 0.45f);
+            ocr.Read(dummy);
         });
 
         var objects = TryLoad(lines, "Detección de objetos", () =>
@@ -140,6 +148,7 @@ public sealed class DiagnosticsService
                 models.Resolve(models.ObjectDetectorPath, _environment.ContentRootPath),
                 models.Resolve(models.ObjectLabelsPath, _environment.ContentRootPath),
                 models, _logger);
+            detector.Detect(dummy, 0.9f, 0.45f);
         });
 
         lines.Add("");

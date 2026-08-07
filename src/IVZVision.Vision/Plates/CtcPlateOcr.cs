@@ -44,11 +44,9 @@ public sealed class CtcPlateOcr : IDisposable
             ? OnnxSessionFactory.ToGrayTensor(prepared, 1f / 255f, _models.PlateOcrMean, _models.PlateOcrStd)
             : OnnxSessionFactory.ToTensor(prepared, swapRb: true, 1f / 255f, _models.PlateOcrMean, _models.PlateOcrStd);
 
-        using var results = _session.Run(new[] { NamedOnnxValue.CreateFromTensor(_inputName, tensor) });
+        using var results = _session.Run(new[] { OnnxSessionFactory.CreateInput(_session, _inputName, tensor) });
 
-        var output = results.First();
-        var shape = output.AsTensor<float>().Dimensions.ToArray();
-        var data = output.AsEnumerable<float>().ToArray();
+        var data = OnnxSessionFactory.ToFloatArray(results.First(), out var shape);
 
         // Se espera [1, T, C] (PP-OCR) o [T, 1, C] (CRNN clásico).
         var (steps, classes, timeMajor) = shape.Length switch

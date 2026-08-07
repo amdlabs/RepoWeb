@@ -47,11 +47,9 @@ public sealed class YoloPlateDetector : IDisposable
         // YOLO espera RGB en el rango 0-1.
         var tensor = OnnxSessionFactory.ToTensor(input, swapRb: true, scale: 1f / 255f, mean: 0f, std: 1f);
 
-        using var results = _session.Run(new[] { NamedOnnxValue.CreateFromTensor(_inputName, tensor) });
+        using var results = _session.Run(new[] { OnnxSessionFactory.CreateInput(_session, _inputName, tensor) });
 
-        var output = results.First();
-        var data = output.AsEnumerable<float>().ToArray();
-        var shape = output.AsTensor<float>().Dimensions.ToArray();
+        var data = OnnxSessionFactory.ToFloatArray(results.First(), out var shape);
 
         var (boxes, scores) = shape.Length switch
         {

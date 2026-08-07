@@ -48,6 +48,50 @@ public static class OnnxSessionFactory
         return new InferenceSession(modelPath, options);
     }
 
+    /// <summary>
+    /// Prepara la entrada respetando el tipo que espera el modelo: si el ONNX está
+    /// exportado en media precisión (float16) el tensor se convierte automáticamente.
+    /// </summary>
+    public static NamedOnnxValue CreateInput(InferenceSession session, string inputName, DenseTensor<float> tensor)
+    {
+        var expectsHalf = session.InputMetadata.TryGetValue(inputName, out var meta)
+                          && meta.ElementDataType == TensorElementType.Float16;
+
+        if (!expectsHalf)
+            return NamedOnnxValue.CreateFromTensor(inputName, tensor);
+
+        var source = tensor.Buffer.Span;
+        var half = new DenseTensor<Float16>(tensor.Dimensions);
+        var target = half.Buffer.Span;
+        for (var i = 0; i < source.Length; i++)
+            target[i] = (Float16)source[i];
+
+        return NamedOnnxValue.CreateFromTensor(inputName, half);
+    }
+
+    /// <summary>
+    /// Lee una salida como float con su forma, convirtiendo desde float16 si el
+    /// modelo produce media precisión.
+    /// </summary>
+    public static float[] ToFloatArray(DisposableNamedOnnxValue output, out int[] shape)
+    {
+        if (output.ElementType == TensorElementType.Float16)
+        {
+            var halfTensor = output.AsTensor<Float16>();
+            shape = halfTensor.Dimensions.ToArray();
+
+            var data = new float[halfTensor.Length];
+            var i = 0;
+            foreach (var v in halfTensor)
+                data[i++] = (float)v;
+            return data;
+        }
+
+        var tensor = output.AsTensor<float>();
+        shape = tensor.Dimensions.ToArray();
+        return tensor.ToArray();
+    }
+
     /// <summary>Convierte un Mat BGR de 8 bits en un tensor NCHW.</summary>
     /// <param name="swapRb">true para reordenar a RGB (modelos entrenados con RGB).</param>
     /// <param name="scale">Factor aplicado al píxel antes de restar la media.</param>
