@@ -30,6 +30,67 @@ public class VehiculosModel : PageModel
     [BindProperty] public Vehicle NewVehicle { get; set; } = new();
     [BindProperty(SupportsGet = true)] public string? Buscar { get; set; }
 
+    // ---- Grilla de vehículos detectados por las cámaras ----------------------
+
+    public sealed record DetectedVehicle(long EventId, DateTime OccurredAt, string CameraName,
+                                         string Plate, bool IsKnown, string? CropBase64, string? CropPath,
+                                         int Repeticiones);
+
+    public IReadOnlyList<DetectedVehicle> Detected { get; private set; } = Array.Empty<DetectedVehicle>();
+    public int DetectedTotal { get; private set; }
+    public int TotalPaginas { get; private set; } = 1;
+    public IReadOnlyList<string> CamerasDisponibles { get; private set; } = Array.Empty<string>();
+
+    private const int DetectionsPageSize = 20;
+
+    [BindProperty(SupportsGet = true)] public int Pagina { get; set; } = 1;
+
+    /// <summary>Filtro por cámara de origen de la lectura.</summary>
+    [BindProperty(SupportsGet = true)] public string? Camara { get; set; }
+
+    private async Task LoadDetectedAsync(VisionDbContext db, CancellationToken ct)
+    {
+        var query = db.RecognitionEvents
+            .AsNoTracking()
+            .Where(e => e.Kind == RecognitionKind.Plate && e.PlateText != null && e.PlateText != "");
+
+        CamerasDisponibles = await query.Select(e => e.CameraName).Distinct().OrderBy(n => n).ToListAsync(ct);
+
+        if (!string.IsNullOrWhiteSpace(Camara))
+            query = query.Where(e => e.CameraName == Camara);
+
+        // Lecturas repetidas de la misma matrícula en la misma cámara (10 min) → una fila con ×N.
+        var raw = await query
+            .OrderByDescending(e => e.OccurredAt)
+            .Take(600)
+            .Select(e => new { e.Id, e.OccurredAt, e.CameraName, e.PlateText, e.IsKnown, e.CropBase64, e.CropPath })
+            .ToListAsync(ct);
+
+        var grouped = new List<DetectedVehicle>();
+        foreach (var e in raw)
+        {
+            var previous = grouped.FindIndex(g =>
+                g.CameraName == e.CameraName
+                && g.Plate == e.PlateText
+                && (g.OccurredAt - e.OccurredAt) < TimeSpan.FromMinutes(10));
+
+            if (previous >= 0)
+            {
+                grouped[previous] = grouped[previous] with { Repeticiones = grouped[previous].Repeticiones + 1 };
+                continue;
+            }
+
+            grouped.Add(new DetectedVehicle(e.Id, e.OccurredAt, e.CameraName, e.PlateText!, e.IsKnown,
+                                            e.CropBase64, e.CropPath, 1));
+        }
+
+        DetectedTotal = grouped.Count;
+        TotalPaginas = Math.Max(1, (int)Math.Ceiling(DetectedTotal / (double)DetectionsPageSize));
+        Pagina = Math.Clamp(Pagina, 1, TotalPaginas);
+
+        Detected = grouped.Skip((Pagina - 1) * DetectionsPageSize).Take(DetectionsPageSize).ToList();
+    }
+
     public async Task OnGetAsync(CancellationToken ct) => await LoadAsync(ct);
 
     public async Task<IActionResult> OnPostCrearAsync(CancellationToken ct)
@@ -125,6 +186,8 @@ public class VehiculosModel : PageModel
                 .Select(p => new SelectListItem(p.FullName, p.Id.ToString()))
                 .Take(500)
                 .ToListAsync(ct);
+
+            await LoadDetectedAsync(db, ct);
         }
         catch (Exception ex)
         {

@@ -20,7 +20,26 @@
 
 <div class="grid grid-2">
     <div class="card">
-        <h2>Detectados sin etiquetar</h2>
+        <h2>Detectados sin etiquetar (@Model.UnlabeledTotal)</h2>
+
+        <form method="get" class="filters" style="margin-bottom:12px">
+            <div class="field">
+                <label for="Camara">Origen (cámara)</label>
+                <select id="Camara" name="Camara">
+                    <option value="">Todas</option>
+                    @foreach (var cam in Model.CamerasDisponibles)
+                    {
+                        <option value="@cam" selected="@(Model.Camara == cam)">@cam</option>
+                    }
+                </select>
+            </div>
+            <button type="submit" class="btn secondary">Filtrar</button>
+            @if (!string.IsNullOrWhiteSpace(Model.Camara))
+            {
+                <a class="btn secondary" asp-page="/Objetos">Limpiar</a>
+            }
+        </form>
+
         @if (Model.Unlabeled.Count == 0)
         {
             <div class="empty">No hay clases pendientes de etiquetar.</div>
@@ -66,6 +85,23 @@
                     </tbody>
                 </table>
             </div>
+
+            @if (Model.TotalPaginas > 1)
+            {
+                <div class="actions" style="margin-top:12px; align-items:center">
+                    @if (Model.Pagina > 1)
+                    {
+                        <a class="btn small secondary" asp-page="/Objetos" asp-route-Camara="@Model.Camara"
+                           asp-route-Pagina="@(Model.Pagina - 1)">← Anteriores</a>
+                    }
+                    <span class="hint">Página @Model.Pagina de @Model.TotalPaginas</span>
+                    @if (Model.Pagina < Model.TotalPaginas)
+                    {
+                        <a class="btn small secondary" asp-page="/Objetos" asp-route-Camara="@Model.Camara"
+                           asp-route-Pagina="@(Model.Pagina + 1)">Siguientes →</a>
+                    }
+                </div>
+            }
         }
     </div>
 

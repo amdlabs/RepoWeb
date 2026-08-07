@@ -24,6 +24,24 @@
         A las no identificadas puede ponerles nombre para darlas de alta con ese mismo rostro
         (quedan como «no autorizadas» hasta revisarlas). Doble clic sobre la foto la amplía.
     </p>
+    <form method="get" class="filters" style="margin-bottom:12px">
+        <div class="field">
+            <label for="Camara">Cámara</label>
+            <select id="Camara" name="Camara">
+                <option value="">Todas</option>
+                @foreach (var cam in Model.CamerasDisponibles)
+                {
+                    <option value="@cam" selected="@(Model.Camara == cam)">@cam</option>
+                }
+            </select>
+        </div>
+        <button type="submit" class="btn secondary">Filtrar</button>
+        @if (!string.IsNullOrWhiteSpace(Model.Camara))
+        {
+            <a class="btn secondary" asp-page="/Personas">Limpiar</a>
+        }
+    </form>
+
     @if (Model.UnknownFaces.Count == 0)
     {
         <div class="empty">Todavía no hay detecciones de personas.</div>
@@ -97,13 +115,13 @@
             <div class="actions" style="margin-top:12px; align-items:center">
                 @if (Model.Pagina > 1)
                 {
-                    <a class="btn small secondary" asp-page="/Personas"
+                    <a class="btn small secondary" asp-page="/Personas" asp-route-Camara="@Model.Camara"
                        asp-route-Buscar="@Model.Buscar" asp-route-Pagina="@(Model.Pagina - 1)">← Anteriores</a>
                 }
                 <span class="hint">Página @Model.Pagina de @Model.TotalPaginas</span>
                 @if (Model.Pagina < Model.TotalPaginas)
                 {
-                    <a class="btn small secondary" asp-page="/Personas"
+                    <a class="btn small secondary" asp-page="/Personas" asp-route-Camara="@Model.Camara"
                        asp-route-Buscar="@Model.Buscar" asp-route-Pagina="@(Model.Pagina + 1)">Siguientes →</a>
                 }
             </div>

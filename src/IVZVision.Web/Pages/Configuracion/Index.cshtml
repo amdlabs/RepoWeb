@@ -348,6 +348,29 @@
                 </div>
             </div>
 
+            <h3>Filtros de ruido</h3>
+            <div class="check">
+                <input asp-for="Recognition.PriorityObjectsOnly" type="checkbox" />
+                <label asp-for="Recognition.PriorityObjectsOnly">Registrar sólo personas, vehículos y animales (el resto, sólo si tienen etiqueta)</label>
+            </div>
+            <div class="grid grid-3">
+                <div class="field">
+                    <label asp-for="Recognition.MinCropSharpness">Nitidez mínima del recorte</label>
+                    <input asp-for="Recognition.MinCropSharpness" type="number" step="1" min="0" max="500" />
+                    <div class="hint">0 = sin filtro. Descarta fotos borrosas.</div>
+                </div>
+                <div class="field">
+                    <label asp-for="Recognition.MinCropBrightness">Brillo mínimo (0-255)</label>
+                    <input asp-for="Recognition.MinCropBrightness" type="number" step="1" min="0" max="255" />
+                    <div class="hint">0 = sin filtro. Descarta fotos negras.</div>
+                </div>
+                <div class="field">
+                    <label asp-for="Recognition.TextRepeatSuppressionHours">Supresión de textos repetidos (h)</label>
+                    <input asp-for="Recognition.TextRepeatSuppressionHours" type="number" min="1" max="720" />
+                    <div class="hint">Un rótulo fijo se registra una vez por ventana.</div>
+                </div>
+            </div>
+
             <h3>Eventos y vídeo</h3>
             <div class="grid grid-3">
                 <div class="field">

@@ -17,6 +17,120 @@
     </div>
 }
 
+<div class="card" style="margin-bottom:16px">
+    <h2>Vehículos detectados (@Model.DetectedTotal)</h2>
+    <p class="subtitle">
+        Matrículas leídas por las cámaras, de la más reciente a la más antigua. Las no registradas
+        se pueden dar de alta con un clic. Doble clic sobre la foto la amplía.
+    </p>
+
+    <form method="get" class="filters" style="margin-bottom:12px">
+        <div class="field">
+            <label for="Camara">Origen (cámara)</label>
+            <select id="Camara" name="Camara">
+                <option value="">Todas</option>
+                @foreach (var cam in Model.CamerasDisponibles)
+                {
+                    <option value="@cam" selected="@(Model.Camara == cam)">@cam</option>
+                }
+            </select>
+        </div>
+        <button type="submit" class="btn secondary">Filtrar</button>
+        @if (!string.IsNullOrWhiteSpace(Model.Camara))
+        {
+            <a class="btn secondary" asp-page="/Vehiculos">Limpiar</a>
+        }
+    </form>
+
+    @if (Model.Detected.Count == 0)
+    {
+        <div class="empty">Todavía no hay lecturas de matrícula.</div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Foto</th>
+                        <th>Matrícula</th>
+                        <th>Estado</th>
+                        <th>Fecha</th>
+                        <th>Hora</th>
+                        <th>Cámara</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var v in Model.Detected)
+                {
+                    var local = v.OccurredAt.ToLocalTime();
+                    <tr>
+                        <td class="thumb-cell">
+                            @if (!string.IsNullOrEmpty(v.CropBase64))
+                            {
+                                <img src="data:image/jpeg;base64,@v.CropBase64" alt="@v.Plate" />
+                            }
+                            else if (!string.IsNullOrEmpty(v.CropPath))
+                            {
+                                <img src="/media/recorte?path=@Uri.EscapeDataString(v.CropPath)" alt="@v.Plate" loading="lazy" />
+                            }
+                        </td>
+                        <td class="plate"><b>@v.Plate</b></td>
+                        <td>
+                            @if (v.IsKnown)
+                            {
+                                <span class="badge badge-ok">registrada</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-danger">no registrada</span>
+                            }
+                        </td>
+                        <td>@local.ToString("dd/MM/yyyy")</td>
+                        <td>
+                            @local.ToString("HH:mm:ss")
+                            @if (v.Repeticiones > 1)
+                            {
+                                <span class="badge badge-muted" title="Lecturas agrupadas de la misma cámara en 10 minutos">×@v.Repeticiones</span>
+                            }
+                        </td>
+                        <td>@v.CameraName</td>
+                        <td>
+                            @if (!v.IsKnown)
+                            {
+                                <form method="post" asp-page-handler="Crear" class="actions" style="gap:6px">
+                                    <input type="hidden" name="NewVehicle.Plate" value="@v.Plate" />
+                                    <input name="NewVehicle.Make" placeholder="Marca (opcional)" style="max-width:120px" />
+                                    <button class="btn small" type="submit">Registrar</button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        @if (Model.TotalPaginas > 1)
+        {
+            <div class="actions" style="margin-top:12px; align-items:center">
+                @if (Model.Pagina > 1)
+                {
+                    <a class="btn small secondary" asp-page="/Vehiculos" asp-route-Camara="@Model.Camara"
+                       asp-route-Buscar="@Model.Buscar" asp-route-Pagina="@(Model.Pagina - 1)">← Anteriores</a>
+                }
+                <span class="hint">Página @Model.Pagina de @Model.TotalPaginas</span>
+                @if (Model.Pagina < Model.TotalPaginas)
+                {
+                    <a class="btn small secondary" asp-page="/Vehiculos" asp-route-Camara="@Model.Camara"
+                       asp-route-Buscar="@Model.Buscar" asp-route-Pagina="@(Model.Pagina + 1)">Siguientes →</a>
+                }
+            </div>
+        }
+    }
+</div>
+
 <div class="grid grid-live">
     <div class="card">
         <div class="filters" style="margin-bottom:16px">

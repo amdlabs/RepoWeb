@@ -28,6 +28,17 @@ public class ObjetosModel : PageModel
     public IReadOnlyList<UnknownClass> Unlabeled { get; private set; } = Array.Empty<UnknownClass>();
     public string? DatabaseError { get; private set; }
 
+    private const int PageSize = 15;
+
+    [BindProperty(SupportsGet = true)] public int Pagina { get; set; } = 1;
+
+    /// <summary>Filtro por cámara de origen de las detecciones.</summary>
+    [BindProperty(SupportsGet = true)] public string? Camara { get; set; }
+
+    public int TotalPaginas { get; private set; } = 1;
+    public int UnlabeledTotal { get; private set; }
+    public IReadOnlyList<string> CamerasDisponibles { get; private set; } = Array.Empty<string>();
+
     public async Task OnGetAsync(CancellationToken ct)
     {
         try
@@ -41,9 +52,16 @@ public class ObjetosModel : PageModel
 
             var labeled = Labels.Select(l => l.ClassName.ToLowerInvariant()).ToHashSet();
 
-            var detected = await db.RecognitionEvents
+            var events = db.RecognitionEvents
                 .AsNoTracking()
-                .Where(e => e.Kind == RecognitionKind.Object && e.ObjectClass != null)
+                .Where(e => e.Kind == RecognitionKind.Object && e.ObjectClass != null);
+
+            CamerasDisponibles = await events.Select(e => e.CameraName).Distinct().OrderBy(n => n).ToListAsync(ct);
+
+            if (!string.IsNullOrWhiteSpace(Camara))
+                events = events.Where(e => e.CameraName == Camara);
+
+            var detected = await events
                 .GroupBy(e => e.ObjectClass!)
                 .Select(g => new
                 {
@@ -60,11 +78,17 @@ public class ObjetosModel : PageModel
             // Personas (rostros detectados sin identificar, con alta directa).
             var excluded = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "persona", "person" };
 
-            Unlabeled = detected
+            var all = detected
                 .Where(d => !labeled.Contains(d.ClassName.ToLowerInvariant()) && !excluded.Contains(d.ClassName))
                 .OrderByDescending(d => d.LastSeen)
                 .Select(d => new UnknownClass(d.ClassName, d.Detections, d.LastSeen, d.LastCropPath))
                 .ToList();
+
+            UnlabeledTotal = all.Count;
+            TotalPaginas = Math.Max(1, (int)Math.Ceiling(UnlabeledTotal / (double)PageSize));
+            Pagina = Math.Clamp(Pagina, 1, TotalPaginas);
+
+            Unlabeled = all.Skip((Pagina - 1) * PageSize).Take(PageSize).ToList();
         }
         catch (Exception ex)
         {

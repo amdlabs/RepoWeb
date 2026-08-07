@@ -80,6 +80,15 @@ public class DeteccionesApiController : ControllerBase
         return Ok(new { ok = true, mensaje = $"Persona «{nombre}» creada con ese rostro (revísela para autorizarla)." });
     }
 
+    /// <summary>Imagen SVG de una matrícula uruguaya con el texto leído.</summary>
+    [HttpGet("/matricula/{texto}.svg")]
+    [AllowAnonymous]
+    public IActionResult MatriculaSvg(string texto)
+    {
+        Response.Headers.CacheControl = "public, max-age=3600";
+        return Content(PlateImageBuilder.BuildSvg(texto), "image/svg+xml");
+    }
+
     public sealed class VehiculoRequest
     {
         public string Matricula { get; set; } = "";

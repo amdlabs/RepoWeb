@@ -428,6 +428,10 @@
             var campos = "";
             if (hit.tipo === "matricula") {
                 campos =
+                    // Placa generada con los caracteres leídos, en formato uruguayo.
+                    '<img src="/matricula/' + encodeURIComponent(hit.matricula || "") + '.svg" ' +
+                    'alt="Matrícula ' + (hit.matricula || "") + '" style="width:100%;max-width:340px;display:block;margin:0 auto 12px" />' +
+                    (hit.miniatura ? '<img src="' + hit.miniatura + '" alt="Lectura original" style="width:180px;border-radius:6px;display:block;margin:0 auto 12px" />' : "") +
                     '<div class="field"><label>Matrícula</label><input id="dlgMatricula" value="' + (hit.matricula || "") + '" /></div>' +
                     '<div class="field"><label>Marca</label><input id="dlgMarca" placeholder="(opcional)" /></div>' +
                     '<div class="field"><label>Modelo</label><input id="dlgModelo" placeholder="(opcional)" /></div>' +
@@ -511,7 +515,17 @@
             var item = e.target.closest(".hit");
             if (!item || !item.dataset.hit) return;
             var hit = JSON.parse(item.dataset.hit);
-            if (hit.conocido || hit.tipo === "texto") return;
+            if (hit.tipo === "texto") return;
+            // Las matrículas siempre abren el diálogo (para ver la placa generada);
+            // el resto, sólo si aún no están identificados.
+            if (hit.conocido && hit.tipo !== "matricula") return;
+            abrirDialogo(hit);
+        });
+
+        // Aviso automático al leer una matrícula nueva: se muestra la placa generada.
+        connection.on("deteccion", function (hit) {
+            if (hit.tipo !== "matricula" || hit.conocido) return;
+            if (document.querySelector(".mon-overlay")) return; // no interrumpe otro diálogo
             abrirDialogo(hit);
         });
 

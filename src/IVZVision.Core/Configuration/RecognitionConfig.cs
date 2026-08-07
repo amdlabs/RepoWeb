@@ -81,6 +81,22 @@ public sealed class RecognitionConfig
     /// <summary>Tiempo de guarda específico para personas sin identificar (segundos).</summary>
     public int UnknownPersonCooldownSeconds { get; set; } = 300;
 
+    // ---- Filtros de ruido ---------------------------------------------------
+    /// <summary>
+    /// Registrar sólo objetos prioritarios (personas, vehículos y animales); el resto
+    /// de clases sólo se registra si el usuario les ha puesto etiqueta.
+    /// </summary>
+    public bool PriorityObjectsOnly { get; set; } = true;
+
+    /// <summary>Horas durante las que un mismo texto de la misma cámara no se vuelve a registrar (rótulos fijos).</summary>
+    public int TextRepeatSuppressionHours { get; set; } = 24;
+
+    /// <summary>Nitidez mínima del recorte (varianza del laplaciano) para registrar personas/rostros. 0 = sin filtro.</summary>
+    public double MinCropSharpness { get; set; } = 25;
+
+    /// <summary>Brillo medio mínimo del recorte (0-255) para registrar personas/rostros. 0 = sin filtro.</summary>
+    public double MinCropBrightness { get; set; } = 12;
+
     /// <summary>Guarda en disco el recorte del rostro/matrícula de cada evento.</summary>
     public bool SaveSnapshots { get; set; } = true;
 

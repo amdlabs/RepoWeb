@@ -48,7 +48,12 @@ public class PersonasModel : PageModel
 
     [BindProperty(SupportsGet = true)] public int Pagina { get; set; } = 1;
 
+    /// <summary>Filtro por cámara de origen de la detección.</summary>
+    [BindProperty(SupportsGet = true)] public string? Camara { get; set; }
+
     public int TotalPaginas { get; private set; } = 1;
+
+    public IReadOnlyList<string> CamerasDisponibles { get; private set; } = Array.Empty<string>();
 
     private async Task LoadUnknownFacesAsync(VisionDbContext db, CancellationToken ct)
     {
@@ -61,6 +66,11 @@ public class PersonasModel : PageModel
                         && (e.Kind == RecognitionKind.Face
                             || (e.Kind == RecognitionKind.Object
                                 && (e.ObjectClass == "persona" || e.ObjectClass == "person"))));
+
+        CamerasDisponibles = await query.Select(e => e.CameraName).Distinct().OrderBy(n => n).ToListAsync(ct);
+
+        if (!string.IsNullOrWhiteSpace(Camara))
+            query = query.Where(e => e.CameraName == Camara);
 
         // Se agrupan las repeticiones (misma cámara e identificación dentro de una ventana
         // de 10 minutos) en una sola fila con contador, para no llenar la tabla con la

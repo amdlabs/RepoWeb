@@ -357,6 +357,84 @@ public sealed class CameraWorker
         "coche", "camion", "moto", "autobus", "bicicleta", "car", "truck", "motorcycle", "bus", "bicycle",
     };
 
+    /// <summary>Clases de objeto que interesan siempre: personas, vehículos y animales.</summary>
+    private static readonly HashSet<string> PriorityClasses = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "persona", "person",
+        "coche", "camion", "moto", "autobus", "bicicleta", "tren",
+        "car", "truck", "motorcycle", "bus", "bicycle", "train",
+        "perro", "gato", "caballo", "vaca", "oveja", "pajaro", "oso",
+        "dog", "cat", "horse", "cow", "sheep", "bird", "bear",
+    };
+
+    private static bool IsPriorityObject(string? className) =>
+        className is not null && PriorityClasses.Contains(className);
+
+    private static bool IsPersonClass(string? className) =>
+        className is "persona" or "person";
+
+    /// <summary>Textos ya registrados por esta cámara (rótulos fijos que no deben repetirse).</summary>
+    private readonly Dictionary<string, DateTimeOffset> _recentTexts = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _recentTextsGate = new();
+
+    private bool IsRepeatedText(string text, RecognitionConfig rec)
+    {
+        var window = TimeSpan.FromHours(Math.Max(1, rec.TextRepeatSuppressionHours));
+        var now = DateTimeOffset.UtcNow;
+
+        lock (_recentTextsGate)
+        {
+            foreach (var stale in _recentTexts.Where(kv => now - kv.Value > window).Select(kv => kv.Key).ToList())
+                _recentTexts.Remove(stale);
+
+            if (_recentTexts.ContainsKey(text)) return true;
+
+            _recentTexts[text] = now;
+            if (_recentTexts.Count > 300)
+                _recentTexts.Remove(_recentTexts.Keys.First());
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// True si el recorte tiene contenido aprovechable: ni demasiado oscuro ni borroso.
+    /// Evita llenar la base con fotos negras o manchas sin información.
+    /// </summary>
+    private bool IsClearCapture(Mat frame, Observation obs, RecognitionConfig rec)
+    {
+        if (rec.MinCropSharpness <= 0 && rec.MinCropBrightness <= 0) return true;
+
+        try
+        {
+            using var crop = ImageOps.SafeCrop(frame, obs.Box.Expand(0.1f, frame.Width, frame.Height));
+            if (crop is null) return false;
+
+            using var gray = new Mat();
+            Cv2.CvtColor(crop, gray, ColorConversionCodes.BGR2GRAY);
+
+            if (rec.MinCropBrightness > 0)
+            {
+                var brightness = Cv2.Mean(gray).Val0;
+                if (brightness < rec.MinCropBrightness) return false;
+            }
+
+            if (rec.MinCropSharpness > 0)
+            {
+                using var laplacian = new Mat();
+                Cv2.Laplacian(gray, laplacian, MatType.CV_64F);
+                Cv2.MeanStdDev(laplacian, out _, out var sigma);
+                if (sigma.Val0 * sigma.Val0 < rec.MinCropSharpness) return false;
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "No se pudo evaluar la calidad del recorte");
+            return true; // ante la duda, no se pierde la captura
+        }
+    }
+
     /// <summary>Marcas de vehículo reconocibles en los textos leídos de la escena.</summary>
     private static readonly HashSet<string> VehicleBrands = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -439,11 +517,27 @@ public sealed class CameraWorker
 
         if (!obs.Match.IsKnown && !rec.RegisterUnknown) return;
 
+        // Enfoque en lo que importa: los objetos que no son personas, vehículos ni
+        // animales sólo se registran si el usuario les ha puesto etiqueta (conocidos).
+        if (obs.Kind == ObservationKind.Object && !obs.Match.IsKnown
+            && rec.PriorityObjectsOnly && !IsPriorityObject(obs.ObjectClass)) return;
+
+        // Los rótulos fijos de la escena (nombres de cámara, carteles permanentes) no
+        // se registran una y otra vez: un mismo texto por cámara, como mucho una vez
+        // por ventana de supresión.
+        if (obs.Kind == ObservationKind.Text && IsRepeatedText(obs.Match.Label, rec)) return;
+
         // El mismo desconocido delante de la cámara no se anexa una y otra vez: si su
         // rostro se parece a uno registrado hace poco, sólo se refresca su marca de tiempo.
         if (obs.Kind == ObservationKind.Face && !obs.Match.IsKnown && IsRepeatedUnknownFace(obs, rec)) return;
 
         if (_recorder.IsThrottled(obs)) return;
+
+        // Sin contenido claro no hay captura: los recortes de personas y rostros
+        // demasiado oscuros o borrosos se descartan.
+        if ((obs.Kind == ObservationKind.Face
+             || (obs.Kind == ObservationKind.Object && IsPersonClass(obs.ObjectClass)))
+            && !IsClearCapture(frame, obs, rec)) return;
 
         AttachCrop(frame, obs, rec);
 
