@@ -11,6 +11,10 @@ using Microsoft.EntityFrameworkCore;
 namespace IVZVision.Web.Pages;
 
 [AllowAnonymous]
+// Sin validación antiforgery: el formulario sólo lleva las credenciales que teclea el
+// usuario y así un token caducado (contenedor reiniciado, página antigua abierta)
+// nunca bloquea el inicio de sesión con un error 400.
+[IgnoreAntiforgeryToken]
 public class LoginModel : PageModel
 {
     private readonly IDbContextFactory<VisionDbContext> _dbFactory;

@@ -1,5 +1,6 @@
 using IVZVision.Core.Configuration;
 using IVZVision.Data;
+using Microsoft.AspNetCore.DataProtection;
 using IVZVision.Vision.Engine;
 using IVZVision.Vision.Pipeline;
 using IVZVision.Web.Hubs;
@@ -75,6 +76,15 @@ builder.Services.AddSingleton<SnapshotPathResolver>();
 builder.Services.AddSingleton<DiagnosticsService>();
 
 // ---- Web -----------------------------------------------------------------
+// Las claves que firman las cookies (sesión y antiforgery) se guardan junto a la
+// configuración: en Docker esa carpeta es un volumen, así que las sesiones y los
+// formularios sobreviven a reinicios y recreaciones del contenedor.
+var keysDir = Path.Combine(Path.GetDirectoryName(settingsFile)!, "claves-dataprotection");
+Directory.CreateDirectory(keysDir);
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(keysDir))
+    .SetApplicationName("IVZVision");
+
 builder.Services
     .AddAuthentication(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
