@@ -174,11 +174,42 @@
                 <div class="hint">Un nombre de clase por línea. Si falta se usan las 80 clases COCO en español.</div>
             </div>
 
+            <h3>Modelo de vehículo (opcional)</h3>
+            <div class="field">
+                <label asp-for="Models.VehicleModelClassifierPath">Clasificador de marca/modelo (ONNX)</label>
+                <select asp-for="Models.VehicleModelClassifierPath" asp-items="Model.ModelOptions(Model.Models.VehicleModelClassifierPath, onnx: true)"></select>
+                <div class="hint">
+                    Cualquier red de clasificación de imágenes (ResNet/ViT entrenada en Stanford Cars, CompCars…).
+                    Si el fichero no existe, la identificación usa la matrícula registrada y las marcas leídas como texto.
+                </div>
+            </div>
+            <div class="field">
+                <label asp-for="Models.VehicleModelLabelsPath">Etiquetas (una marca/modelo por línea)</label>
+                <select asp-for="Models.VehicleModelLabelsPath" asp-items="Model.ModelOptions(Model.Models.VehicleModelLabelsPath, onnx: false)"></select>
+            </div>
+
             <h3>Textos de la escena</h3>
             <div class="field">
                 <label asp-for="Models.SceneTextDetectorPath">Detector de texto (DBNet ONNX)</label>
                 <select asp-for="Models.SceneTextDetectorPath" asp-items="Model.ModelOptions(Model.Models.SceneTextDetectorPath, onnx: true)"></select>
                 <div class="hint">Localiza carteles y rótulos; el OCR de matrículas lee lo encontrado.</div>
+            </div>
+
+            <h3>Actualizaciones automáticas</h3>
+            <div class="check">
+                <input asp-for="Models.AutoUpdateModels" type="checkbox" />
+                <label asp-for="Models.AutoUpdateModels">Buscar e instalar actualizaciones de los modelos</label>
+            </div>
+            <div class="grid grid-3">
+                <div class="field">
+                    <label asp-for="Models.AutoUpdateIntervalHours">Cada (horas)</label>
+                    <input asp-for="Models.AutoUpdateIntervalHours" type="number" min="1" max="720" />
+                </div>
+            </div>
+            <div class="hint" style="margin-top:-6px">
+                Comprueba las fuentes oficiales de cada modelo instalado; si hay versión nueva la
+                descarga, la sustituye y recarga el motor sin reiniciar.
+                Última comprobación: @Model.ModelUpdatesInfo
             </div>
 
             <h3>Ejecución</h3>

@@ -48,6 +48,10 @@ public sealed class RecognitionConfig
     /// <summary>Lado mínimo en píxeles de un objeto para tenerlo en cuenta.</summary>
     public int MinObjectSize { get; set; } = 32;
 
+    // ---- Modelo de vehículo -----------------------------------------------
+    /// <summary>Confianza mínima del clasificador de marca/modelo para aceptar la identificación (0-1).</summary>
+    public float VehicleModelMinConfidence { get; set; } = 0.45f;
+
     // ---- Textos de la escena ---------------------------------------------
     /// <summary>Umbral del mapa de probabilidad del detector de texto (0-1).</summary>
     public float TextDetectionThreshold { get; set; } = 0.3f;

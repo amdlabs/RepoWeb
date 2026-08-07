@@ -89,6 +89,10 @@ builder.Services.AddSingleton<SnapshotPathResolver>();
 builder.Services.AddSingleton<DiagnosticsService>();
 builder.Services.AddSingleton<DashboardService>();
 
+// Auto-actualización de modelos: comprueba las fuentes oficiales periódicamente.
+builder.Services.AddSingleton<ModelUpdateService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<ModelUpdateService>());
+
 // ---- Web -----------------------------------------------------------------
 // Las claves que firman las cookies (sesión y antiforgery) se guardan junto a la
 // configuración: en Docker esa carpeta es un volumen, así que las sesiones y los

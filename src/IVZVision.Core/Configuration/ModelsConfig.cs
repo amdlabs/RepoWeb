@@ -61,9 +61,23 @@ public sealed class ModelsConfig
     /// <summary>Fichero opcional con los nombres de las clases (uno por línea). Si falta se usan las 80 clases COCO en español.</summary>
     public string ObjectLabelsPath { get; set; } = "object_labels.txt";
 
+    // ---- Modelo de vehículo (opcional) -------------------------------------
+    /// <summary>Clasificador de marca/modelo de vehículo (opcional): cualquier red de clasificación ONNX.</summary>
+    public string VehicleModelClassifierPath { get; set; } = "vehicle_model_classifier.onnx";
+
+    /// <summary>Etiquetas del clasificador de vehículos: una marca/modelo por línea.</summary>
+    public string VehicleModelLabelsPath { get; set; } = "vehicle_model_labels.txt";
+
     // ---- Textos de la escena ---------------------------------------------
     /// <summary>Detector de texto DBNet (PP-OCR det) exportado a ONNX; el OCR de matrículas lee lo localizado.</summary>
     public string SceneTextDetectorPath { get; set; } = "text_detector.onnx";
+
+    // ---- Actualizaciones automáticas ---------------------------------------
+    /// <summary>Comprueba periódicamente las fuentes oficiales de los modelos e instala las versiones nuevas.</summary>
+    public bool AutoUpdateModels { get; set; } = true;
+
+    /// <summary>Horas entre comprobaciones de actualización de modelos.</summary>
+    public int AutoUpdateIntervalHours { get; set; } = 24;
 
     // ---- Runtime -------------------------------------------------------
     public ExecutionProviderKind ExecutionProvider { get; set; } = ExecutionProviderKind.Cpu;

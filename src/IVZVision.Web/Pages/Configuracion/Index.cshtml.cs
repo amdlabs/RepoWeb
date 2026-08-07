@@ -36,6 +36,18 @@ public class IndexModel : PageModel
     /// <summary>True si la cadena de conexión viene fijada por web.config / appsettings.</summary>
     public bool ConnectionForced => (_config as DbConfigStore)?.ConnectionStringIsForced ?? false;
 
+    /// <summary>Resumen de la última comprobación de actualizaciones de modelos.</summary>
+    public string ModelUpdatesInfo
+    {
+        get
+        {
+            var updates = HttpContext.RequestServices.GetRequiredService<ModelUpdateService>();
+            return updates.LastCheckAt is null
+                ? "todavía no se ha ejecutado"
+                : $"{updates.LastCheckAt.Value.ToLocalTime():dd/MM HH:mm} · {updates.LastResult}";
+        }
+    }
+
     /// <summary>Ficheros ONNX disponibles en la carpeta de modelos, para las listas desplegables.</summary>
     public IReadOnlyList<string> OnnxFiles { get; private set; } = Array.Empty<string>();
 

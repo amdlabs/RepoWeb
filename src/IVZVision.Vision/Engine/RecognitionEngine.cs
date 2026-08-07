@@ -21,6 +21,8 @@ public sealed class AnalysisItem
     public string? PlateText { get; init; }
     public float? OcrConfidence { get; init; }
     public string? ObjectClass { get; init; }
+    /// <summary>Dato adicional resuelto durante el análisis (p. ej. marca/modelo del vehículo).</summary>
+    public string? Annotation { get; init; }
     public IdentityMatch Match { get; init; } = IdentityMatch.Unknown;
 }
 
@@ -70,7 +72,13 @@ public sealed class RecognitionEngine : IDisposable
     private CtcPlateOcr? _plateOcr;
     private YoloObjectDetector? _objectDetector;
     private SceneTextDetector? _textDetector;
+    private VehicleModelClassifier? _vehicleModel;
     private bool _loaded;
+
+    private static readonly HashSet<string> VehicleClasses = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "coche", "camion", "moto", "autobus", "car", "truck", "motorcycle", "bus",
+    };
     private bool _disposed;
 
     public RecognitionEngine(IConfigStore config, KnownSubjectsIndex index,
@@ -211,7 +219,8 @@ public sealed class RecognitionEngine : IDisposable
     private void AnalyzeObjects(Mat frame, RecognitionConfig rec, List<AnalysisItem> items)
     {
         YoloObjectDetector? detector;
-        lock (_gate) { detector = _objectDetector; }
+        VehicleModelClassifier? vehicleModel;
+        lock (_gate) { detector = _objectDetector; vehicleModel = _vehicleModel; }
         if (detector is null) return;
 
         try
@@ -222,12 +231,34 @@ public sealed class RecognitionEngine : IDisposable
             {
                 if (Math.Min(obj.Box.Width, obj.Box.Height) < Math.Max(8, rec.MinObjectSize)) continue;
 
+                // Marca/modelo del vehículo, si hay clasificador instalado (opcional).
+                string? annotation = null;
+                if (vehicleModel is not null && VehicleClasses.Contains(obj.ClassName)
+                    && Math.Min(obj.Box.Width, obj.Box.Height) >= 64)
+                {
+                    try
+                    {
+                        using var crop = ImageOps.SafeCrop(frame, obj.Box);
+                        if (crop is not null)
+                        {
+                            var (label, confidence) = vehicleModel.Classify(crop);
+                            if (confidence >= rec.VehicleModelMinConfidence)
+                                annotation = label;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "No se pudo clasificar el modelo de un vehículo");
+                    }
+                }
+
                 items.Add(new AnalysisItem
                 {
                     Kind = ObservationKind.Object,
                     Box = obj.Box,
                     Score = obj.Score,
                     ObjectClass = obj.ClassName,
+                    Annotation = annotation,
                     Match = _index.MatchObject(obj.ClassName),
                 });
             }
@@ -461,6 +492,23 @@ public sealed class RecognitionEngine : IDisposable
             _logger.LogError(ex, "No se pudo cargar el modelo de detección de objetos");
         }
 
+        // Clasificador de marca/modelo de vehículo: totalmente opcional, solo si el
+        // usuario ha dejado el modelo y sus etiquetas en la carpeta.
+        var vehicleModelPath = models.Resolve(models.VehicleModelClassifierPath, _contentRoot);
+        if (File.Exists(vehicleModelPath))
+        {
+            try
+            {
+                _vehicleModel = new VehicleModelClassifier(vehicleModelPath,
+                    models.Resolve(models.VehicleModelLabelsPath, _contentRoot), models,
+                    _loggerFactory.CreateLogger<VehicleModelClassifier>());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "No se pudo cargar el clasificador de modelos de vehículo");
+            }
+        }
+
         try
         {
             var textPath = models.Resolve(models.SceneTextDetectorPath, _contentRoot);
@@ -486,6 +534,7 @@ public sealed class RecognitionEngine : IDisposable
         _plateOcr?.Dispose(); _plateOcr = null;
         _objectDetector?.Dispose(); _objectDetector = null;
         _textDetector?.Dispose(); _textDetector = null;
+        _vehicleModel?.Dispose(); _vehicleModel = null;
         Status = new ModelStatus();
     }
 

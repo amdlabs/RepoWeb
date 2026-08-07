@@ -262,6 +262,7 @@ public sealed class CameraWorker
                 PlateText = item.PlateText,
                 OcrConfidence = item.OcrConfidence,
                 ObjectClass = item.ObjectClass,
+                Annotation = item.Annotation,
                 Match = item.Match,
             });
         }
@@ -279,9 +280,23 @@ public sealed class CameraWorker
         "coche", "camion", "moto", "autobus", "bicicleta", "car", "truck", "motorcycle", "bus", "bicycle",
     };
 
+    /// <summary>Marcas de vehículo reconocibles en los textos leídos de la escena.</summary>
+    private static readonly HashSet<string> VehicleBrands = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "TOYOTA", "HONDA", "NISSAN", "FORD", "CHEVROLET", "VOLKSWAGEN", "RENAULT", "PEUGEOT",
+        "CITROEN", "FIAT", "BMW", "MERCEDES", "AUDI", "SEAT", "SKODA", "KIA", "HYUNDAI",
+        "MAZDA", "SUBARU", "SUZUKI", "MITSUBISHI", "JEEP", "DODGE", "VOLVO", "LEXUS",
+        "PORSCHE", "MINI", "OPEL", "DACIA", "CHERY", "BYD", "GEELY", "HAVAL", "ISUZU",
+        "IVECO", "SCANIA", "MAN", "DAF", "YAMAHA", "KAWASAKI", "KTM", "DUCATI", "HARLEY",
+        "BAJAJ", "MOTOMEL", "ZANELLA", "TESLA", "RAM",
+    };
+
     /// <summary>
-    /// Si una matrícula leída cae dentro de un vehículo detectado, el rótulo del
-    /// vehículo pasa a incluirla («coche · ABC123») y así queda también en el evento.
+    /// Compone la identificación de cada vehículo detectado a partir de todo lo que
+    /// se ve en el fotograma: la matrícula que cae dentro (y, si está registrada, su
+    /// marca/modelo de la base de datos), el modelo estimado por el clasificador
+    /// opcional y la marca leída como texto sobre la carrocería.
+    /// Resultado típico: «coche · ABC123 · Toyota Corolla» o «coche · NISSAN».
     /// </summary>
     private static void AssociatePlatesToVehicles(List<Observation> observations)
     {
@@ -289,15 +304,46 @@ public sealed class CameraWorker
                                                         && o.ObjectClass is not null
                                                         && VehicleClasses.Contains(o.ObjectClass)))
         {
+            var parts = new List<string>();
+
+            // 1) Matrícula dentro del vehículo; si es conocida, sus notas traen «Marca Modelo».
             var plate = observations.FirstOrDefault(p =>
                 p.Kind == ObservationKind.Plate
                 && !string.IsNullOrEmpty(p.PlateText)
                 && Contains(vehicle.Box, p.Box));
 
             if (plate is not null)
-                vehicle.Annotation = plate.PlateText;
+            {
+                parts.Add(plate.PlateText!);
+                if (plate.Match.IsKnown && !string.IsNullOrWhiteSpace(plate.Match.Notes))
+                    parts.Add(plate.Match.Notes!);
+            }
+
+            // 2) Modelo estimado por el clasificador (viene del motor en Annotation).
+            if (!string.IsNullOrEmpty(vehicle.Annotation)
+                && !parts.Any(p => p.Contains(vehicle.Annotation!, StringComparison.OrdinalIgnoreCase)))
+                parts.Add(vehicle.Annotation!);
+
+            // 3) Marca leída como texto sobre el propio vehículo.
+            var brandText = observations.FirstOrDefault(t =>
+                t.Kind == ObservationKind.Text
+                && Contains(vehicle.Box, t.Box)
+                && VehicleBrands.Contains(NormalizeBrand(t.Match.Label)));
+
+            if (brandText is not null)
+            {
+                var brand = NormalizeBrand(brandText.Match.Label).ToUpperInvariant();
+                if (!parts.Any(p => p.Contains(brand, StringComparison.OrdinalIgnoreCase)))
+                    parts.Add(brand);
+            }
+
+            if (parts.Count > 0)
+                vehicle.Annotation = string.Join(" · ", parts);
         }
     }
+
+    private static string NormalizeBrand(string text) =>
+        new(text.Where(char.IsLetter).ToArray());
 
     private static bool Contains(BoxF outer, BoxF inner)
     {
