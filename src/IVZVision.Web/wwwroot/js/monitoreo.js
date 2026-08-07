@@ -218,22 +218,46 @@
         function cerrarOverlay() {
             maximizada = false;
             video.src = ""; // corta el flujo MJPEG
+
+            // Se sale de la pantalla completa del navegador si la habíamos pedido.
+            if (document.fullscreenElement) {
+                var salida = document.exitFullscreen();
+                if (salida && salida.catch) salida.catch(function () { });
+            }
+
             overlay.remove();
             document.removeEventListener("keydown", onKey);
+            document.removeEventListener("fullscreenchange", onFullscreenChange);
             assignFeeds();  // reserva HTTP inmediata…
             startWs();      // …y el streaming WebSocket vuelve al instante
         }
 
         function onKey(e) { if (e.key === "Escape") cerrarOverlay(); }
 
+        // Salir de pantalla completa (con Esc o el gesto del navegador) cierra la vista.
+        function onFullscreenChange() {
+            if (!document.fullscreenElement && maximizada) cerrarOverlay();
+        }
+
         cerrar.addEventListener("click", cerrarOverlay);
         overlay.addEventListener("dblclick", cerrarOverlay);
         document.addEventListener("keydown", onKey);
+        document.addEventListener("fullscreenchange", onFullscreenChange);
 
         overlay.appendChild(video);
         overlay.appendChild(titulo);
         overlay.appendChild(cerrar);
         document.body.appendChild(overlay);
+
+        // Pantalla completa real del navegador (oculta pestañas y barra de direcciones).
+        // Si el navegador la deniega, queda el overlay a tamaño de ventana.
+        if (overlay.requestFullscreen) {
+            var peticion = overlay.requestFullscreen({ navigationUI: "hide" });
+            if (peticion && peticion.catch) peticion.catch(function () { });
+        }
+        else if (overlay.webkitRequestFullscreen) {
+            overlay.webkitRequestFullscreen(); // Safari
+        }
     }
 
     function render() {

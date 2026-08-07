@@ -37,13 +37,18 @@
                 <a asp-page="/Configuracion/Index" class="@(Active("/Configuracion") || Active("/Usuarios") ? "active" : "")">Configuración</a>
             }
         </nav>
-        @if (User.Identity?.IsAuthenticated == true)
-        {
-            <form method="post" asp-page="/Login" asp-page-handler="Salir" style="margin-left:auto;display:flex;align-items:center;gap:10px">
-                <span class="hint">@User.Identity.Name</span>
-                <button class="btn small secondary" type="submit">Salir</button>
-            </form>
-        }
+        <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+            @* Aparece solo si el navegador permite instalar la aplicación. *@
+            <button class="btn small secondary" type="button" id="btnInstalarApp" hidden
+                    title="Instalar Cerbero Garage como aplicación">⬇ Instalar app</button>
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <form method="post" asp-page="/Login" asp-page-handler="Salir" style="display:flex;align-items:center;gap:10px;margin:0">
+                    <span class="hint">@User.Identity.Name</span>
+                    <button class="btn small secondary" type="submit">Salir</button>
+                </form>
+            }
+        </div>
     </header>
 
     <main class="content">
