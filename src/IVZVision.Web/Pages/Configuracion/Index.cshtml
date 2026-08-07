@@ -38,7 +38,8 @@
 
             <div class="field">
                 <label asp-for="Database.Password">Contraseña SQL</label>
-                <input asp-for="Database.Password" type="password" autocomplete="new-password" />
+                <input asp-for="Database.Password" type="password" autocomplete="new-password" placeholder="(sin cambios)" />
+                <div class="hint">Se guarda cifrada. Déjela en blanco para conservar la actual.</div>
             </div>
 
             <div class="check">
@@ -84,11 +85,11 @@
             <h3>Rostros</h3>
             <div class="field">
                 <label asp-for="Models.FaceDetectorPath">Detector (YuNet ONNX)</label>
-                <input asp-for="Models.FaceDetectorPath" />
+                <select asp-for="Models.FaceDetectorPath" asp-items="Model.ModelOptions(Model.Models.FaceDetectorPath, onnx: true)"></select>
             </div>
             <div class="field">
                 <label asp-for="Models.FaceEmbedderPath">Embeddings (SFace ONNX)</label>
-                <input asp-for="Models.FaceEmbedderPath" />
+                <select asp-for="Models.FaceEmbedderPath" asp-items="Model.ModelOptions(Model.Models.FaceEmbedderPath, onnx: true)"></select>
             </div>
             <div class="grid grid-3">
                 <div class="field">
@@ -104,7 +105,7 @@
             <h3>Matrículas</h3>
             <div class="field">
                 <label asp-for="Models.PlateDetectorPath">Detector (YOLO ONNX)</label>
-                <input asp-for="Models.PlateDetectorPath" />
+                <select asp-for="Models.PlateDetectorPath" asp-items="Model.ModelOptions(Model.Models.PlateDetectorPath, onnx: true)"></select>
             </div>
             <div class="field">
                 <label asp-for="Models.PlateDetectorInputSize">Tamaño de entrada del detector</label>
@@ -112,11 +113,11 @@
             </div>
             <div class="field">
                 <label asp-for="Models.PlateOcrPath">OCR (CRNN/CTC ONNX)</label>
-                <input asp-for="Models.PlateOcrPath" />
+                <select asp-for="Models.PlateOcrPath" asp-items="Model.ModelOptions(Model.Models.PlateOcrPath, onnx: true)"></select>
             </div>
             <div class="field">
                 <label asp-for="Models.PlateOcrCharsetPath">Diccionario del OCR</label>
-                <input asp-for="Models.PlateOcrCharsetPath" />
+                <select asp-for="Models.PlateOcrCharsetPath" asp-items="Model.ModelOptions(Model.Models.PlateOcrCharsetPath, onnx: false)"></select>
             </div>
             <div class="grid grid-3">
                 <div class="field">
@@ -143,6 +144,24 @@
             <div class="check">
                 <input asp-for="Models.PlateOcrBlankFirst" type="checkbox" />
                 <label asp-for="Models.PlateOcrBlankFirst">El símbolo «blank» del CTC es el índice 0 (PP-OCR)</label>
+            </div>
+
+            <h3>Objetos (COCO)</h3>
+            <div class="field">
+                <label asp-for="Models.ObjectDetectorPath">Detector de objetos (YOLO ONNX)</label>
+                <select asp-for="Models.ObjectDetectorPath" asp-items="Model.ModelOptions(Model.Models.ObjectDetectorPath, onnx: true)"></select>
+                <div class="hint">Modelo COCO en formato YOLO (p. ej. yolov8n.onnx). Detecta personas, vehículos, animales…</div>
+            </div>
+            <div class="grid grid-3">
+                <div class="field">
+                    <label asp-for="Models.ObjectDetectorInputSize">Tamaño de entrada</label>
+                    <input asp-for="Models.ObjectDetectorInputSize" type="number" step="32" min="160" max="1920" />
+                </div>
+            </div>
+            <div class="field">
+                <label asp-for="Models.ObjectLabelsPath">Fichero de clases (opcional)</label>
+                <select asp-for="Models.ObjectLabelsPath" asp-items="Model.ModelOptions(Model.Models.ObjectLabelsPath, onnx: false)"></select>
+                <div class="hint">Un nombre de clase por línea. Si falta se usan las 80 clases COCO en español.</div>
             </div>
 
             <h3>Ejecución</h3>
@@ -223,6 +242,22 @@
                 </div>
             </div>
 
+            <h3>Objetos</h3>
+            <div class="grid grid-3">
+                <div class="field">
+                    <label asp-for="Recognition.ObjectDetectionThreshold">Confianza detector</label>
+                    <input asp-for="Recognition.ObjectDetectionThreshold" type="number" step="0.01" min="0" max="1" />
+                </div>
+                <div class="field">
+                    <label asp-for="Recognition.ObjectNmsThreshold">IoU (NMS)</label>
+                    <input asp-for="Recognition.ObjectNmsThreshold" type="number" step="0.01" min="0" max="1" />
+                </div>
+                <div class="field">
+                    <label asp-for="Recognition.MinObjectSize">Tamaño mínimo (px)</label>
+                    <input asp-for="Recognition.MinObjectSize" type="number" min="8" max="512" />
+                </div>
+            </div>
+
             <h3>Eventos y vídeo</h3>
             <div class="grid grid-3">
                 <div class="field">
@@ -285,6 +320,10 @@
             <div class="kv">
                 <span>Lectura de matrículas</span>
                 <span>@(Model.ModelStatus.PlatesAvailable ? "operativo" : "no disponible")</span>
+            </div>
+            <div class="kv">
+                <span>Detección de objetos</span>
+                <span>@(Model.ModelStatus.ObjectsAvailable ? "operativo" : "no disponible")</span>
             </div>
         </div>
     </div>

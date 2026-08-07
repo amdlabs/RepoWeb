@@ -39,7 +39,12 @@ public static class Annotator
             ? (obs.OcrConfidence ?? obs.DetectionScore)
             : (obs.Match.IsKnown ? obs.Match.Score : obs.DetectionScore);
 
-        var prefix = obs.Kind == ObservationKind.Plate ? "MAT" : "ROS";
+        var prefix = obs.Kind switch
+        {
+            ObservationKind.Plate => "MAT",
+            ObservationKind.Object => "OBJ",
+            _ => "ROS",
+        };
         var text = $"{prefix} {obs.DisplayLabel} {percent * 100:0}%";
         return ToAscii(text);
     }

@@ -4,6 +4,7 @@ using IVZVision.Vision.Engine;
 using IVZVision.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace IVZVision.Web.Pages.Configuracion;
 
@@ -30,6 +31,52 @@ public class IndexModel : PageModel
 
     public ModelStatus ModelStatus { get; private set; } = new();
     public string SettingsPath => _config.FilePath;
+
+    /// <summary>Ficheros ONNX disponibles en la carpeta de modelos, para las listas desplegables.</summary>
+    public IReadOnlyList<string> OnnxFiles { get; private set; } = Array.Empty<string>();
+
+    /// <summary>Ficheros de texto (diccionarios y listas de clases) de la carpeta de modelos.</summary>
+    public IReadOnlyList<string> TextFiles { get; private set; } = Array.Empty<string>();
+
+    /// <summary>Opciones para un desplegable de modelos, incluyendo el valor actual aunque el fichero falte.</summary>
+    public List<SelectListItem> ModelOptions(string current, bool onnx)
+    {
+        var files = (onnx ? OnnxFiles : TextFiles).ToList();
+        if (!string.IsNullOrWhiteSpace(current) && !files.Contains(current, StringComparer.OrdinalIgnoreCase))
+            files.Insert(0, current);
+
+        return files.Select(f => new SelectListItem(f, f)).ToList();
+    }
+
+    private void ScanModelFiles()
+    {
+        try
+        {
+            var dir = _config.Current.Models.Resolve(".", HttpContext.RequestServices
+                .GetRequiredService<IWebHostEnvironment>().ContentRootPath);
+
+            if (Directory.Exists(dir))
+            {
+                OnnxFiles = Directory.EnumerateFiles(dir, "*.onnx")
+                    .Select(Path.GetFileName)
+                    .Where(f => f is not null)
+                    .Select(f => f!)
+                    .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                TextFiles = Directory.EnumerateFiles(dir, "*.txt")
+                    .Select(Path.GetFileName)
+                    .Where(f => f is not null)
+                    .Select(f => f!)
+                    .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+        }
+        catch (Exception)
+        {
+            // Sin listado no hay desplegable, pero el campo sigue mostrando el valor actual.
+        }
+    }
     public int KnownFaces => _index.FaceTemplateCount;
     public int KnownPlates => _index.PlateCount;
     public string IndexRefreshed => _index.LastRefreshedAt?.ToString("dd/MM/yyyy HH:mm:ss") ?? "nunca";
@@ -42,6 +89,7 @@ public class IndexModel : PageModel
         Recognition = current.Recognition;
         Storage = current.Storage;
         ModelStatus = _engine.Status;
+        ScanModelFiles();
     }
 
     public async Task<IActionResult> OnPostAsync()
@@ -49,8 +97,14 @@ public class IndexModel : PageModel
         if (!ModelState.IsValid)
         {
             ModelStatus = _engine.Status;
+            ScanModelFiles();
             return Page();
         }
+
+        // Contraseña en blanco al guardar = conservar la almacenada (el navegador
+        // nunca rellena los campos de tipo password).
+        if (string.IsNullOrEmpty(Database.Password))
+            Database.Password = _config.Current.Database.Password;
 
         await _config.UpdateAsync(cfg =>
         {
@@ -67,6 +121,9 @@ public class IndexModel : PageModel
     /// <summary>Prueba la conexión con SQL Server sin guardar nada.</summary>
     public async Task<IActionResult> OnPostProbarBdAsync([FromBody] DatabaseConfig database, CancellationToken ct)
     {
+        if (string.IsNullOrEmpty(database.Password))
+            database.Password = _config.Current.Database.Password;
+
         var result = await DatabaseProvisioner.TestAsync(database, ct);
         return new JsonResult(new { ok = result.Success, mensaje = result.Message, version = result.ServerVersion });
     }

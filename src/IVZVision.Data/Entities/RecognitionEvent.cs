@@ -6,6 +6,7 @@ public enum RecognitionKind
 {
     Face = 0,
     Plate = 1,
+    Object = 2,
 }
 
 public enum RecognitionSource
@@ -57,6 +58,10 @@ public class RecognitionEvent
 
     public float? OcrConfidence { get; set; }
 
+    /// <summary>Clase del objeto detectado (solo para <see cref="RecognitionKind.Object"/>).</summary>
+    [MaxLength(60)]
+    public string? ObjectClass { get; set; }
+
     // Cuadrante dentro del fotograma
     public int BoxX { get; set; }
     public int BoxY { get; set; }
@@ -66,4 +71,7 @@ public class RecognitionEvent
     /// <summary>Ruta relativa del recorte guardado en disco.</summary>
     [MaxLength(400)]
     public string? CropPath { get; set; }
+
+    /// <summary>Recorte JPEG del sujeto codificado en base64, guardado en la propia base de datos.</summary>
+    public string? CropBase64 { get; set; }
 }

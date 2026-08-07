@@ -94,6 +94,7 @@ public sealed class CameraWorker
 
             Status.State = $"Reconectando en {backoffSeconds}s";
             await NotifyStatusAsync(ct).ConfigureAwait(false);
+            PublishStatusFrame($"Reconectando en {backoffSeconds}s", Status.LastError);
 
             try { await Task.Delay(TimeSpan.FromSeconds(backoffSeconds), ct).ConfigureAwait(false); }
             catch (OperationCanceledException) { break; }
@@ -104,21 +105,24 @@ public sealed class CameraWorker
         Status.Connected = false;
         Status.State = "Detenida";
         await NotifyStatusAsync(CancellationToken.None).ConfigureAwait(false);
+        PublishStatusFrame("Detenida");
     }
 
     private async Task RunSessionAsync(CancellationToken ct)
     {
-        var url = _camera.BuildRtspUrl();
-
         Status.State = "Conectando";
         Status.LastError = null;
         await NotifyStatusAsync(ct).ConfigureAwait(false);
+        PublishStatusFrame("Conectando...");
 
-        using var capture = new VideoCapture(url, VideoCaptureAPIs.FFMPEG);
+        using var capture = OpenCapture();
 
         if (!capture.IsOpened())
-            throw new IOException($"No se pudo abrir el flujo RTSP {_camera.BuildRtspUrl(maskCredentials: true)}. " +
-                                  "Compruebe IP, puerto, usuario, contraseña y que el canal exista.");
+            throw new IOException(_camera.IsUsb
+                ? $"No se pudo abrir la cámara USB n.º {_camera.UsbDeviceIndex}. " +
+                  "Compruebe que está conectada y que ninguna otra aplicación la esté usando."
+                : $"No se pudo abrir el flujo RTSP {_camera.BuildRtspUrl(maskCredentials: true)}. " +
+                  "Compruebe IP, puerto, usuario, contraseña y que el canal exista.");
 
         // Búfer mínimo: interesa el fotograma más reciente, no el histórico.
         capture.Set(VideoCaptureProperties.BufferSize, 1);
@@ -242,6 +246,7 @@ public sealed class CameraWorker
                 DetectionScore = item.Score,
                 PlateText = item.PlateText,
                 OcrConfidence = item.OcrConfidence,
+                ObjectClass = item.ObjectClass,
                 Match = item.Match,
             });
         }
@@ -395,6 +400,61 @@ public sealed class CameraWorker
         rect.Height = Math.Min(rect.Height, height - rect.Y);
 
         return rect.Width < 32 || rect.Height < 32 ? null : rect;
+    }
+
+    /// <summary>Abre la fuente de vídeo: dispositivo local para USB, RTSP vía FFmpeg para el resto.</summary>
+    private VideoCapture OpenCapture()
+    {
+        if (_camera.IsUsb)
+        {
+            // DirectShow es el backend más estable para webcams en Windows.
+            var api = OperatingSystem.IsWindows() ? VideoCaptureAPIs.DSHOW : VideoCaptureAPIs.ANY;
+            return new VideoCapture(Math.Max(0, _camera.UsbDeviceIndex), api);
+        }
+
+        return new VideoCapture(_camera.BuildRtspUrl(), VideoCaptureAPIs.FFMPEG);
+    }
+
+    /// <summary>
+    /// Publica un fotograma sintético con el estado de la cámara para que el visor
+    /// web nunca se quede en negro mientras no hay vídeo real.
+    /// </summary>
+    private void PublishStatusFrame(string headline, string? detail = null)
+    {
+        try
+        {
+            using var canvas = new Mat(new Size(640, 360), MatType.CV_8UC3, new Scalar(24, 24, 24));
+
+            // PutText sólo dibuja ASCII: se eliminan tildes y caracteres especiales.
+            var name = ToAscii(_camera.Name);
+            Cv2.PutText(canvas, name, new Point(24, 60),
+                        HersheyFonts.HersheySimplex, 0.9, new Scalar(210, 210, 210), 2, LineTypes.AntiAlias);
+            Cv2.PutText(canvas, ToAscii(headline), new Point(24, 110),
+                        HersheyFonts.HersheySimplex, 0.7, new Scalar(90, 170, 250), 2, LineTypes.AntiAlias);
+
+            if (!string.IsNullOrWhiteSpace(detail))
+            {
+                var text = ToAscii(detail);
+                if (text.Length > 70) text = text[..70] + "...";
+                Cv2.PutText(canvas, text, new Point(24, 150),
+                            HersheyFonts.HersheySimplex, 0.45, new Scalar(140, 140, 140), 1, LineTypes.AntiAlias);
+            }
+
+            _broadcaster.Publish(_camera.Id, ImageOps.EncodeJpeg(canvas, 70));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "No se pudo publicar el fotograma de estado");
+        }
+    }
+
+    private static string ToAscii(string text)
+    {
+        var normalized = text.Normalize(System.Text.NormalizationForm.FormD);
+        var sb = new System.Text.StringBuilder(normalized.Length);
+        foreach (var ch in normalized)
+            if (ch < 128 && !char.IsControl(ch)) sb.Append(ch);
+        return sb.ToString();
     }
 
     private async Task NotifyStatusAsync(CancellationToken ct)

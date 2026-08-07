@@ -4,6 +4,7 @@ using IVZVision.Core.Util;
 using IVZVision.Data;
 using IVZVision.Vision.Faces;
 using IVZVision.Vision.Imaging;
+using IVZVision.Vision.Objects;
 using IVZVision.Vision.Plates;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
@@ -18,6 +19,7 @@ public sealed class AnalysisItem
     public float Score { get; init; }
     public string? PlateText { get; init; }
     public float? OcrConfidence { get; init; }
+    public string? ObjectClass { get; init; }
     public IdentityMatch Match { get; init; } = IdentityMatch.Unknown;
 }
 
@@ -28,12 +30,15 @@ public sealed class ModelStatus
     public bool FaceEmbedderReady { get; set; }
     public bool PlateDetectorReady { get; set; }
     public bool PlateOcrReady { get; set; }
+    public bool ObjectDetectorReady { get; set; }
 
     public string? FaceError { get; set; }
     public string? PlateError { get; set; }
+    public string? ObjectError { get; set; }
 
     public bool FacesAvailable => FaceDetectorReady && FaceEmbedderReady;
     public bool PlatesAvailable => PlateDetectorReady && PlateOcrReady;
+    public bool ObjectsAvailable => ObjectDetectorReady;
     public string? FaceModelId { get; set; }
 }
 
@@ -58,6 +63,7 @@ public sealed class RecognitionEngine : IDisposable
     private SFaceEmbedder? _faceEmbedder;
     private YoloPlateDetector? _plateDetector;
     private CtcPlateOcr? _plateOcr;
+    private YoloObjectDetector? _objectDetector;
     private bool _loaded;
     private bool _disposed;
 
@@ -109,7 +115,45 @@ public sealed class RecognitionEngine : IDisposable
         if (camera.EnablePlateRecognition && Status.PlatesAvailable)
             AnalyzePlates(analysisFrame, rec, items);
 
+        if (camera.EnableObjectDetection && Status.ObjectsAvailable)
+            AnalyzeObjects(analysisFrame, rec, items);
+
         return items;
+    }
+
+    private void AnalyzeObjects(Mat frame, RecognitionConfig rec, List<AnalysisItem> items)
+    {
+        YoloObjectDetector? detector;
+        lock (_gate) { detector = _objectDetector; }
+        if (detector is null) return;
+
+        try
+        {
+            var objects = detector.Detect(frame, rec.ObjectDetectionThreshold, rec.ObjectNmsThreshold);
+
+            foreach (var obj in objects)
+            {
+                if (Math.Min(obj.Box.Width, obj.Box.Height) < Math.Max(8, rec.MinObjectSize)) continue;
+
+                items.Add(new AnalysisItem
+                {
+                    Kind = ObservationKind.Object,
+                    Box = obj.Box,
+                    Score = obj.Score,
+                    ObjectClass = obj.ClassName,
+                    Match = _index.MatchObject(obj.ClassName),
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fallo en la detección de objetos; se desactiva hasta la próxima recarga");
+            lock (_gate)
+            {
+                Status.ObjectDetectorReady = false;
+                Status.ObjectError = ex.Message;
+            }
+        }
     }
 
     private void AnalyzeFaces(Mat frame, RecognitionConfig rec, List<AnalysisItem> items)
@@ -295,6 +339,20 @@ public sealed class RecognitionEngine : IDisposable
             _logger.LogError(ex, "No se pudieron cargar los modelos de matrículas");
         }
 
+        try
+        {
+            var objectPath = models.Resolve(models.ObjectDetectorPath, _contentRoot);
+            var labelsPath = models.Resolve(models.ObjectLabelsPath, _contentRoot);
+            _objectDetector = new YoloObjectDetector(objectPath, labelsPath, models,
+                _loggerFactory.CreateLogger<YoloObjectDetector>());
+            status.ObjectDetectorReady = true;
+        }
+        catch (Exception ex)
+        {
+            status.ObjectError = ex.Message;
+            _logger.LogError(ex, "No se pudo cargar el modelo de detección de objetos");
+        }
+
         Status = status;
         _loaded = true;
     }
@@ -305,6 +363,7 @@ public sealed class RecognitionEngine : IDisposable
         _faceEmbedder?.Dispose(); _faceEmbedder = null;
         _plateDetector?.Dispose(); _plateDetector = null;
         _plateOcr?.Dispose(); _plateOcr = null;
+        _objectDetector?.Dispose(); _objectDetector = null;
         Status = new ModelStatus();
     }
 

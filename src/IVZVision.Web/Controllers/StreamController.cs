@@ -6,6 +6,7 @@ namespace IVZVision.Web.Controllers;
 
 /// <summary>Sirve el vídeo anotado y las imágenes de los eventos.</summary>
 [ApiController]
+[Microsoft.AspNetCore.Authorization.Authorize]
 public class StreamController : ControllerBase
 {
     private const string Boundary = "ivzframe";
@@ -42,8 +43,23 @@ public class StreamController : ControllerBase
         {
             while (!ct.IsCancellationRequested)
             {
-                var jpeg = await _broadcaster.WaitForNextAsync(cameraId, ct).ConfigureAwait(false);
-                await WritePartAsync(jpeg, ct).ConfigureAwait(false);
+                byte[]? jpeg;
+                try
+                {
+                    // El tiempo de espera hace de latido: si el worker se reinicia (y su
+                    // canal interno se recrea) el bucle vuelve a engancharse al nuevo canal
+                    // en vez de quedarse esperando para siempre, y de paso reenvía el último
+                    // fotograma para que el navegador no cierre la conexión por inactividad.
+                    jpeg = await _broadcaster.WaitForNextAsync(cameraId, ct)
+                        .WaitAsync(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                    jpeg = _broadcaster.GetLatest(cameraId);
+                }
+
+                if (jpeg is not null)
+                    await WritePartAsync(jpeg, ct).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)

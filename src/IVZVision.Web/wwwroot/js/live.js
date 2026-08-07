@@ -9,6 +9,7 @@
     const tabs = document.getElementById("camTabs");
     const feedFaces = document.getElementById("feedFaces");
     const feedPlates = document.getElementById("feedPlates");
+    const feedObjects = document.getElementById("feedObjects");
     const MAX_ITEMS = 30;
 
     let selected = state.camaras[0].id;
@@ -22,9 +23,9 @@
 
     function badge(hit) {
         if (!hit.conocido) {
-            return hit.tipo === "matricula"
-                ? '<span class="badge badge-danger">No registrada</span>'
-                : '<span class="badge badge-danger">Desconocido</span>';
+            if (hit.tipo === "matricula") return '<span class="badge badge-danger">No registrada</span>';
+            if (hit.tipo === "objeto") return '<span class="badge badge-warn">Sin etiquetar</span>';
+            return '<span class="badge badge-danger">Desconocido</span>';
         }
         return hit.autorizado
             ? '<span class="badge badge-ok">Autorizado</span>'
@@ -55,6 +56,9 @@
         if (isPlate) {
             bits.push("OCR " + hit.similitud + "%");
             if (hit.conocido && hit.detalle) bits.push(hit.detalle);
+        } else if (hit.tipo === "objeto") {
+            bits.push("Detección " + hit.confianza + "%");
+            if (hit.detalle) bits.push(hit.detalle);
         } else if (hit.conocido) {
             bits.push("Similitud " + hit.similitud + "%");
         } else {
@@ -77,7 +81,9 @@
     function push(hit) {
         if (hit.camaraId !== selected) return;
 
-        const target = hit.tipo === "matricula" ? feedPlates : feedFaces;
+        const target = hit.tipo === "matricula" ? feedPlates
+                     : hit.tipo === "objeto" ? feedObjects
+                     : feedFaces;
         if (!target) return;
 
         target.insertBefore(render(hit), target.firstChild);
@@ -87,6 +93,7 @@
     function repaintFeeds() {
         feedFaces.innerHTML = "";
         feedPlates.innerHTML = "";
+        if (feedObjects) feedObjects.innerHTML = "";
         state.recientes
             .filter(h => h.camaraId === selected)
             .slice(0, MAX_ITEMS)

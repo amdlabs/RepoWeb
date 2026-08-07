@@ -1,0 +1,138 @@
+@page
+@model ObjetosModel
+@{
+    ViewData["Title"] = "Objetos";
+}
+
+<h1>Objetos</h1>
+<p class="subtitle">
+    Clases de objeto detectadas por las cámaras. Las que no tienen etiqueta se listan como
+    desconocidas: póngales un nombre y las siguientes detecciones saldrán como objetos conocidos.
+</p>
+
+@if (Model.DatabaseError is not null)
+{
+    <div class="alert alert-error">No se pudo consultar la base de datos: @Model.DatabaseError</div>
+}
+
+<div class="grid grid-2">
+    <div class="card">
+        <h2>Detectados sin etiquetar</h2>
+        @if (Model.Unlabeled.Count == 0)
+        {
+            <div class="empty">No hay clases pendientes de etiquetar.</div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Clase</th>
+                            <th>Detecciones</th>
+                            <th>Última vez</th>
+                            <th>Etiquetar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var item in Model.Unlabeled)
+                    {
+                        <tr>
+                            <td>
+                                @if (!string.IsNullOrEmpty(item.LastCropPath))
+                                {
+                                    <img src="/media/recorte?path=@Uri.EscapeDataString(item.LastCropPath)"
+                                         alt="@item.ClassName" style="height:42px;border-radius:4px;vertical-align:middle;margin-right:8px" />
+                                }
+                                <b>@item.ClassName</b>
+                            </td>
+                            <td>@item.Detections</td>
+                            <td>@item.LastSeen.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                            <td>
+                                <form method="post" asp-page-handler="Etiquetar" class="actions" style="gap:6px">
+                                    <input type="hidden" name="className" value="@item.ClassName" />
+                                    <input name="displayName" placeholder="Nombre" required style="max-width:150px" />
+                                    <label class="check" style="margin:0">
+                                        <input type="checkbox" name="isAuthorized" value="true" checked /> Autorizado
+                                    </label>
+                                    <button class="btn small" type="submit">Guardar</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <div class="card">
+        <h2>Objetos conocidos (etiquetados)</h2>
+        @if (Model.Labels.Count == 0)
+        {
+            <div class="empty">Todavía no se ha etiquetado ningún objeto.</div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Clase</th>
+                            <th>Estado</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var label in Model.Labels)
+                    {
+                        <tr>
+                            <td>
+                                <b>@label.DisplayName</b>
+                                @if (!string.IsNullOrEmpty(label.Notes))
+                                {
+                                    <div class="hint">@label.Notes</div>
+                                }
+                            </td>
+                            <td><code>@label.ClassName</code></td>
+                            <td>
+                                @if (label.IsAuthorized)
+                                {
+                                    <span class="badge badge-ok">Autorizado</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-warn">No autorizado</span>
+                                }
+                            </td>
+                            <td style="white-space:nowrap">
+                                <form method="post" style="display:inline">
+                                    <button class="btn small secondary" asp-page-handler="Alternar" asp-route-id="@label.Id">
+                                        @(label.IsAuthorized ? "Marcar no autorizado" : "Autorizar")
+                                    </button>
+                                </form>
+                                <form method="post" style="display:inline"
+                                      onsubmit="return confirm('¿Quitar la etiqueta @label.DisplayName?');">
+                                    <button class="btn small danger" asp-page-handler="Eliminar" asp-route-id="@label.Id">Quitar</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        <h3 style="margin-top:18px">Etiquetar una clase a mano</h3>
+        <form method="post" asp-page-handler="Etiquetar" class="actions" style="gap:6px;flex-wrap:wrap">
+            <input name="className" placeholder="clase (p. ej. perro)" required style="max-width:160px" />
+            <input name="displayName" placeholder="Nombre visible" required style="max-width:180px" />
+            <input name="notes" placeholder="Notas (opcional)" style="max-width:200px" />
+            <label class="check" style="margin:0">
+                <input type="checkbox" name="isAuthorized" value="true" checked /> Autorizado
+            </label>
+            <button class="btn small" type="submit">Añadir</button>
+        </form>
+    </div>
+</div>

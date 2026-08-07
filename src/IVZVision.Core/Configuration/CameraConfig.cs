@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Text;
 
 namespace IVZVision.Core.Configuration;
@@ -5,10 +6,19 @@ namespace IVZVision.Core.Configuration;
 public enum CameraVendor
 {
     /// <summary>Hikvision y OEM compatibles (Hilook, Safire, LTS…).</summary>
+    [Display(Name = "Hikvision / OEM")]
     Hikvision = 0,
+
+    [Display(Name = "Dahua")]
     Dahua = 1,
+
     /// <summary>Cualquier cámara ONVIF/RTSP: se usa la URL indicada a mano.</summary>
+    [Display(Name = "Genérica (RTSP/ONVIF)")]
     Generic = 2,
+
+    /// <summary>Cámara USB o integrada del propio equipo (webcam, capturadora…).</summary>
+    [Display(Name = "USB / local")]
+    Usb = 3,
 }
 
 public enum StreamProfile
@@ -45,6 +55,12 @@ public sealed class CameraConfig
     /// <summary>Canal del NVR/cámara (1 en cámaras standalone).</summary>
     public int Channel { get; set; } = 1;
 
+    /// <summary>Índice del dispositivo local para <see cref="CameraVendor.Usb"/> (0 = primera webcam).</summary>
+    public int UsbDeviceIndex { get; set; } = 0;
+
+    /// <summary>True cuando la fuente es un dispositivo local y no un flujo de red.</summary>
+    public bool IsUsb => Vendor == CameraVendor.Usb;
+
     public StreamProfile Stream { get; set; } = StreamProfile.Sub;
 
     /// <summary>Si tiene valor se usa como URL RTSP tal cual (obligatorio para <see cref="CameraVendor.Generic"/>).</summary>
@@ -59,6 +75,9 @@ public sealed class CameraConfig
     public bool EnableFaceRecognition { get; set; } = true;
 
     public bool EnablePlateRecognition { get; set; } = true;
+
+    /// <summary>Detección genérica de objetos (personas, vehículos, animales…) con el modelo COCO local.</summary>
+    public bool EnableObjectDetection { get; set; } = true;
 
     /// <summary>Escucha los eventos ANPR nativos de la cámara vía ISAPI, además del OCR local.</summary>
     public bool UseCameraAnprEvents { get; set; } = false;
@@ -77,6 +96,10 @@ public sealed class CameraConfig
 
     public string BuildRtspUrl(bool maskCredentials = false)
     {
+        // Las cámaras USB no tienen URL: se devuelve una etiqueta informativa.
+        if (IsUsb)
+            return $"usb://{UsbDeviceIndex}";
+
         if (!string.IsNullOrWhiteSpace(RtspUrlOverride))
             return maskCredentials ? MaskUrlCredentials(RtspUrlOverride.Trim()) : RtspUrlOverride.Trim();
 

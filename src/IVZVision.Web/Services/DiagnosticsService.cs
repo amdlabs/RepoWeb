@@ -4,6 +4,7 @@ using IVZVision.Data;
 using IVZVision.Vision.Imaging;
 using IVZVision.Vision.Faces;
 using IVZVision.Vision.Isapi;
+using IVZVision.Vision.Objects;
 using IVZVision.Vision.Plates;
 using OpenCvSharp;
 
@@ -26,7 +27,7 @@ public sealed class DiagnosticsService
     public Task<DatabaseCheckResult> TestDatabaseAsync(DatabaseConfig db, CancellationToken ct)
         => DatabaseProvisioner.TestAsync(db, ct);
 
-    /// <summary>Abre el RTSP, captura un fotograma y lo devuelve como vista previa.</summary>
+    /// <summary>Abre la fuente de vídeo (RTSP o USB), captura un fotograma y lo devuelve como vista previa.</summary>
     public async Task<TestResult> TestRtspAsync(CameraConfig camera, CancellationToken ct)
     {
         var masked = camera.BuildRtspUrl(maskCredentials: true);
@@ -35,15 +36,27 @@ public sealed class DiagnosticsService
         {
             try
             {
-                // La prueba usa siempre TCP: es el transporte fiable para diagnosticar.
-                Environment.SetEnvironmentVariable("OPENCV_FFMPEG_CAPTURE_OPTIONS",
-                    "rtsp_transport;tcp|stimeout;8000000");
+                VideoCapture capture;
+                if (camera.IsUsb)
+                {
+                    capture = new VideoCapture(Math.Max(0, camera.UsbDeviceIndex),
+                        OperatingSystem.IsWindows() ? VideoCaptureAPIs.DSHOW : VideoCaptureAPIs.ANY);
+                }
+                else
+                {
+                    // La prueba usa siempre TCP: es el transporte fiable para diagnosticar.
+                    Environment.SetEnvironmentVariable("OPENCV_FFMPEG_CAPTURE_OPTIONS",
+                        "rtsp_transport;tcp|stimeout;8000000|timeout;8000000");
+                    capture = new VideoCapture(camera.BuildRtspUrl(), VideoCaptureAPIs.FFMPEG);
+                }
 
-                using var capture = new VideoCapture(camera.BuildRtspUrl(), VideoCaptureAPIs.FFMPEG);
+                using var _ = capture;
                 if (!capture.IsOpened())
-                    return new TestResult(false,
-                        $"No se pudo abrir {masked}. Revise IP/puerto, usuario y contraseña, " +
-                        "y que el canal y el perfil existan en la cámara.");
+                    return new TestResult(false, camera.IsUsb
+                        ? $"No se pudo abrir la cámara USB n.º {camera.UsbDeviceIndex}. Compruebe que está " +
+                          "conectada y que ninguna otra aplicación (Teams, OBS…) la esté usando."
+                        : $"No se pudo abrir {masked}. Revise IP/puerto, usuario y contraseña, " +
+                          "y que el canal y el perfil existan en la cámara.");
 
                 using var frame = new Mat();
                 var stopwatch = Stopwatch.StartNew();
@@ -108,11 +121,19 @@ public sealed class DiagnosticsService
                 models.Resolve(models.PlateOcrCharsetPath, _environment.ContentRootPath), models, _logger);
         });
 
+        var objects = TryLoad(lines, "Detección de objetos", () =>
+        {
+            using var detector = new YoloObjectDetector(
+                models.Resolve(models.ObjectDetectorPath, _environment.ContentRootPath),
+                models.Resolve(models.ObjectLabelsPath, _environment.ContentRootPath),
+                models, _logger);
+        });
+
         lines.Add("");
         lines.Add($"Proveedor de ejecución: {models.ExecutionProvider}");
         lines.Add($"Carpeta de modelos: {models.Resolve(".", _environment.ContentRootPath)}");
 
-        return new TestResult(faces || plates, string.Join('\n', lines));
+        return new TestResult(faces || plates || objects, string.Join('\n', lines));
     }
 
     private bool TryLoad(List<string> lines, string label, Action load)

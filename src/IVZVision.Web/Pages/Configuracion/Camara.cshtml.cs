@@ -42,12 +42,21 @@ public class CamaraModel : PageModel
 
     public async Task<IActionResult> OnPostAsync()
     {
-        if (Camera.Vendor == CameraVendor.Generic && string.IsNullOrWhiteSpace(Camera.RtspUrlOverride))
-            ModelState.AddModelError("Camera.RtspUrlOverride",
-                "Para una cámara genérica hay que indicar la URL RTSP completa.");
+        if (Camera.Vendor == CameraVendor.Usb)
+        {
+            if (Camera.UsbDeviceIndex < 0)
+                ModelState.AddModelError("Camera.UsbDeviceIndex",
+                    "El índice del dispositivo USB no puede ser negativo (0 = primera webcam).");
+        }
+        else
+        {
+            if (Camera.Vendor == CameraVendor.Generic && string.IsNullOrWhiteSpace(Camera.RtspUrlOverride))
+                ModelState.AddModelError("Camera.RtspUrlOverride",
+                    "Para una cámara genérica hay que indicar la URL RTSP completa.");
 
-        if (string.IsNullOrWhiteSpace(Camera.Host) && string.IsNullOrWhiteSpace(Camera.RtspUrlOverride))
-            ModelState.AddModelError("Camera.Host", "Indique la dirección IP o el nombre de la cámara.");
+            if (string.IsNullOrWhiteSpace(Camera.Host) && string.IsNullOrWhiteSpace(Camera.RtspUrlOverride))
+                ModelState.AddModelError("Camera.Host", "Indique la dirección IP o el nombre de la cámara.");
+        }
 
         if (!ModelState.IsValid)
         {
@@ -56,6 +65,10 @@ public class CamaraModel : PageModel
         }
 
         if (Camera.Id == Guid.Empty) Camera.Id = Guid.NewGuid();
+
+        // El campo de contraseña llega vacío al editar (el navegador no la rellena):
+        // en blanco significa "conservar la actual".
+        RestoreStoredPassword(Camera);
 
         await _config.UpdateAsync(cfg =>
         {
@@ -68,9 +81,10 @@ public class CamaraModel : PageModel
         return RedirectToPage("/Configuracion/Camaras");
     }
 
-    /// <summary>Abre el RTSP con los datos del formulario y devuelve un fotograma de muestra.</summary>
+    /// <summary>Abre la fuente de vídeo con los datos del formulario y devuelve un fotograma de muestra.</summary>
     public async Task<IActionResult> OnPostProbarRtspAsync([FromBody] CameraConfig camera, CancellationToken ct)
     {
+        RestoreStoredPassword(camera);
         var result = await _diagnostics.TestRtspAsync(camera, ct);
         return new JsonResult(new { ok = result.Success, mensaje = result.Message, vistaPrevia = result.Preview });
     }
@@ -78,8 +92,19 @@ public class CamaraModel : PageModel
     /// <summary>Comprueba las credenciales HTTP contra el interfaz ISAPI.</summary>
     public async Task<IActionResult> OnPostProbarIsapiAsync([FromBody] CameraConfig camera, CancellationToken ct)
     {
+        RestoreStoredPassword(camera);
         var result = await _diagnostics.TestIsapiAsync(camera, ct);
         return new JsonResult(new { ok = result.Success, mensaje = result.Message });
+    }
+
+    /// <summary>Si la contraseña llegó en blanco, recupera la almacenada para esa cámara.</summary>
+    private void RestoreStoredPassword(CameraConfig camera)
+    {
+        if (!string.IsNullOrEmpty(camera.Password)) return;
+
+        var existing = _config.Current.FindCamera(camera.Id);
+        if (existing is not null)
+            camera.Password = existing.Password;
     }
 
     private string SuggestName()

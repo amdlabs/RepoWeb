@@ -20,6 +20,7 @@ public sealed class KnownSubjectsIndex
 
     private volatile FaceEntry[] _faces = Array.Empty<FaceEntry>();
     private volatile Dictionary<string, PlateEntry> _plates = new(StringComparer.Ordinal);
+    private volatile Dictionary<string, ObjectEntry> _objects = new(StringComparer.OrdinalIgnoreCase);
     private long _dirty = 1;
 
     public KnownSubjectsIndex(IDbContextFactory<VisionDbContext> dbFactory, ILogger<KnownSubjectsIndex> logger)
@@ -31,6 +32,7 @@ public sealed class KnownSubjectsIndex
     public DateTimeOffset? LastRefreshedAt { get; private set; }
     public int FaceTemplateCount => _faces.Length;
     public int PlateCount => _plates.Count;
+    public int ObjectLabelCount => _objects.Count;
     public string? LastError { get; private set; }
 
     /// <summary>Marca el índice como obsoleto para que se recargue en el siguiente ciclo.</summary>
@@ -96,14 +98,28 @@ public sealed class KnownSubjectsIndex
                 plates[key] = new PlateEntry(v.Id, label, v.IsAuthorized, descriptor);
             }
 
+            var labels = await db.ObjectLabels
+                .AsNoTracking()
+                .Where(o => o.IsActive)
+                .ToListAsync(ct).ConfigureAwait(false);
+
+            var objects = new Dictionary<string, ObjectEntry>(labels.Count, StringComparer.OrdinalIgnoreCase);
+            foreach (var o in labels)
+            {
+                var key = o.ClassName.Trim();
+                if (key.Length == 0) continue;
+                objects[key] = new ObjectEntry(o.Id, o.DisplayName, o.IsAuthorized, o.Notes);
+            }
+
             _faces = faces.ToArray();
             _plates = plates;
+            _objects = objects;
             LastRefreshedAt = DateTimeOffset.Now;
             LastError = null;
             Interlocked.Exchange(ref _dirty, 0);
 
-            _logger.LogInformation("Índice recargado: {Faces} plantillas faciales, {Plates} matrículas",
-                _faces.Length, _plates.Count);
+            _logger.LogInformation("Índice recargado: {Faces} plantillas faciales, {Plates} matrículas, {Objects} objetos etiquetados",
+                _faces.Length, _plates.Count, _objects.Count);
         }
         catch (Exception ex)
         {
@@ -177,7 +193,32 @@ public sealed class KnownSubjectsIndex
         return new IdentityMatch { IsKnown = false, Label = "No registrado", Score = 0 };
     }
 
+    /// <summary>
+    /// Busca la clase de objeto entre las etiquetadas por el usuario. Si nadie la ha
+    /// etiquetado todavía, la detección se lista como objeto desconocido.
+    /// </summary>
+    public IdentityMatch MatchObject(string? className)
+    {
+        if (string.IsNullOrWhiteSpace(className)) return IdentityMatch.Unknown;
+
+        if (_objects.TryGetValue(className.Trim(), out var entry))
+        {
+            return new IdentityMatch
+            {
+                IsKnown = true,
+                Label = entry.DisplayName,
+                Score = 1f,
+                IsAuthorized = entry.IsAuthorized,
+                Notes = entry.Notes,
+            };
+        }
+
+        return new IdentityMatch { IsKnown = false, Label = "Sin etiquetar", Score = 0 };
+    }
+
     private sealed record FaceEntry(int PersonId, string Name, bool IsAuthorized, string? Department, float[] Embedding);
 
     private sealed record PlateEntry(int VehicleId, string Label, bool IsAuthorized, string? Descriptor);
+
+    private sealed record ObjectEntry(int LabelId, string DisplayName, bool IsAuthorized, string? Notes);
 }

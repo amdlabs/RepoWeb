@@ -55,6 +55,7 @@ public class EventosModel : PageModel
 
             if (Tipo == "rostro") query = query.Where(e => e.Kind == RecognitionKind.Face);
             else if (Tipo == "matricula") query = query.Where(e => e.Kind == RecognitionKind.Plate);
+            else if (Tipo == "objeto") query = query.Where(e => e.Kind == RecognitionKind.Object);
 
             if (Guid.TryParse(Camara, out var cameraId)) query = query.Where(e => e.CameraId == cameraId);
 
@@ -66,7 +67,8 @@ public class EventosModel : PageModel
             {
                 var term = Texto.Trim();
                 query = query.Where(e => e.Label.Contains(term)
-                                      || (e.PlateText != null && e.PlateText.Contains(term)));
+                                      || (e.PlateText != null && e.PlateText.Contains(term))
+                                      || (e.ObjectClass != null && e.ObjectClass.Contains(term)));
             }
 
             // Los eventos se guardan en UTC; los filtros vienen en hora local.

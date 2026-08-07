@@ -37,7 +37,7 @@ public sealed class ModelsConfig
     public string PlateOcrPath { get; set; } = "plate_ocr_rec.onnx";
 
     /// <summary>Fichero de diccionario del OCR: un carácter por línea.</summary>
-    public string PlateOcrCharsetPath { get; set; } = "plate_ocr_charset.txt";
+    public string PlateOcrCharsetPath { get; set; } = "plate_ocr_charset_en.txt";
 
     public int PlateOcrInputHeight { get; set; } = 48;
     public int PlateOcrInputWidth { get; set; } = 320;
@@ -51,6 +51,15 @@ public sealed class ModelsConfig
 
     /// <summary>El índice 0 del diccionario es el símbolo "blank" de CTC (caso de PP-OCR).</summary>
     public bool PlateOcrBlankFirst { get; set; } = true;
+
+    // ---- Objetos genéricos ----------------------------------------------
+    /// <summary>Detector de objetos COCO en formato YOLO (v5/v8/v11) exportado a ONNX.</summary>
+    public string ObjectDetectorPath { get; set; } = "yolov5s.onnx";
+
+    public int ObjectDetectorInputSize { get; set; } = 640;
+
+    /// <summary>Fichero opcional con los nombres de las clases (uno por línea). Si falta se usan las 80 clases COCO en español.</summary>
+    public string ObjectLabelsPath { get; set; } = "object_labels.txt";
 
     // ---- Runtime -------------------------------------------------------
     public ExecutionProviderKind ExecutionProvider { get; set; } = ExecutionProviderKind.Cpu;

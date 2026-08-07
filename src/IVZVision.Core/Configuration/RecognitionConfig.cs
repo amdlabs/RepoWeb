@@ -39,6 +39,15 @@ public sealed class RecognitionConfig
 
     public int PlateConfirmationWindowSeconds { get; set; } = 5;
 
+    // ---- Objetos genéricos ----------------------------------------------
+    /// <summary>Confianza mínima del detector de objetos COCO (0-1).</summary>
+    public float ObjectDetectionThreshold { get; set; } = 0.45f;
+
+    public float ObjectNmsThreshold { get; set; } = 0.45f;
+
+    /// <summary>Lado mínimo en píxeles de un objeto para tenerlo en cuenta.</summary>
+    public int MinObjectSize { get; set; } = 32;
+
     // ---- Eventos -------------------------------------------------------
     /// <summary>Segundos durante los que no se repite un evento del mismo sujeto en la misma cámara.</summary>
     public int EventCooldownSeconds { get; set; } = 30;
@@ -53,7 +62,7 @@ public sealed class RecognitionConfig
     public int StreamJpegQuality { get; set; } = 75;
 
     /// <summary>Fotogramas por segundo máximos que se envían al navegador.</summary>
-    public double StreamFps { get; set; } = 12;
+    public double StreamFps { get; set; } = 15;
 
     /// <summary>Dibuja los cuadrantes y etiquetas sobre el vídeo.</summary>
     public bool DrawOverlay { get; set; } = true;

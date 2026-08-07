@@ -1,0 +1,117 @@
+@page
+@using IVZVision.Data.Entities
+@model UsuariosModel
+@{
+    ViewData["Title"] = "Usuarios";
+
+    static string RoleName(SystemUserRole role) => role switch
+    {
+        SystemUserRole.Administrator => "Administrador",
+        SystemUserRole.Operator => "Operador",
+        _ => "Consulta",
+    };
+}
+
+<h1>Usuarios del sistema</h1>
+<p class="subtitle">Cuentas de acceso a la aplicación, con su rol y estado.</p>
+
+@if (Model.DatabaseError is not null)
+{
+    <div class="alert alert-error">No se pudo consultar la base de datos: @Model.DatabaseError</div>
+}
+
+<div class="grid grid-2">
+    <div class="card">
+        <h2>Usuarios</h2>
+        @if (Model.Users.Count == 0)
+        {
+            <div class="empty">No hay usuarios registrados.</div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Rol</th>
+                            <th>Estado</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var user in Model.Users)
+                    {
+                        <tr>
+                            <td>
+                                <b>@user.Username</b>
+                                @if (!string.IsNullOrEmpty(user.FullName))
+                                {
+                                    <div class="hint">@user.FullName</div>
+                                }
+                            </td>
+                            <td>@RoleName(user.Role)</td>
+                            <td>
+                                @if (user.IsActive)
+                                {
+                                    <span class="badge badge-ok">activo</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-muted">deshabilitado</span>
+                                }
+                            </td>
+                            <td style="white-space:nowrap">
+                                <form method="post" style="display:inline" class="actions" >
+                                    <input name="password" type="password" placeholder="Nueva clave"
+                                           autocomplete="new-password" style="max-width:130px" />
+                                    <button class="btn small secondary" asp-page-handler="Clave" asp-route-id="@user.Id">Cambiar</button>
+                                </form>
+                                <form method="post" style="display:inline">
+                                    <button class="btn small secondary" asp-page-handler="Alternar" asp-route-id="@user.Id">
+                                        @(user.IsActive ? "Deshabilitar" : "Habilitar")
+                                    </button>
+                                </form>
+                                <form method="post" style="display:inline"
+                                      onsubmit="return confirm('¿Eliminar el usuario @user.Username?');">
+                                    <button class="btn small danger" asp-page-handler="Eliminar" asp-route-id="@user.Id">Eliminar</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <div class="card">
+        <h2>Nuevo usuario</h2>
+        <form method="post" asp-page-handler="Crear">
+            <div class="field">
+                <label for="username">Usuario</label>
+                <input id="username" name="username" required autocomplete="off" />
+            </div>
+            <div class="field">
+                <label for="fullName">Nombre completo</label>
+                <input id="fullName" name="fullName" />
+            </div>
+            <div class="field">
+                <label for="password">Contraseña</label>
+                <input id="password" name="password" type="password" required autocomplete="new-password" />
+                <div class="hint">Se guarda como hash PBKDF2; nunca en claro.</div>
+            </div>
+            <div class="field">
+                <label for="role">Rol</label>
+                <select id="role" name="role">
+                    <option value="0">Administrador</option>
+                    <option value="1">Operador</option>
+                    <option value="2" selected>Consulta</option>
+                </select>
+            </div>
+            <div class="actions">
+                <button class="btn" type="submit">Crear usuario</button>
+            </div>
+        </form>
+    </div>
+</div>

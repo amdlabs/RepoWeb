@@ -29,69 +29,89 @@
                 <select asp-for="Camera.Vendor" asp-items="Html.GetEnumSelectList<CameraVendor>()"></select>
                 <div class="hint">
                     <b>Hikvision</b> cubre también sus OEM (Hilook, Safire, LTS…).
-                    Elija <b>Generic</b> para indicar la URL RTSP a mano.
+                    Elija <b>Genérica</b> para indicar la URL RTSP a mano, o <b>USB / local</b>
+                    para una webcam o capturadora conectada a este equipo.
                 </div>
             </div>
 
-            <div class="field">
-                <label asp-for="Camera.Host">Dirección IP o nombre</label>
-                <input asp-for="Camera.Host" placeholder="192.168.1.64" />
-                <span asp-validation-for="Camera.Host" class="hint"></span>
-            </div>
-
-            <div class="grid grid-3">
+            <div id="usbFields">
                 <div class="field">
-                    <label asp-for="Camera.RtspPort">Puerto RTSP</label>
-                    <input asp-for="Camera.RtspPort" type="number" min="1" max="65535" />
+                    <label asp-for="Camera.UsbDeviceIndex">Índice del dispositivo USB</label>
+                    <input asp-for="Camera.UsbDeviceIndex" type="number" min="0" max="16" />
+                    <span asp-validation-for="Camera.UsbDeviceIndex" class="hint"></span>
+                    <div class="hint">0 = primera cámara del equipo, 1 = segunda, etc.</div>
                 </div>
+            </div>
+
+            <div id="netFields">
                 <div class="field">
-                    <label asp-for="Camera.HttpPort">Puerto HTTP (ISAPI)</label>
-                    <input asp-for="Camera.HttpPort" type="number" min="1" max="65535" />
+                    <label asp-for="Camera.Host">Dirección IP o nombre</label>
+                    <input asp-for="Camera.Host" placeholder="192.168.1.64" />
+                    <span asp-validation-for="Camera.Host" class="hint"></span>
                 </div>
-            </div>
 
-            <div class="field">
-                <label asp-for="Camera.Username">Usuario</label>
-                <input asp-for="Camera.Username" autocomplete="off" />
-            </div>
+                <div class="grid grid-3">
+                    <div class="field">
+                        <label asp-for="Camera.RtspPort">Puerto RTSP</label>
+                        <input asp-for="Camera.RtspPort" type="number" min="1" max="65535" />
+                    </div>
+                    <div class="field">
+                        <label asp-for="Camera.HttpPort">Puerto HTTP (ISAPI)</label>
+                        <input asp-for="Camera.HttpPort" type="number" min="1" max="65535" />
+                    </div>
+                </div>
 
-            <div class="field">
-                <label asp-for="Camera.Password">Contraseña</label>
-                <input asp-for="Camera.Password" type="password" autocomplete="new-password" />
-            </div>
-
-            <div class="grid grid-3">
                 <div class="field">
-                    <label asp-for="Camera.Channel">Canal</label>
-                    <input asp-for="Camera.Channel" type="number" min="1" max="64" />
-                    <div class="hint">1 en cámaras sueltas; el número de canal si es un NVR.</div>
+                    <label asp-for="Camera.Username">Usuario</label>
+                    <input asp-for="Camera.Username" autocomplete="off" />
                 </div>
+
                 <div class="field">
-                    <label asp-for="Camera.Stream">Perfil de vídeo</label>
-                    <select asp-for="Camera.Stream" asp-items="Html.GetEnumSelectList<StreamProfile>()"></select>
-                    <div class="hint">El secundario (Sub) consume mucha menos CPU.</div>
+                    <label asp-for="Camera.Password">Contraseña</label>
+                    <input asp-for="Camera.Password" type="password" autocomplete="new-password"
+                           placeholder="@(Model.IsNew ? "" : "(sin cambios)")" />
+                    <div class="hint">
+                        Se guarda cifrada en el servidor.
+                        @if (!Model.IsNew)
+                        {
+                            <text>Déjela en blanco para conservar la actual.</text>
+                        }
+                    </div>
                 </div>
-            </div>
 
-            <div class="check">
-                <input asp-for="Camera.UseHttps" type="checkbox" />
-                <label asp-for="Camera.UseHttps">ISAPI por HTTPS</label>
-            </div>
+                <div class="grid grid-3">
+                    <div class="field">
+                        <label asp-for="Camera.Channel">Canal</label>
+                        <input asp-for="Camera.Channel" type="number" min="1" max="64" />
+                        <div class="hint">1 en cámaras sueltas; el número de canal si es un NVR.</div>
+                    </div>
+                    <div class="field">
+                        <label asp-for="Camera.Stream">Perfil de vídeo</label>
+                        <select asp-for="Camera.Stream" asp-items="Html.GetEnumSelectList<StreamProfile>()"></select>
+                        <div class="hint">El secundario (Sub) consume mucha menos CPU.</div>
+                    </div>
+                </div>
 
-            <div class="check">
-                <input asp-for="Camera.UseTcpTransport" type="checkbox" />
-                <label asp-for="Camera.UseTcpTransport">RTSP sobre TCP (recomendado)</label>
-            </div>
+                <div class="check">
+                    <input asp-for="Camera.UseHttps" type="checkbox" />
+                    <label asp-for="Camera.UseHttps">ISAPI por HTTPS</label>
+                </div>
 
-            <div class="field">
-                <label asp-for="Camera.RtspUrlOverride">URL RTSP completa (opcional)</label>
-                <input asp-for="Camera.RtspUrlOverride" placeholder="rtsp://usuario:clave@192.168.1.64:554/Streaming/Channels/102" />
-                <span asp-validation-for="Camera.RtspUrlOverride" class="hint"></span>
-                <div class="hint">Si se rellena, sustituye a todo lo anterior para el vídeo.</div>
+                <div class="check">
+                    <input asp-for="Camera.UseTcpTransport" type="checkbox" />
+                    <label asp-for="Camera.UseTcpTransport">RTSP sobre TCP (recomendado)</label>
+                </div>
+
+                <div class="field">
+                    <label asp-for="Camera.RtspUrlOverride">URL RTSP completa (opcional)</label>
+                    <input asp-for="Camera.RtspUrlOverride" placeholder="rtsp://usuario:clave@192.168.1.64:554/Streaming/Channels/102" />
+                    <span asp-validation-for="Camera.RtspUrlOverride" class="hint"></span>
+                    <div class="hint">Si se rellena, sustituye a todo lo anterior para el vídeo.</div>
+                </div>
             </div>
 
             <div class="actions">
-                <button type="button" class="btn secondary" id="btnProbarRtsp">Probar vídeo RTSP</button>
+                <button type="button" class="btn secondary" id="btnProbarRtsp">Probar vídeo</button>
                 <button type="button" class="btn secondary" id="btnProbarIsapi">Probar ISAPI</button>
             </div>
             <div class="test-output" id="outRtsp" hidden></div>
@@ -114,6 +134,11 @@
             <div class="check">
                 <input asp-for="Camera.EnablePlateRecognition" type="checkbox" />
                 <label asp-for="Camera.EnablePlateRecognition">Leer matrículas (OCR local)</label>
+            </div>
+
+            <div class="check">
+                <input asp-for="Camera.EnableObjectDetection" type="checkbox" />
+                <label asp-for="Camera.EnableObjectDetection">Detectar objetos (personas, vehículos, animales…)</label>
             </div>
 
             <div class="check">
@@ -175,4 +200,23 @@
 
 @section Scripts {
     <script src="~/js/config.js" asp-append-version="true"></script>
+    <script>
+        // Muestra los campos de red o de USB según el tipo de cámara elegido.
+        (function () {
+            var vendor = document.getElementById("Camera_Vendor");
+            var net = document.getElementById("netFields");
+            var usb = document.getElementById("usbFields");
+            var isapiBtn = document.getElementById("btnProbarIsapi");
+
+            function refresh() {
+                var isUsb = vendor.value === "3"; // CameraVendor.Usb
+                net.hidden = isUsb;
+                usb.hidden = !isUsb;
+                if (isapiBtn) isapiBtn.hidden = isUsb;
+            }
+
+            vendor.addEventListener("change", refresh);
+            refresh();
+        })();
+    </script>
 }

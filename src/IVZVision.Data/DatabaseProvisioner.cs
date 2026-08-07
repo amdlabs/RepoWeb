@@ -73,6 +73,67 @@ END";
             await using var ctx = VisionDbContextFactory.Create(db.BuildConnectionString());
             await ctx.Database.EnsureCreatedAsync(ct).ConfigureAwait(false);
 
+            // EnsureCreated no toca bases ya existentes: los elementos añadidos en
+            // versiones posteriores se aplican aquí de forma idempotente.
+            await ctx.Database.ExecuteSqlRawAsync(@"
+IF COL_LENGTH('RecognitionEvents', 'ObjectClass') IS NULL
+    ALTER TABLE RecognitionEvents ADD ObjectClass nvarchar(60) NULL;
+
+IF COL_LENGTH('RecognitionEvents', 'CropBase64') IS NULL
+    ALTER TABLE RecognitionEvents ADD CropBase64 nvarchar(max) NULL;
+
+IF OBJECT_ID('ObjectLabels', 'U') IS NULL
+BEGIN
+    CREATE TABLE ObjectLabels (
+        Id           int IDENTITY(1,1) NOT NULL CONSTRAINT PK_ObjectLabels PRIMARY KEY,
+        ClassName    nvarchar(60)  NOT NULL,
+        DisplayName  nvarchar(150) NOT NULL,
+        Notes        nvarchar(400) NULL,
+        IsAuthorized bit NOT NULL,
+        IsActive     bit NOT NULL,
+        CreatedAt    datetime2 NOT NULL
+    );
+    CREATE UNIQUE INDEX IX_ObjectLabels_ClassName ON ObjectLabels (ClassName);
+END
+
+IF OBJECT_ID('SystemUsers', 'U') IS NULL
+BEGIN
+    CREATE TABLE SystemUsers (
+        Id           int IDENTITY(1,1) NOT NULL CONSTRAINT PK_SystemUsers PRIMARY KEY,
+        Username     nvarchar(100) NOT NULL,
+        FullName     nvarchar(200) NOT NULL,
+        PasswordHash nvarchar(500) NOT NULL,
+        Role         int NOT NULL,
+        IsActive     bit NOT NULL,
+        CreatedAt    datetime2 NOT NULL
+    );
+    CREATE UNIQUE INDEX IX_SystemUsers_Username ON SystemUsers (Username);
+END
+
+IF OBJECT_ID('ConfigSnapshots', 'U') IS NULL
+BEGIN
+    CREATE TABLE ConfigSnapshots (
+        Id      bigint IDENTITY(1,1) NOT NULL CONSTRAINT PK_ConfigSnapshots PRIMARY KEY,
+        SavedAt datetime2 NOT NULL,
+        Json    nvarchar(max) NOT NULL
+    );
+    CREATE INDEX IX_ConfigSnapshots_SavedAt ON ConfigSnapshots (SavedAt);
+END", ct).ConfigureAwait(false);
+
+            // Usuario administrador inicial para que el sistema sea usable nada más instalar.
+            if (!await ctx.SystemUsers.AnyAsync(ct).ConfigureAwait(false))
+            {
+                ctx.SystemUsers.Add(new Entities.SystemUser
+                {
+                    Username = "admin",
+                    FullName = "Administrador",
+                    PasswordHash = Entities.SystemUser.HashPassword("admin"),
+                    Role = Entities.SystemUserRole.Administrator,
+                });
+                await ctx.SaveChangesAsync(ct).ConfigureAwait(false);
+                _logger.LogWarning("Creado el usuario inicial «admin» con contraseña «admin»: cámbiela cuanto antes.");
+            }
+
             _logger.LogInformation("Base de datos lista ({Database})", db.ResolveDatabaseName());
             return new DatabaseCheckResult(true, "Base de datos lista.", null, db.ResolveDatabaseName());
         }

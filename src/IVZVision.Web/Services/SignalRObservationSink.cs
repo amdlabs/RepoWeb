@@ -65,11 +65,21 @@ public sealed class SignalRObservationSink : IObservationSink
 
     public static ObservationDto ToDto(Observation o) => new(
         o.Id,
-        o.Kind == ObservationKind.Plate ? "matricula" : "rostro",
+        o.Kind switch
+        {
+            ObservationKind.Plate => "matricula",
+            ObservationKind.Object => "objeto",
+            _ => "rostro",
+        },
         o.CameraId.ToString(),
         o.CameraName,
         o.Timestamp.ToLocalTime().ToString("HH:mm:ss"),
-        o.Kind == ObservationKind.Plate ? (o.PlateText ?? "?") : o.Match.Label,
+        o.Kind switch
+        {
+            ObservationKind.Plate => o.PlateText ?? "?",
+            ObservationKind.Object => o.Match.IsKnown ? o.Match.Label : (o.ObjectClass ?? "objeto"),
+            _ => o.Match.Label,
+        },
         o.PlateText,
         o.Match.IsKnown,
         o.Match.IsKnown && o.Match.IsAuthorized,
@@ -77,5 +87,10 @@ public sealed class SignalRObservationSink : IObservationSink
         (int)Math.Round((o.Kind == ObservationKind.Plate ? (o.OcrConfidence ?? 0) : o.Match.Score) * 100),
         o.CropJpegBase64 is null ? null : $"data:image/jpeg;base64,{o.CropJpegBase64}",
         o.EventId,
-        o.Kind == ObservationKind.Plate && o.Match.IsKnown ? o.Match.Label : o.Match.Notes);
+        o.Kind switch
+        {
+            ObservationKind.Plate when o.Match.IsKnown => o.Match.Label,
+            ObservationKind.Object => o.ObjectClass,
+            _ => o.Match.Notes,
+        });
 }

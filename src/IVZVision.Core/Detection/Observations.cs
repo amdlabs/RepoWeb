@@ -4,6 +4,8 @@ public enum ObservationKind
 {
     Face = 0,
     Plate = 1,
+    /// <summary>Objeto genérico detectado por el modelo COCO (persona, vehículo, animal…).</summary>
+    Object = 2,
 }
 
 /// <summary>Cuadro delimitador en píxeles del fotograma original.</summary>
@@ -79,6 +81,9 @@ public sealed class Observation
     /// <summary>Confianza del OCR (0-1).</summary>
     public float? OcrConfidence { get; init; }
 
+    /// <summary>Clase del objeto detectado (solo para <see cref="ObservationKind.Object"/>), p. ej. «perro».</summary>
+    public string? ObjectClass { get; init; }
+
     public IdentityMatch Match { get; init; } = IdentityMatch.Unknown;
 
     /// <summary>Recorte JPEG del sujeto, en base64, para mostrarlo en la web.</summary>
@@ -90,9 +95,12 @@ public sealed class Observation
     /// <summary>Id del evento generado en base de datos, si se registró.</summary>
     public long? EventId { get; set; }
 
-    public string DisplayLabel => Kind == ObservationKind.Plate
-        ? (Match.IsKnown ? $"{PlateText} · {Match.Label}" : PlateText ?? "?")
-        : Match.Label;
+    public string DisplayLabel => Kind switch
+    {
+        ObservationKind.Plate => Match.IsKnown ? $"{PlateText} · {Match.Label}" : PlateText ?? "?",
+        ObservationKind.Object => Match.IsKnown ? $"{Match.Label} ({ObjectClass})" : ObjectClass ?? "objeto",
+        _ => Match.Label,
+    };
 }
 
 /// <summary>Estado publicado de una cámara para la interfaz.</summary>

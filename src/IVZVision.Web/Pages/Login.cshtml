@@ -1,0 +1,36 @@
+@page
+@model LoginModel
+@{
+    ViewData["Title"] = "Iniciar sesión";
+    Layout = "_Layout";
+}
+
+<div style="max-width:380px;margin:48px auto">
+    <div class="card">
+        <h1 style="margin-top:0">Iniciar sesión</h1>
+        <p class="subtitle">Acceda con su usuario del sistema.</p>
+
+        @if (Model.Error is not null)
+        {
+            <div class="alert alert-error">@Model.Error</div>
+        }
+
+        <form method="post">
+            <div class="field">
+                <label asp-for="Username">Usuario</label>
+                <input asp-for="Username" autocomplete="username" autofocus required />
+            </div>
+            <div class="field">
+                <label asp-for="Password">Contraseña</label>
+                <input asp-for="Password" type="password" autocomplete="current-password" required />
+            </div>
+            <div class="actions">
+                <button class="btn" type="submit">Entrar</button>
+            </div>
+        </form>
+
+        <p class="hint" style="margin-top:14px">
+            Instalación nueva: <code>admin</code> / <code>admin</code>. Cámbiela en la pantalla Usuarios.
+        </p>
+    </div>
+</div>

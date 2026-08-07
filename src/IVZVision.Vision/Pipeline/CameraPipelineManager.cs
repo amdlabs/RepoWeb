@@ -190,7 +190,7 @@ public sealed class CameraPipelineManager : IHostedService, IDisposable
                     TaskScheduler.Default).Unwrap();
 
                 Task? isapi = null;
-                if (camera.UseCameraAnprEvents)
+                if (camera.UseCameraAnprEvents && !camera.IsUsb)
                     isapi = Task.Run(() => ListenCameraAnprAsync(worker, camera, cts.Token), CancellationToken.None);
 
                 _workers[camera.Id] = new Running(worker, task, isapi, cts);
@@ -216,16 +216,21 @@ public sealed class CameraPipelineManager : IHostedService, IDisposable
     /// </summary>
     private void ApplyFfmpegOptions()
     {
-        var useTcp = _config.Current.Cameras.Any(c => c.Enabled && c.UseTcpTransport);
-        var timeoutMicroseconds = Math.Max(5, _config.Current.Cameras
-            .Where(c => c.Enabled)
+        // Las cámaras USB no pasan por FFmpeg: sólo cuentan las de red.
+        var network = _config.Current.Cameras.Where(c => c.Enabled && !c.IsUsb).ToList();
+        if (network.Count == 0) return;
+
+        var useTcp = network.Any(c => c.UseTcpTransport);
+        var timeoutMicroseconds = Math.Max(5, network
             .Select(c => c.ReadTimeoutSeconds)
             .DefaultIfEmpty(15)
             .Max()) * 1_000_000L;
 
+        // "stimeout" es la opción clásica; FFmpeg 5+ la renombró a "timeout".
+        // Se envían las dos: la que no exista en la versión enlazada se ignora.
         var options = useTcp
-            ? $"rtsp_transport;tcp|stimeout;{timeoutMicroseconds}"
-            : $"stimeout;{timeoutMicroseconds}";
+            ? $"rtsp_transport;tcp|stimeout;{timeoutMicroseconds}|timeout;{timeoutMicroseconds}"
+            : $"stimeout;{timeoutMicroseconds}|timeout;{timeoutMicroseconds}";
 
         Environment.SetEnvironmentVariable("OPENCV_FFMPEG_CAPTURE_OPTIONS", options);
         _logger.LogInformation("Opciones FFmpeg para RTSP: {Options}", options);

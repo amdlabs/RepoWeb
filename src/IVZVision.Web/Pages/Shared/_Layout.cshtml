@@ -21,9 +21,18 @@
             <a asp-page="/Directo" class="@(Active("/Directo") ? "active" : "")">Directo</a>
             <a asp-page="/Personas" class="@(Active("/Personas") ? "active" : "")">Personas</a>
             <a asp-page="/Vehiculos" class="@(Active("/Vehiculos") ? "active" : "")">Vehículos</a>
+            <a asp-page="/Objetos" class="@(Active("/Objetos") ? "active" : "")">Objetos</a>
             <a asp-page="/Eventos" class="@(Active("/Eventos") ? "active" : "")">Eventos</a>
+            <a asp-page="/Usuarios" class="@(Active("/Usuarios") ? "active" : "")">Usuarios</a>
             <a asp-page="/Configuracion/Index" class="@(Active("/Configuracion") ? "active" : "")">Configuración</a>
         </nav>
+        @if (User.Identity?.IsAuthenticated == true)
+        {
+            <form method="post" asp-page="/Login" asp-page-handler="Salir" style="margin-left:auto;display:flex;align-items:center;gap:10px">
+                <span class="hint">@User.Identity.Name</span>
+                <button class="btn small secondary" type="submit">Salir</button>
+            </form>
+        }
     </header>
 
     <main class="content">

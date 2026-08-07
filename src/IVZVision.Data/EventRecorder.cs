@@ -64,7 +64,12 @@ public sealed class EventRecorder
             {
                 CameraId = obs.CameraId,
                 CameraName = Truncate(obs.CameraName, 150),
-                Kind = obs.Kind == ObservationKind.Plate ? RecognitionKind.Plate : RecognitionKind.Face,
+                Kind = obs.Kind switch
+                {
+                    ObservationKind.Plate => RecognitionKind.Plate,
+                    ObservationKind.Object => RecognitionKind.Object,
+                    _ => RecognitionKind.Face,
+                },
                 Source = source,
                 OccurredAt = obs.Timestamp.UtcDateTime,
                 DetectionScore = obs.DetectionScore,
@@ -76,11 +81,13 @@ public sealed class EventRecorder
                 Label = Truncate(obs.DisplayLabel, 200),
                 PlateText = obs.PlateText is null ? null : Truncate(obs.PlateText, 20),
                 OcrConfidence = obs.OcrConfidence,
+                ObjectClass = obs.ObjectClass is null ? null : Truncate(obs.ObjectClass, 60),
                 BoxX = (int)Math.Round(obs.Box.X),
                 BoxY = (int)Math.Round(obs.Box.Y),
                 BoxWidth = (int)Math.Round(obs.Box.Width),
                 BoxHeight = (int)Math.Round(obs.Box.Height),
                 CropPath = obs.CropPath is null ? null : Truncate(obs.CropPath, 400),
+                CropBase64 = obs.CropJpegBase64,
             };
 
             db.RecognitionEvents.Add(entity);
@@ -136,9 +143,12 @@ public sealed class EventRecorder
 
     private static string BuildKey(Observation obs)
     {
-        var subject = obs.Kind == ObservationKind.Plate
-            ? (obs.PlateText ?? "desconocida")
-            : (obs.Match.PersonId?.ToString() ?? "desconocido");
+        var subject = obs.Kind switch
+        {
+            ObservationKind.Plate => obs.PlateText ?? "desconocida",
+            ObservationKind.Object => obs.ObjectClass ?? "desconocido",
+            _ => obs.Match.PersonId?.ToString() ?? "desconocido",
+        };
 
         return $"{obs.CameraId}|{obs.Kind}|{subject}";
     }

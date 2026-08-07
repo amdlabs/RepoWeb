@@ -11,6 +11,9 @@ public class VisionDbContext : DbContext
     public DbSet<FaceTemplate> FaceTemplates => Set<FaceTemplate>();
     public DbSet<Vehicle> Vehicles => Set<Vehicle>();
     public DbSet<RecognitionEvent> RecognitionEvents => Set<RecognitionEvent>();
+    public DbSet<ObjectLabel> ObjectLabels => Set<ObjectLabel>();
+    public DbSet<SystemUser> SystemUsers => Set<SystemUser>();
+    public DbSet<ConfigSnapshot> ConfigSnapshots => Set<ConfigSnapshot>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -40,6 +43,24 @@ public class VisionDbContext : DbContext
              .WithMany(p => p.Vehicles)
              .HasForeignKey(v => v.OwnerPersonId)
              .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        b.Entity<ObjectLabel>(e =>
+        {
+            e.ToTable("ObjectLabels");
+            e.HasIndex(o => o.ClassName).IsUnique();
+        });
+
+        b.Entity<SystemUser>(e =>
+        {
+            e.ToTable("SystemUsers");
+            e.HasIndex(u => u.Username).IsUnique();
+        });
+
+        b.Entity<ConfigSnapshot>(e =>
+        {
+            e.ToTable("ConfigSnapshots");
+            e.HasIndex(s => s.SavedAt);
         });
 
         b.Entity<RecognitionEvent>(e =>

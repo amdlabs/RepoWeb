@@ -36,8 +36,22 @@ saber si ya se conoce a esa persona o a ese vehículo.
   matrículas con su titular, con marca de autorizado / no autorizado.
 - **Histórico de eventos** filtrable por tipo, cámara, estado, texto y fechas, con el
   recorte de cada detección.
+- **Detección genérica de objetos** (personas, vehículos, animales y las 80 clases COCO)
+  con un YOLO local. Las clases sin etiquetar se listan como *desconocidas*; al ponerles
+  nombre en la pantalla **Objetos** pasan a *conocidas* y las siguientes detecciones salen
+  identificadas.
+- **Cámaras USB / locales** además de las IP: webcams y capturadoras, eligiendo el índice
+  del dispositivo.
+- **Inicio de sesión obligatorio** (cookies) con usuarios del sistema en su propia tabla
+  (hash PBKDF2, roles administrador / operador / consulta). Usuario inicial `admin`/`admin`;
+  la API JSON queda anónima para integraciones.
+- **API JSON** para integraciones: `GET /api/camaras` (lista de cámaras y su estado) y
+  `GET /api/camaras/{id}/detecciones?take=50&incluirImagen=true` (últimos objetos, rostros
+  y matrículas con su recorte en base64).
 - **Configuración completa desde la web**: cámaras, base de datos, modelos y umbrales,
-  con botones de prueba de conexión para cada sistema.
+  con botones de prueba de conexión para cada sistema. Los modelos disponibles en la
+  carpeta `Models` se eligen desde listas desplegables. Las contraseñas se guardan
+  **cifradas** (DPAPI) y cada guardado deja una copia histórica en la base de datos.
 
 ---
 
@@ -53,7 +67,26 @@ saber si ya se conoce a esa persona o a ese vehículo.
 
 ---
 
-## Puesta en marcha
+## Puesta en marcha con Docker (recomendada)
+
+Con Docker instalado, un solo comando levanta el sistema completo (SQL Server + aplicación,
+con los modelos ya descargados dentro de la imagen y los datos en volúmenes persistentes):
+
+```bash
+docker compose up -d
+```
+
+Abra `http://localhost:8080` (usuario inicial `admin` / `admin`). La aplicación genera su
+configuración inicial apuntando al SQL Server del propio compose; después todo se edita
+desde la web. La contraseña de SQL se puede cambiar exportando `IVZVISION_DB_PASSWORD`
+antes de levantar.
+
+Para usar una cámara USB del anfitrión (solo Linux), descomente el bloque `devices:`
+del servicio `web` en `docker-compose.yml`.
+
+---
+
+## Puesta en marcha manual
 
 ### 1. Compilar
 
@@ -65,7 +98,8 @@ dotnet build IVZVision.sln -c Release
 
 ### 2. Descargar los modelos
 
-Los modelos ONNX no se versionan (son binarios grandes). Los de rostros se bajan solos:
+Los modelos ONNX no se versionan (son binarios grandes). El script los baja todos de sus
+fuentes oficiales:
 
 ```powershell
 # Windows
@@ -82,22 +116,23 @@ Esto deja en `src/IVZVision.Web/Models/`:
 |---|---|---|
 | `face_detection_yunet_2023mar.onnx` | Detector de rostros (233 KB) | [OpenCV Model Zoo](https://github.com/opencv/opencv_zoo), Apache 2.0 |
 | `face_recognition_sface_2021dec.onnx` | Embeddings faciales, 128-D (37 MB) | [OpenCV Model Zoo](https://github.com/opencv/opencv_zoo), Apache 2.0 |
-| `plate_ocr_charset.txt` | Diccionario del OCR (0-9, A-Z) | incluido en el repositorio |
+| `yolov5s.onnx` | Detector de objetos COCO, 80 clases (14 MB) | [Ultralytics YOLOv5 v7.0](https://github.com/ultralytics/yolov5/releases/tag/v7.0), AGPL-3.0 |
+| `plate_ocr_rec.onnx` | OCR PP-OCRv3 inglés (9 MB) | [RapidOCR](https://huggingface.co/SWHL/RapidOCR) (conversión de PaddleOCR), Apache 2.0 |
+| `plate_ocr_charset_en.txt` | Diccionario del OCR PP-OCR | [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR), Apache 2.0 |
+| `object_labels.txt` | Las 80 clases COCO en español | incluido en el repositorio |
+| `plate_ocr_charset.txt` | Diccionario alfanumérico (0-9, A-Z) para modelos ANPR propios | incluido en el repositorio |
 
-**Los modelos de matrículas los aporta usted**, porque el acierto depende mucho del formato
-de matrícula de cada país y de la licencia que le convenga. Necesita dos ficheros:
+Todos los ficheros de esa carpeta aparecen en **listas desplegables** en
+Configuración → Modelos, de modo que se puede elegir qué motor usar para cada tarea.
 
-- **Detector** (`license_plate_detector.onnx`): cualquier modelo **YOLOv5/v7/v8/v11**
-  entrenado en matrículas y exportado a ONNX. La aplicación detecta sola el formato de
-  salida (`[1, N, 5+clases]` con objectness, o `[1, 4+clases, N]` sin ella).
-  Exportar desde Ultralytics: `yolo export model=tu_modelo.pt format=onnx opset=12`.
-- **OCR** (`plate_ocr_rec.onnx`): un reconocedor de texto **CRNN con salida CTC**.
-  Sirve el `rec` de PP-OCR o cualquier CRNN propio. El diccionario incluido cubre
-  matrículas alfanuméricas; si usa PP-OCR, ponga su `en_dict.txt` y active
-  «El símbolo blank del CTC es el índice 0».
+**Opcional — detector de matrículas**: para leer matrículas con el OCR local conviene añadir
+un modelo **YOLOv5/v7/v8/v11** entrenado en matrículas y exportado a ONNX
+(`license_plate_detector.onnx`), porque el acierto depende del formato de cada país.
+La aplicación detecta sola el formato de salida. Exportar desde Ultralytics:
+`yolo export model=tu_modelo.pt format=onnx opset=12`.
 
-Sin estos dos ficheros la aplicación arranca igual: el reconocimiento facial funciona y
-la pantalla de configuración indica exactamente qué falta.
+Sin ese fichero la aplicación arranca igual: rostros y objetos funcionan, y la pantalla
+de configuración indica exactamente qué falta.
 
 ### 3. Arrancar
 

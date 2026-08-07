@@ -1,1 +1,20 @@
-# Los modelos .onnx no se versionan: ejecute scripts/descargar-modelos.ps1 (o .sh).
+# Carpeta de modelos ONNX
+
+Los .onnx no se versionan en git (son binarios grandes): ejecute
+scripts/descargar-modelos.ps1 (Windows) o scripts/descargar-modelos.sh (Linux)
+para traerlos de sus fuentes oficiales.
+
+Modelos que descarga el script:
+  - face_detection_yunet_2023mar.onnx    Detector de rostros (OpenCV Zoo)
+  - face_recognition_sface_2021dec.onnx  Embeddings faciales (OpenCV Zoo)
+  - yolov5s.onnx                         Detector de objetos COCO (Ultralytics)
+  - plate_ocr_rec.onnx                   OCR PP-OCRv3 inglés (RapidOCR/PaddleOCR)
+  - plate_ocr_charset_en.txt             Diccionario del OCR (PaddleOCR)
+
+Ficheros versionados:
+  - object_labels.txt                    Las 80 clases COCO en español
+  - plate_ocr_charset.txt                Diccionario alfanumérico para modelos ANPR propios
+
+Opcional: copie aquí un detector YOLO de matrículas (p. ej. license_plate_detector.onnx)
+y selecciónelo en Configuración → Modelos. Todos los ficheros de esta carpeta aparecen
+en las listas desplegables de esa pantalla.

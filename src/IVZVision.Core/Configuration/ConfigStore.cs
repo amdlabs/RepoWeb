@@ -54,7 +54,12 @@ public sealed class JsonFileConfigStore : IConfigStore
             if (!string.IsNullOrEmpty(dir))
                 Directory.CreateDirectory(dir);
 
-            var json = JsonSerializer.Serialize(config, ConfigJson.Options);
+            // En disco las contraseñas van cifradas; en memoria (_current) quedan en claro
+            // para poder construir las URL RTSP y las cadenas de conexión.
+            var persisted = config.Clone();
+            SecretProtector.ProtectSecrets(persisted);
+
+            var json = JsonSerializer.Serialize(persisted, ConfigJson.Options);
             var tmp = FilePath + ".tmp";
             await File.WriteAllTextAsync(tmp, json, ct).ConfigureAwait(false);
 
@@ -91,6 +96,7 @@ public sealed class JsonFileConfigStore : IConfigStore
                 var cfg = JsonSerializer.Deserialize<AppConfig>(json, ConfigJson.Options);
                 if (cfg is not null)
                 {
+                    SecretProtector.UnprotectSecrets(cfg);
                     logger.LogInformation("Configuración cargada de {Path}", path);
                     return cfg;
                 }
