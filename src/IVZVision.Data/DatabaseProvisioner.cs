@@ -82,6 +82,9 @@ IF COL_LENGTH('RecognitionEvents', 'ObjectClass') IS NULL
 IF COL_LENGTH('RecognitionEvents', 'CropBase64') IS NULL
     ALTER TABLE RecognitionEvents ADD CropBase64 nvarchar(max) NULL;
 
+IF COL_LENGTH('RecognitionEvents', 'FullFramePath') IS NULL
+    ALTER TABLE RecognitionEvents ADD FullFramePath nvarchar(400) NULL;
+
 IF OBJECT_ID('ObjectLabels', 'U') IS NULL
 BEGIN
     CREATE TABLE ObjectLabels (

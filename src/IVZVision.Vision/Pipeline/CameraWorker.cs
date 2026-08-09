@@ -348,8 +348,55 @@ public sealed class CameraWorker
 
         _overlay = observations;
 
+        // Un único fotograma completo por análisis, compartido por todas las
+        // detecciones que acaben registrándose (se guarda de forma perezosa).
+        string? fotogramaCompleto = null;
+        var fotogramaIntentado = false;
+
         foreach (var obs in observations)
+        {
+            if (rec.SaveSnapshots && !fotogramaIntentado)
+            {
+                fotogramaIntentado = true;
+                fotogramaCompleto = SaveFullFrame(frame, observations, rec, obs.Timestamp);
+            }
+
+            obs.FullFramePath = fotogramaCompleto;
             await MaybeRegisterAsync(frame, obs, rec, ct).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Guarda la escena completa con los cuadrantes dibujados: da contexto a cada
+    /// detección (dónde estaba el coche, quién más había) al abrirla con doble clic.
+    /// </summary>
+    private string? SaveFullFrame(Mat frame, IReadOnlyList<Observation> observations,
+                                  RecognitionConfig rec, DateTimeOffset timestamp)
+    {
+        try
+        {
+            using var canvas = frame.Clone();
+            Annotator.Draw(canvas, observations);
+
+            // Se limita el ancho: la escena es para mirarla, no para analizarla.
+            using var reducido = ImageOps.ScaleForAnalysis(canvas, 1280, out _);
+            var jpeg = ImageOps.EncodeJpeg(reducido, 80);
+
+            var relativeDir = Path.Combine(timestamp.ToString("yyyy"), timestamp.ToString("MM"),
+                                           timestamp.ToString("dd"), _camera.Id.ToString("N"), "escenas");
+            var absoluteDir = Path.Combine(_snapshotsRoot, relativeDir);
+            Directory.CreateDirectory(absoluteDir);
+
+            var fileName = $"{timestamp:HHmmssfff}_escena.jpg";
+            File.WriteAllBytes(Path.Combine(absoluteDir, fileName), jpeg);
+
+            return Path.Combine(relativeDir, fileName).Replace('\\', '/');
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "No se pudo guardar el fotograma completo");
+            return null;
+        }
     }
 
     private static readonly HashSet<string> VehicleClasses = new(StringComparer.OrdinalIgnoreCase)

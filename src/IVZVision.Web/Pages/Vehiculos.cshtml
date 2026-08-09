@@ -88,20 +88,25 @@
                     var local = v.OccurredAt.ToLocalTime();
                     <tr>
                         <td data-col="Foto" class="thumb-cell">
-                            @* Foto real y placa dibujada juntas; doble clic abre el editor de corrección. *@
+                            @* Foto real y placa dibujada juntas; doble clic abre el editor y la escena. *@
+                            @{
+                                var escena = string.IsNullOrEmpty(v.FullFramePath)
+                                    ? null
+                                    : $"/media/recorte?path={Uri.EscapeDataString(v.FullFramePath)}";
+                            }
                             <div class="par-placa">
                                 @if (!string.IsNullOrEmpty(v.CropBase64))
                                 {
                                     <img src="data:image/jpeg;base64,@v.CropBase64" alt="Lectura de @v.Plate"
-                                         data-plate="@v.Plate" data-evento="@v.EventId" title="Foto original" />
+                                         data-plate="@v.Plate" data-evento="@v.EventId" data-escena="@escena" title="Foto original" />
                                 }
                                 else if (!string.IsNullOrEmpty(v.CropPath))
                                 {
                                     <img src="/media/recorte?path=@Uri.EscapeDataString(v.CropPath)" alt="Lectura de @v.Plate"
-                                         loading="lazy" data-plate="@v.Plate" data-evento="@v.EventId" title="Foto original" />
+                                         loading="lazy" data-plate="@v.Plate" data-evento="@v.EventId" data-escena="@escena" title="Foto original" />
                                 }
                                 <img src="/matricula/@(Uri.EscapeDataString(v.Plate)).svg" alt="@v.Plate"
-                                     loading="lazy" data-plate="@v.Plate" data-evento="@v.EventId"
+                                     loading="lazy" data-plate="@v.Plate" data-evento="@v.EventId" data-escena="@escena"
                                      title="Lectura interpretada — doble clic para corregir" />
                             </div>
                         </td>

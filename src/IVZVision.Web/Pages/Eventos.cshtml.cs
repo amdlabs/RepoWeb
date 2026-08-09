@@ -24,7 +24,8 @@ public class EventosModel : PageModel
     public sealed record EventRow(long Id, DateTime OccurredAt, string CameraName, RecognitionKind Kind,
                                   RecognitionSource Source, string Label, string? PlateText, bool IsKnown,
                                   bool IsAuthorized, float MatchScore, float DetectionScore,
-                                  float? OcrConfidence, string? CropPath, int? PersonId, int? VehicleId);
+                                  float? OcrConfidence, string? CropPath, int? PersonId, int? VehicleId,
+                                  string? FullFramePath);
 
     public IReadOnlyList<EventRow> Events { get; private set; } = Array.Empty<EventRow>();
     public IReadOnlyList<SelectListItem> Cameras { get; private set; } = Array.Empty<SelectListItem>();
@@ -86,7 +87,8 @@ public class EventosModel : PageModel
                 .Take(PageSize)
                 .Select(e => new EventRow(e.Id, e.OccurredAt, e.CameraName, e.Kind, e.Source, e.Label,
                                           e.PlateText, e.IsKnown, e.IsAuthorized, e.MatchScore,
-                                          e.DetectionScore, e.OcrConfidence, e.CropPath, e.PersonId, e.VehicleId))
+                                          e.DetectionScore, e.OcrConfidence, e.CropPath, e.PersonId, e.VehicleId,
+                                          e.FullFramePath))
                 .ToListAsync(ct);
         }
         catch (Exception ex)

@@ -100,6 +100,7 @@ public sealed class EventRecorder
                 BoxHeight = (int)Math.Round(obs.Box.Height),
                 CropPath = obs.CropPath is null ? null : Truncate(obs.CropPath, 400),
                 CropBase64 = obs.CropJpegBase64,
+                FullFramePath = obs.FullFramePath is null ? null : Truncate(obs.FullFramePath, 400),
             };
 
             db.RecognitionEvents.Add(entity);

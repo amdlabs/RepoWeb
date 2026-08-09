@@ -422,8 +422,39 @@ public sealed class RecognitionEngine : IDisposable
                 // Aprendizaje: si el usuario ya corrigió esta lectura, se aplica su versión.
                 normalized = _index.ApplyLearnedCorrection(normalized);
 
+                // Autocorrección por patrón: resuelve las confusiones típicas del OCR
+                // (O/0, I/1, S/5…) usando la posición de cada carácter en la matrícula.
+                if (rec.EnforcePlatePattern
+                    && !PlateText.MatchesLetterDigitPattern(normalized, rec.PlatePatternLetters, rec.PlatePatternDigits))
+                {
+                    var ajustada = PlateText.SnapToPattern(normalized, rec.PlatePatternLetters, rec.PlatePatternDigits);
+                    if (ajustada is not null)
+                    {
+                        _logger.LogDebug("Matrícula ajustada al patrón: {Leida} → {Ajustada}", normalized, ajustada);
+                        normalized = ajustada;
+                    }
+                }
+
+                // Aprendizaje continuo: si difiere en un carácter de una matrícula ya
+                // conocida, se adopta esa (el sistema afina con cada pasada).
+                if (rec.LearnFromKnownPlates)
+                {
+                    var conocida = _index.SnapToKnownPlate(normalized);
+                    if (!string.Equals(conocida, normalized, StringComparison.Ordinal))
+                    {
+                        _logger.LogDebug("Matrícula ajustada a una conocida: {Leida} → {Conocida}", normalized, conocida);
+                        normalized = conocida;
+                    }
+                }
+
                 var valid = reading.Confidence >= rec.PlateOcrMinConfidence
                             && PlateText.LooksValid(normalized, rec.PlateMinCharacters, rec.PlateMaxCharacters);
+
+                // Patrón del país (3 letras + 4 dígitos): una lectura que no encaja es
+                // ruido del OCR y no debe guardarse como si fuera una matrícula real.
+                if (valid && rec.EnforcePlatePattern
+                    && !PlateText.MatchesLetterDigitPattern(normalized, rec.PlatePatternLetters, rec.PlatePatternDigits))
+                    valid = false;
 
                 var match = valid ? _index.MatchPlate(normalized) : IdentityMatch.Unknown;
 

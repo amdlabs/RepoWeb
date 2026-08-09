@@ -20,7 +20,8 @@ public sealed record ObservationDto(
     int Similitud,
     string? Miniatura,
     long? EventoId,
-    string? Detalle);
+    string? Detalle,
+    string? Escena = null);
 
 public sealed record CameraStatusDto(
     string CamaraId,
@@ -93,5 +94,7 @@ public sealed class SignalRObservationSink : IObservationSink
             ObservationKind.Plate when o.Match.IsKnown => o.Match.Label,
             ObservationKind.Object => o.ObjectClass,
             _ => o.Match.Notes,
-        });
+        },
+        // Escena completa: da contexto al abrir la detección con doble clic.
+        o.FullFramePath is null ? null : $"/media/recorte?path={Uri.EscapeDataString(o.FullFramePath)}");
 }

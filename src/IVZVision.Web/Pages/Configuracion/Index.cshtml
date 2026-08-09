@@ -311,6 +311,14 @@
                     <input asp-for="Recognition.PlateConfirmationHits" type="number" min="1" max="10" />
                 </div>
                 <div class="field">
+                    <label asp-for="Recognition.PlatePatternLetters">Letras del patrón</label>
+                    <input asp-for="Recognition.PlatePatternLetters" type="number" min="0" max="6" />
+                </div>
+                <div class="field">
+                    <label asp-for="Recognition.PlatePatternDigits">Dígitos del patrón</label>
+                    <input asp-for="Recognition.PlatePatternDigits" type="number" min="0" max="8" />
+                </div>
+                <div class="field">
                     <label asp-for="Recognition.PlateConfirmationWindowSeconds">Ventana (s)</label>
                     <input asp-for="Recognition.PlateConfirmationWindowSeconds" type="number" min="1" max="60" />
                 </div>
@@ -369,6 +377,19 @@
                     <input asp-for="Recognition.TextRepeatSuppressionHours" type="number" min="1" max="720" />
                     <div class="hint">Un rótulo fijo se registra una vez por ventana.</div>
                 </div>
+            </div>
+
+            <div class="check">
+                <input asp-for="Recognition.EnforcePlatePattern" type="checkbox" />
+                <label asp-for="Recognition.EnforcePlatePattern">
+                    Exigir el patrón de matrícula (sólo se guardan las que cumplen letras + dígitos)
+                </label>
+            </div>
+            <div class="check">
+                <input asp-for="Recognition.LearnFromKnownPlates" type="checkbox" />
+                <label asp-for="Recognition.LearnFromKnownPlates">
+                    Aprender de las matrículas ya conocidas (ajusta lecturas con un carácter de diferencia)
+                </label>
             </div>
 
             <h3>Eventos y vídeo</h3>

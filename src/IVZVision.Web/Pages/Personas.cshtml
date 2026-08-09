@@ -87,13 +87,20 @@
                     var local = face.OccurredAt.ToLocalTime();
                     <tr>
                         <td data-col="Foto" class="thumb-cell">
+                            @{
+                                // Doble clic muestra el recorte y la escena completa donde se detectó.
+                                var escena = string.IsNullOrEmpty(face.FullFramePath)
+                                    ? null
+                                    : $"/media/recorte?path={Uri.EscapeDataString(face.FullFramePath)}";
+                            }
                             @if (!string.IsNullOrEmpty(face.CropBase64))
                             {
-                                <img src="data:image/jpeg;base64,@face.CropBase64" alt="Persona detectada" />
+                                <img src="data:image/jpeg;base64,@face.CropBase64" alt="Persona detectada" data-escena="@escena" />
                             }
                             else
                             {
-                                <img src="/media/recorte?path=@Uri.EscapeDataString(face.CropPath!)" alt="Persona detectada" loading="lazy" />
+                                <img src="/media/recorte?path=@Uri.EscapeDataString(face.CropPath!)" alt="Persona detectada"
+                                     loading="lazy" data-escena="@escena" />
                             }
                         </td>
                         <td data-col="Nombre">

@@ -22,7 +22,8 @@ public class ObjetosModel : PageModel
         _index = index;
     }
 
-    public sealed record UnknownClass(string ClassName, int Detections, DateTime LastSeen, string? LastCropPath);
+    public sealed record UnknownClass(string ClassName, int Detections, DateTime LastSeen, string? LastCropPath,
+                                      string? LastFullFramePath);
 
     public IReadOnlyList<ObjectLabel> Labels { get; private set; } = Array.Empty<ObjectLabel>();
     public IReadOnlyList<UnknownClass> Unlabeled { get; private set; } = Array.Empty<UnknownClass>();
@@ -71,6 +72,9 @@ public class ObjetosModel : PageModel
                     LastCropPath = g.OrderByDescending(e => e.OccurredAt)
                                     .Select(e => e.CropPath)
                                     .FirstOrDefault(),
+                    LastFullFramePath = g.OrderByDescending(e => e.OccurredAt)
+                                    .Select(e => e.FullFramePath)
+                                    .FirstOrDefault(),
                 })
                 .ToListAsync(ct);
 
@@ -81,7 +85,7 @@ public class ObjetosModel : PageModel
             var all = detected
                 .Where(d => !labeled.Contains(d.ClassName.ToLowerInvariant()) && !excluded.Contains(d.ClassName))
                 .OrderByDescending(d => d.LastSeen)
-                .Select(d => new UnknownClass(d.ClassName, d.Detections, d.LastSeen, d.LastCropPath))
+                .Select(d => new UnknownClass(d.ClassName, d.Detections, d.LastSeen, d.LastCropPath, d.LastFullFramePath))
                 .ToList();
 
             UnlabeledTotal = all.Count;

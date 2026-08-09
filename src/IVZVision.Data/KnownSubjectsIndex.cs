@@ -194,6 +194,38 @@ public sealed class KnownSubjectsIndex
 
     public int PlateCorrectionCount => _plateCorrections.Count;
 
+    /// <summary>
+    /// Aprendizaje continuo del LPR: si la lectura difiere en un solo carácter de una
+    /// matrícula ya conocida (registrada o vista antes), se adopta la conocida. Así el
+    /// sistema afina solo a medida que ve más pasadas del mismo vehículo, sin necesidad
+    /// de reentrenar la red.
+    /// </summary>
+    public string SnapToKnownPlate(string normalizedPlate)
+    {
+        if (string.IsNullOrEmpty(normalizedPlate)) return normalizedPlate;
+
+        var plates = _plates;
+        if (plates.ContainsKey(normalizedPlate)) return normalizedPlate; // ya es exacta
+
+        string? mejor = null;
+        foreach (var candidata in plates.Keys)
+        {
+            if (candidata.Length != normalizedPlate.Length) continue;
+
+            var diferencias = 0;
+            for (var i = 0; i < candidata.Length && diferencias <= 1; i++)
+                if (candidata[i] != normalizedPlate[i]) diferencias++;
+
+            if (diferencias != 1) continue;
+
+            // Con dos candidatas a un carácter la lectura es ambigua: se deja como está.
+            if (mejor is not null) return normalizedPlate;
+            mejor = candidata;
+        }
+
+        return mejor ?? normalizedPlate;
+    }
+
     /// <summary>Busca la matrícula normalizada en el padrón de vehículos.</summary>
     public IdentityMatch MatchPlate(string normalizedPlate)
     {

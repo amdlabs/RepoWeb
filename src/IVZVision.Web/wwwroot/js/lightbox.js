@@ -17,11 +17,11 @@
         var placa = img.dataset.plate;
         if (placa) {
             abrir("/matricula/" + encodeURIComponent(placa) + ".svg", "Matrícula " + placa, img.src,
-                  placa, img.dataset.evento);
+                  placa, img.dataset.evento, img.dataset.escena);
             return;
         }
 
-        abrir(img.src, img.alt || "");
+        abrir(img.src, img.alt || "", null, null, null, img.dataset.escena);
     });
 
     /// Editor de la lectura: corrige la matrícula y el sistema aprende de ello.
@@ -71,8 +71,9 @@
         return caja;
     }
 
-    /// src = imagen principal; original = foto real debajo; placa/evento habilitan la corrección.
-    function abrir(src, alt, original, placa, eventoId) {
+    /// src = imagen principal; original = foto real debajo; placa/evento habilitan la
+    /// corrección; escena = fotograma completo de contexto.
+    function abrir(src, alt, original, placa, eventoId, escena) {
         var overlay = document.createElement("div");
         overlay.className = "mon-overlay lightbox";
 
@@ -106,33 +107,39 @@
         overlay.addEventListener("dblclick", close);
         document.addEventListener("keydown", onKey);
 
-        // La lectura original acompaña a la placa generada, para poder contrastarlas.
-        if (original && original !== src) {
-            var caja = document.createElement("div");
-            caja.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:14px;max-height:92vh";
+        // Todo se apila en una caja: detalle arriba, lectura original, escena
+        // completa y, si procede, el editor de corrección.
+        var caja = document.createElement("div");
+        caja.className = "lb-pila";
+        caja.appendChild(grande);
 
+        if (original && original !== src) {
             var miniatura = document.createElement("img");
             miniatura.src = original;
             miniatura.alt = "Lectura original";
-            miniatura.style.cssText = "max-width:70vw;max-height:32vh;border-radius:8px";
-
-            caja.appendChild(grande);
+            miniatura.className = "lb-original";
+            miniatura.title = "Foto de la detección";
             caja.appendChild(miniatura);
-            if (placa && eventoId) caja.appendChild(editorMatricula(placa, eventoId, grande));
-            overlay.appendChild(caja);
-        }
-        else {
-            if (placa && eventoId) {
-                var caja2 = document.createElement("div");
-                caja2.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:14px";
-                caja2.appendChild(grande);
-                caja2.appendChild(editorMatricula(placa, eventoId, grande));
-                overlay.appendChild(caja2);
-            } else {
-                overlay.appendChild(grande);
-            }
         }
 
+        // Escena completa: dónde ocurrió, con los cuadrantes dibujados.
+        if (escena) {
+            var etiqueta = document.createElement("div");
+            etiqueta.className = "hint";
+            etiqueta.textContent = "Escena completa";
+            caja.appendChild(etiqueta);
+
+            var completa = document.createElement("img");
+            completa.src = escena;
+            completa.alt = "Escena completa";
+            completa.className = "lb-escena";
+            completa.title = "Fotograma completo de la cámara";
+            caja.appendChild(completa);
+        }
+
+        if (placa && eventoId) caja.appendChild(editorMatricula(placa, eventoId, grande));
+
+        overlay.appendChild(caja);
         overlay.appendChild(cerrar);
         document.body.appendChild(overlay);
     }

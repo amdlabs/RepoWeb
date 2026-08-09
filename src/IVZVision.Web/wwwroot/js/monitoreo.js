@@ -397,6 +397,9 @@
             img.alt = hit.etiqueta || "";
             if (hit.tipo === "matricula") img.className = "thumb-plate";
             img.src = hit.miniatura || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E";
+            // Doble clic: recorte ampliado y escena completa de la detección.
+            if (hit.escena) img.dataset.escena = hit.escena;
+            if (hit.matricula) { img.dataset.plate = hit.matricula; if (hit.eventoId) img.dataset.evento = hit.eventoId; }
 
             var body = document.createElement("div");
             body.className = "hit-body";

@@ -37,7 +37,7 @@ public class PersonasModel : PageModel
     /// <summary>Persona detectada por las cámaras (rostro u objeto persona), con su recorte.</summary>
     public sealed record UnknownFace(long EventId, DateTime OccurredAt, string CameraName,
                                      string Label, bool IsKnown, string? CropBase64, string? CropPath,
-                                     int Repeticiones);
+                                     int Repeticiones, string? FullFramePath);
 
     public IReadOnlyList<UnknownFace> UnknownFaces { get; private set; } = Array.Empty<UnknownFace>();
 
@@ -78,7 +78,8 @@ public class PersonasModel : PageModel
         var raw = await query
             .OrderByDescending(e => e.OccurredAt)
             .Take(600)
-            .Select(e => new { e.Id, e.OccurredAt, e.CameraName, e.Label, e.IsKnown, e.CropBase64, e.CropPath })
+            .Select(e => new { e.Id, e.OccurredAt, e.CameraName, e.Label, e.IsKnown, e.CropBase64, e.CropPath,
+                               e.FullFramePath })
             .ToListAsync(ct);
 
         var grouped = new List<UnknownFace>();
@@ -97,7 +98,7 @@ public class PersonasModel : PageModel
             }
 
             grouped.Add(new UnknownFace(e.Id, e.OccurredAt, e.CameraName, e.Label, e.IsKnown,
-                                        e.CropBase64, e.CropPath, 1));
+                                        e.CropBase64, e.CropPath, 1, e.FullFramePath));
         }
 
         UnknownFacesTotal = grouped.Count;

@@ -75,4 +75,8 @@ public class RecognitionEvent
 
     /// <summary>Recorte JPEG del sujeto codificado en base64, guardado en la propia base de datos.</summary>
     public string? CropBase64 { get; set; }
+
+    /// <summary>Ruta relativa del fotograma completo (la escena entera) de esta detección.</summary>
+    [MaxLength(400)]
+    public string? FullFramePath { get; set; }
 }

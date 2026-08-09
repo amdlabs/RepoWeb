@@ -91,6 +91,12 @@
                                     ? e.PlateText
                                     : null;
                             }
+                            @{
+                                // Escena completa: doble clic sobre cualquier imagen la muestra.
+                                var escena = string.IsNullOrEmpty(e.FullFramePath)
+                                    ? null
+                                    : $"/media/recorte?path={Uri.EscapeDataString(e.FullFramePath)}";
+                            }
                             @if (placa is not null)
                             {
                                 @* Matrícula: foto real y placa dibujada juntas para poder contrastarlas. *@
@@ -98,16 +104,18 @@
                                     @if (!string.IsNullOrEmpty(e.CropPath))
                                     {
                                         <img src="/media/recorte?path=@Uri.EscapeDataString(e.CropPath)" alt="Lectura de @placa"
-                                             loading="lazy" data-plate="@placa" data-evento="@e.Id" title="Foto original" />
+                                             loading="lazy" data-plate="@placa" data-evento="@e.Id"
+                                             data-escena="@escena" title="Foto original" />
                                     }
                                     <img src="/matricula/@(Uri.EscapeDataString(placa)).svg" alt="Matrícula @placa"
-                                         loading="lazy" data-plate="@placa" data-evento="@e.Id"
+                                         loading="lazy" data-plate="@placa" data-evento="@e.Id" data-escena="@escena"
                                          title="Lectura interpretada — doble clic para corregir" />
                                 </div>
                             }
                             else if (!string.IsNullOrEmpty(e.CropPath))
                             {
-                                <img src="/media/recorte?path=@Uri.EscapeDataString(e.CropPath)" alt="Recorte" loading="lazy" />
+                                <img src="/media/recorte?path=@Uri.EscapeDataString(e.CropPath)" alt="Recorte"
+                                     loading="lazy" data-escena="@escena" />
                             }
                             else
                             {

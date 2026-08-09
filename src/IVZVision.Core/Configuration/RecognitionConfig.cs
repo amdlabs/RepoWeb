@@ -25,11 +25,30 @@ public sealed class RecognitionConfig
     public float PlateNmsThreshold { get; set; } = 0.45f;
 
     /// <summary>Confianza media mínima del OCR para aceptar la lectura (0-1).</summary>
-    public float PlateOcrMinConfidence { get; set; } = 0.55f;
+    public float PlateOcrMinConfidence { get; set; } = 0.75f;
 
     public int PlateMinCharacters { get; set; } = 4;
 
     public int PlateMaxCharacters { get; set; } = 10;
+
+    /// <summary>
+    /// Exige el patrón de matrícula del país (por defecto el uruguayo: tres letras
+    /// y cuatro dígitos). Las lecturas que no lo cumplan se descartan y no se guardan.
+    /// </summary>
+    public bool EnforcePlatePattern { get; set; } = true;
+
+    /// <summary>Letras iniciales que debe tener la matrícula.</summary>
+    public int PlatePatternLetters { get; set; } = 3;
+
+    /// <summary>Dígitos finales que debe tener la matrícula.</summary>
+    public int PlatePatternDigits { get; set; } = 4;
+
+    /// <summary>
+    /// Aprendizaje continuo del LPR: una lectura que difiere en un solo carácter de
+    /// una matrícula ya conocida se adopta como esa matrícula. Mejora el acierto a
+    /// medida que el sistema ve más pasadas de los mismos vehículos.
+    /// </summary>
+    public bool LearnFromKnownPlates { get; set; } = true;
 
     /// <summary>
     /// Una matrícula se confirma cuando el mismo texto se lee este número de veces

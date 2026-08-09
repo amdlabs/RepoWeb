@@ -101,6 +101,9 @@ public sealed class Observation
     /// <summary>Ruta del recorte en disco si se guardó.</summary>
     public string? CropPath { get; set; }
 
+    /// <summary>Ruta del fotograma completo (escena entera) asociado a esta detección.</summary>
+    public string? FullFramePath { get; set; }
+
     /// <summary>Id del evento generado en base de datos, si se registró.</summary>
     public long? EventId { get; set; }
 

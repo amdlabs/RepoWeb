@@ -34,7 +34,7 @@ public class VehiculosModel : PageModel
 
     public sealed record DetectedVehicle(long EventId, DateTime OccurredAt, string CameraName,
                                          string Plate, bool IsKnown, string? CropBase64, string? CropPath,
-                                         int Repeticiones);
+                                         int Repeticiones, string? FullFramePath);
 
     public IReadOnlyList<DetectedVehicle> Detected { get; private set; } = Array.Empty<DetectedVehicle>();
     public int DetectedTotal { get; private set; }
@@ -63,7 +63,8 @@ public class VehiculosModel : PageModel
         var raw = await query
             .OrderByDescending(e => e.OccurredAt)
             .Take(600)
-            .Select(e => new { e.Id, e.OccurredAt, e.CameraName, e.PlateText, e.IsKnown, e.CropBase64, e.CropPath })
+            .Select(e => new { e.Id, e.OccurredAt, e.CameraName, e.PlateText, e.IsKnown, e.CropBase64, e.CropPath,
+                               e.FullFramePath })
             .ToListAsync(ct);
 
         var grouped = new List<DetectedVehicle>();
@@ -81,7 +82,7 @@ public class VehiculosModel : PageModel
             }
 
             grouped.Add(new DetectedVehicle(e.Id, e.OccurredAt, e.CameraName, e.PlateText!, e.IsKnown,
-                                            e.CropBase64, e.CropPath, 1));
+                                            e.CropBase64, e.CropPath, 1, e.FullFramePath));
         }
 
         DetectedTotal = grouped.Count;

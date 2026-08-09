@@ -84,8 +84,10 @@
                             <td data-col="Clase">
                                 @if (!string.IsNullOrEmpty(item.LastCropPath))
                                 {
+                                    @* Doble clic: recorte y escena completa donde se detectó. *@
                                     <img src="/media/recorte?path=@Uri.EscapeDataString(item.LastCropPath)"
-                                         alt="@item.ClassName" style="height:42px;border-radius:4px;vertical-align:middle;margin-right:8px" />
+                                         alt="@item.ClassName" style="height:42px;border-radius:4px;vertical-align:middle;margin-right:8px"
+                                         data-escena="@(string.IsNullOrEmpty(item.LastFullFramePath) ? null : $"/media/recorte?path={Uri.EscapeDataString(item.LastFullFramePath)}")" />
                                 }
                                 <b>@item.ClassName</b>
                             </td>

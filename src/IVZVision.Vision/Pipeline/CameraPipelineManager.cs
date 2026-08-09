@@ -284,6 +284,12 @@ public sealed class CameraPipelineManager : IHostedService, IDisposable
                     var normalized = PlateText.Normalize(evt.Plate);
                     if (normalized.Length == 0) continue;
 
+                    // El ANPR de la cámara pasa por el mismo filtro de patrón que el OCR local.
+                    var rec = _config.Current.Recognition;
+                    if (rec.EnforcePlatePattern
+                        && !PlateText.MatchesLetterDigitPattern(normalized, rec.PlatePatternLetters, rec.PlatePatternDigits))
+                        continue;
+
                     var match = _index.MatchPlate(normalized);
 
                     await worker.PublishCameraEventAsync(new Observation
