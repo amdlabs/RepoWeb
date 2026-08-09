@@ -13,7 +13,15 @@
         document.querySelectorAll('[name^="' + prefix + '."]').forEach(function (el) {
             const key = el.name.substring(prefix.length + 1);
             if (el.type === "checkbox") {
-                result[key] = el.checked;
+                // Varias casillas con el mismo nombre (p. ej. los detectores activos)
+                // forman una lista con los valores marcados; una sola es un booleano.
+                var multiple = document.querySelectorAll('[name="' + el.name + '"]').length > 1;
+                if (multiple) {
+                    if (!Array.isArray(result[key])) result[key] = [];
+                    if (el.checked) result[key].push(el.value);
+                } else {
+                    result[key] = el.checked;
+                }
             } else if (el.type === "number") {
                 result[key] = el.value === "" ? 0 : Number(el.value);
             } else if (el.tagName === "SELECT") {

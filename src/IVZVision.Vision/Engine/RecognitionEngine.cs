@@ -584,18 +584,29 @@ public sealed class RecognitionEngine : IDisposable
             _logger.LogError(ex, "No se pudieron cargar los modelos de matrículas");
         }
 
+        // Cada detector se prueba con un fotograma sintético antes de aceptarlo: así un
+        // modelo que no sirve para esta tarea (p. ej. el detector de texto elegido por
+        // error como detector de objetos) se descarta solo, sin dejar la función caída.
+        using var sonda = new Mat(new Size(320, 240), MatType.CV_8UC3, new Scalar(96, 96, 96));
+
         var labelsPathShared = models.Resolve(models.ObjectLabelsPath, _contentRoot);
         foreach (var path in models.GetObjectDetectorPaths())
         {
+            YoloObjectDetector? detector = null;
             try
             {
-                _objectDetectors.Add(new YoloObjectDetector(models.Resolve(path, _contentRoot),
-                    labelsPathShared, models, _loggerFactory.CreateLogger<YoloObjectDetector>()));
+                detector = new YoloObjectDetector(models.Resolve(path, _contentRoot),
+                    labelsPathShared, models, _loggerFactory.CreateLogger<YoloObjectDetector>());
+
+                detector.Detect(sonda, 0.9f, 0.45f); // prueba real de inferencia
+                _objectDetectors.Add(detector);
             }
             catch (Exception ex)
             {
-                status.ObjectError = status.ObjectError is null ? ex.Message : $"{status.ObjectError} · {ex.Message}";
-                _logger.LogError(ex, "No se pudo cargar el detector de objetos {Path}", path);
+                detector?.Dispose();
+                var aviso = $"«{path}» no sirve como detector de objetos: {ex.Message}";
+                status.ObjectError = status.ObjectError is null ? aviso : $"{status.ObjectError} · {aviso}";
+                _logger.LogWarning(ex, "Se descarta el detector de objetos {Path}", path);
             }
         }
         status.ObjectDetectorReady = _objectDetectors.Count > 0;
@@ -619,15 +630,21 @@ public sealed class RecognitionEngine : IDisposable
 
         foreach (var path in models.GetSceneTextDetectorPaths())
         {
+            SceneTextDetector? detector = null;
             try
             {
-                _textDetectors.Add(new SceneTextDetector(models.Resolve(path, _contentRoot), models,
-                    _loggerFactory.CreateLogger<SceneTextDetector>()));
+                detector = new SceneTextDetector(models.Resolve(path, _contentRoot), models,
+                    _loggerFactory.CreateLogger<SceneTextDetector>());
+
+                detector.Detect(sonda, 0.3f, 4); // prueba real de inferencia
+                _textDetectors.Add(detector);
             }
             catch (Exception ex)
             {
-                status.TextError = status.TextError is null ? ex.Message : $"{status.TextError} · {ex.Message}";
-                _logger.LogError(ex, "No se pudo cargar el detector de texto {Path}", path);
+                detector?.Dispose();
+                var aviso = $"«{path}» no sirve como detector de texto: {ex.Message}";
+                status.TextError = status.TextError is null ? aviso : $"{status.TextError} · {aviso}";
+                _logger.LogWarning(ex, "Se descarta el detector de texto {Path}", path);
             }
         }
         status.TextDetectorReady = _textDetectors.Count > 0;
