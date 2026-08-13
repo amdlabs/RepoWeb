@@ -1,0 +1,142 @@
+@page "/Persona/{id:int}"
+@model PersonaModel
+@{
+    ViewData["Title"] = Model.Person.FullName;
+}
+
+<h1>@Model.Person.FullName</h1>
+<p class="subtitle"><a asp-page="/Personas">← Volver al listado</a></p>
+
+<div class="grid grid-live">
+    <div>
+        <div class="card">
+            <h2>Rostros registrados (@Model.Templates.Count)</h2>
+
+            <form method="post" enctype="multipart/form-data" asp-page-handler="Subir" asp-route-id="@Model.Person.Id">
+                <div class="field">
+                    <label for="fotos">Añadir fotos</label>
+                    <input type="file" id="fotos" name="fotos" accept="image/*" multiple required />
+                    <div class="hint">
+                        Use fotos nítidas y de frente. Varias tomas con distinta iluminación mejoran mucho el acierto.
+                        Se guarda únicamente el vector de características, no la foto original.
+                    </div>
+                </div>
+                <button type="submit" class="btn">Procesar y registrar</button>
+            </form>
+
+            @if (Model.Templates.Count == 0)
+            {
+                <div class="empty">Todavía no hay ningún rostro registrado: esta persona no será reconocida.</div>
+            }
+            else
+            {
+                <div class="table-wrap" style="margin-top:18px">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Muestra</th>
+                                <th>Modelo</th>
+                                <th>Dimensiones</th>
+                                <th>Calidad</th>
+                                <th>Alta</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var t in Model.Templates)
+                        {
+                            <tr>
+                                <td class="thumb-cell">
+                                    @if (!string.IsNullOrEmpty(t.ImagePath))
+                                    {
+                                        <img src="/media/recorte?path=@Uri.EscapeDataString(t.ImagePath)" alt="Rostro" />
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-muted">sin imagen</span>
+                                    }
+                                </td>
+                                <td>@(string.IsNullOrEmpty(t.ModelId) ? "—" : t.ModelId)</td>
+                                <td>@t.Dimensions</td>
+                                <td>@t.Quality.ToString("0.00")</td>
+                                <td>@t.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>
+                                    <form method="post" style="display:inline"
+                                          asp-page-handler="BorrarPlantilla"
+                                          asp-route-id="@Model.Person.Id"
+                                          asp-route-templateId="@t.Id">
+                                        <button class="btn small danger">Borrar</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+
+        @if (Model.Vehicles.Count > 0)
+        {
+            <div class="card">
+                <h2>Vehículos asociados</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Matrícula</th><th>Vehículo</th><th>Acceso</th></tr></thead>
+                        <tbody>
+                        @foreach (var v in Model.Vehicles)
+                        {
+                            <tr>
+                                <td class="plate"><a asp-page="/Vehiculo" asp-route-id="@v.Id">@v.Plate</a></td>
+                                <td>@($"{v.Make} {v.Model} {v.Color}".Trim())</td>
+                                <td>
+                                    @if (v.IsAuthorized)
+                                    {
+                                        <span class="badge badge-ok">autorizado</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-warn">no autorizado</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="card">
+        <h2>Ficha</h2>
+        <form method="post" asp-page-handler="Guardar">
+            <input type="hidden" asp-for="Person.Id" />
+            <div class="field">
+                <label asp-for="Person.FullName">Nombre completo</label>
+                <input asp-for="Person.FullName" required />
+            </div>
+            <div class="field">
+                <label asp-for="Person.DocumentId">Documento</label>
+                <input asp-for="Person.DocumentId" />
+            </div>
+            <div class="field">
+                <label asp-for="Person.Department">Área o departamento</label>
+                <input asp-for="Person.Department" />
+            </div>
+            <div class="check">
+                <input asp-for="Person.IsAuthorized" type="checkbox" />
+                <label asp-for="Person.IsAuthorized">Acceso autorizado</label>
+            </div>
+            <div class="check">
+                <input asp-for="Person.IsActive" type="checkbox" />
+                <label asp-for="Person.IsActive">Activa (se busca en el reconocimiento)</label>
+            </div>
+            <div class="field">
+                <label asp-for="Person.Notes">Notas</label>
+                <textarea asp-for="Person.Notes"></textarea>
+            </div>
+            <button type="submit" class="btn">Guardar cambios</button>
+        </form>
+    </div>
+</div>

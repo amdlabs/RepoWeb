@@ -1,0 +1,100 @@
+@page "/Configuracion/Camaras"
+@model IVZVision.Web.Pages.Configuracion.CamarasModel
+@{
+    ViewData["Title"] = "Cámaras";
+}
+
+<h1>Cámaras</h1>
+<p class="subtitle">Cámaras Hikvision, Dahua o cualquier dispositivo ONVIF/RTSP compatible.</p>
+
+<partial name="_ConfigTabs" model="@("camaras")" />
+
+<div class="actions" style="margin-bottom:16px">
+    <a class="btn" asp-page="/Configuracion/Camara">Añadir cámara</a>
+</div>
+
+<div class="card">
+    @if (Model.Cameras.Count == 0)
+    {
+        <div class="empty">No hay ninguna cámara configurada todavía.</div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Marca</th>
+                        <th>URL RTSP</th>
+                        <th>Reconoce</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var cam in Model.Cameras)
+                {
+                    var status = Model.StatusFor(cam.Id);
+                    <tr>
+                        <td>
+                            <b>@cam.Name</b>
+                            @if (!cam.Enabled)
+                            {
+                                <span class="badge badge-muted">deshabilitada</span>
+                            }
+                        </td>
+                        <td>@cam.Vendor</td>
+                        <td><code>@cam.BuildRtspUrl(maskCredentials: true)</code></td>
+                        <td>
+                            @if (cam.EnableFaceRecognition)
+                            {
+                                <span class="badge badge-muted">rostros</span>
+                            }
+                            @if (cam.EnablePlateRecognition)
+                            {
+                                <span class="badge badge-muted">matrículas</span>
+                            }
+                            @if (cam.UseCameraAnprEvents)
+                            {
+                                <span class="badge badge-muted">ANPR cámara</span>
+                            }
+                        </td>
+                        <td>
+                            @if (status is null)
+                            {
+                                <span class="badge badge-muted">parada</span>
+                            }
+                            else if (status.Connected)
+                            {
+                                <span class="badge badge-ok">@status.State</span>
+                                <div class="hint">@status.FrameWidth×@status.FrameHeight · @status.MeasuredFps fps</div>
+                            }
+                            else
+                            {
+                                <span class="badge badge-danger">@status.State</span>
+                                @if (!string.IsNullOrEmpty(status.LastError))
+                                {
+                                    <div class="hint">@status.LastError</div>
+                                }
+                            }
+                        </td>
+                        <td style="white-space:nowrap">
+                            <a class="btn small secondary" asp-page="/Configuracion/Camara" asp-route-id="@cam.Id">Editar</a>
+                            <form method="post" style="display:inline">
+                                <button class="btn small secondary" asp-page-handler="Alternar" asp-route-id="@cam.Id">
+                                    @(cam.Enabled ? "Deshabilitar" : "Habilitar")
+                                </button>
+                            </form>
+                            <form method="post" style="display:inline"
+                                  onsubmit="return confirm('¿Eliminar la cámara @cam.Name?');">
+                                <button class="btn small danger" asp-page-handler="Eliminar" asp-route-id="@cam.Id">Eliminar</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

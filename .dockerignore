@@ -1,0 +1,17 @@
+# Nunca deben entrar en la imagen: alargan la construcción e invalidan la caché.
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/node_modules/
+
+# Configuración con credenciales de cámaras y de SQL, y capturas
+**/App_Data/
+
+# Los modelos se montan como volumen, no se copian a la imagen
+**/*.onnx
+
+.git/
+.gitignore
+*.md
+!README.md

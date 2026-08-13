@@ -1,0 +1,51 @@
+# IVZ Vision — despliegue básico, válido en Windows, macOS y Linux.
+#
+#   docker compose up -d --build
+#   → http://localhost:8080
+#
+# Con esta configuración funcionan las CÁMARAS IP: el contenedor alcanza cualquier
+# dirección de la red local a través del NAT de Docker, también en Docker Desktop.
+#
+# Para usar CÁMARAS USB del equipo hay que añadir el fichero de Linux:
+#   docker compose -f docker-compose.yml -f docker-compose.linux.yml up -d --build
+# (véase la nota sobre macOS y Windows en el README).
+
+services:
+  ivzvision:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ivzvision:latest
+    container_name: ivzvision
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # Configuración, capturas y modelos viven fuera del contenedor para que
+      # sobrevivan a una reconstrucción de la imagen.
+      - ivz-datos:/app/App_Data
+      - ./src/IVZVision.Web/Models:/app/Models
+    environment:
+      - TZ=America/Montevideo
+    depends_on:
+      - sqlserver
+
+  sqlserver:
+    # SQL Server Express en contenedor. Si ya tiene una instancia propia, borre
+    # este servicio e indique su servidor en Configuración → Base de datos.
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: ivzvision-sql
+    restart: unless-stopped
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_PID=Express
+      # Cámbiela antes de exponer nada: es la contraseña de administrador de SQL.
+      - MSSQL_SA_PASSWORD=IvzVision!2026
+    ports:
+      - "1433:1433"
+    volumes:
+      - ivz-sql:/var/opt/mssql
+
+volumes:
+  ivz-datos:
+  ivz-sql:

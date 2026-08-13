@@ -1,0 +1,126 @@
+@page
+@model PersonasModel
+@{
+    ViewData["Title"] = "Personas";
+}
+
+<h1>Personas</h1>
+<p class="subtitle">Padrón de personas conocidas. Cada persona puede tener varias fotos registradas para mejorar el reconocimiento.</p>
+
+@if (Model.DatabaseError is not null)
+{
+    <div class="alert alert-error">
+        <b>No se pudo consultar la base de datos:</b> @Model.DatabaseError<br />
+        Revise los datos en <a asp-page="/Configuracion/Index">Configuración → Base de datos</a>.
+    </div>
+}
+
+<div class="grid grid-live">
+    <div class="card">
+        <div class="filters" style="margin-bottom:16px">
+            <form method="get" class="filters">
+                <div class="field">
+                    <label for="Buscar">Buscar</label>
+                    <input type="search" id="Buscar" name="Buscar" value="@Model.Buscar" placeholder="Nombre, documento o área" />
+                </div>
+                <button type="submit" class="btn secondary">Buscar</button>
+                @if (!string.IsNullOrWhiteSpace(Model.Buscar))
+                {
+                    <a class="btn secondary" asp-page="/Personas">Limpiar</a>
+                }
+            </form>
+        </div>
+
+        @if (Model.People.Count == 0)
+        {
+            <div class="empty">No hay personas registradas.</div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Documento</th>
+                            <th>Área</th>
+                            <th>Rostros</th>
+                            <th>Acceso</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var p in Model.People)
+                    {
+                        <tr>
+                            <td>
+                                <a asp-page="/Persona" asp-route-id="@p.Id"><b>@p.FullName</b></a>
+                                @if (!p.IsActive)
+                                {
+                                    <span class="badge badge-muted">inactiva</span>
+                                }
+                            </td>
+                            <td>@(p.DocumentId ?? "—")</td>
+                            <td>@(p.Department ?? "—")</td>
+                            <td>
+                                @if (p.Templates == 0)
+                                {
+                                    <span class="badge badge-warn">sin fotos</span>
+                                }
+                                else
+                                {
+                                    @p.Templates
+                                }
+                            </td>
+                            <td>
+                                @if (p.IsAuthorized)
+                                {
+                                    <span class="badge badge-ok">autorizada</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-warn">no autorizada</span>
+                                }
+                            </td>
+                            <td style="white-space:nowrap">
+                                <a class="btn small secondary" asp-page="/Persona" asp-route-id="@p.Id">Abrir</a>
+                                <form method="post" style="display:inline"
+                                      onsubmit="return confirm('¿Eliminar a @p.FullName y todas sus plantillas?');">
+                                    <button class="btn small danger" asp-page-handler="Eliminar" asp-route-id="@p.Id">Eliminar</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <div class="card">
+        <h2>Nueva persona</h2>
+        <form method="post">
+            <div class="field">
+                <label asp-for="NewPerson.FullName">Nombre completo</label>
+                <input asp-for="NewPerson.FullName" required />
+            </div>
+            <div class="field">
+                <label asp-for="NewPerson.DocumentId">Documento</label>
+                <input asp-for="NewPerson.DocumentId" />
+            </div>
+            <div class="field">
+                <label asp-for="NewPerson.Department">Área o departamento</label>
+                <input asp-for="NewPerson.Department" />
+            </div>
+            <div class="check">
+                <input asp-for="NewPerson.IsAuthorized" type="checkbox" checked />
+                <label asp-for="NewPerson.IsAuthorized">Acceso autorizado</label>
+            </div>
+            <div class="field">
+                <label asp-for="NewPerson.Notes">Notas</label>
+                <textarea asp-for="NewPerson.Notes"></textarea>
+            </div>
+            <button type="submit" class="btn" asp-page-handler="Crear">Crear persona</button>
+        </form>
+    </div>
+</div>

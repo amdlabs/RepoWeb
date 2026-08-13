@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>IVZVision.Vision</RootNamespace>
+    <AssemblyName>IVZVision.Vision</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OpenCvSharp4" Version="4.10.0.20241108" />
+    <!-- Binarios nativos de OpenCV: se incluyen los de Windows y los de Linux para que
+         la misma publicación funcione en IIS/Windows Server y en contenedores Linux. -->
+    <PackageReference Include="OpenCvSharp4.runtime.win" Version="4.10.0.20241108" />
+    <PackageReference Include="OpenCvSharp4.official.runtime.linux-x64" Version="4.10.0.20241108" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.20.1" />
+    <!-- Lectura de QR y códigos de barras: código gestionado puro, sin dependencias nativas. -->
+    <PackageReference Include="ZXing.Net" Version="0.16.9" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\IVZVision.Core\IVZVision.Core.csproj" />
+    <ProjectReference Include="..\IVZVision.Data\IVZVision.Data.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -234,3 +234,15 @@ _Pvt_Extensions
 
 # FAKE - F# Make
 .fake/
+
+# ---- IVZ Vision ----
+# Modelos ONNX: binarios grandes, se obtienen con scripts/descargar-modelos.*
+*.onnx
+
+# Configuración en runtime (contiene credenciales de cámaras y de SQL) y capturas
+App_Data/
+src/IVZVision.Web/App_Data/
+
+# Salidas de compilación adicionales
+[Bb]in/
+[Oo]bj/

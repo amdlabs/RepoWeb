@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>IVZVision.Web</RootNamespace>
+    <AssemblyName>IVZVision.Web</AssemblyName>
+    <UserSecretsId>ivzvision-web</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Servidor MCP para integrar el procesamiento visual con otros asistentes. -->
+    <PackageReference Include="ModelContextProtocol.AspNetCore" Version="2.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\IVZVision.Core\IVZVision.Core.csproj" />
+    <ProjectReference Include="..\IVZVision.Data\IVZVision.Data.csproj" />
+    <ProjectReference Include="..\IVZVision.Vision\IVZVision.Vision.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Los modelos ONNX no se versionan (son binarios grandes); se descargan con
+         scripts/descargar-modelos.* y se copian aquí en la publicación si existen. -->
+    <None Include="Models\**\*" CopyToOutputDirectory="PreserveNewest" Condition="Exists('Models')" />
+  </ItemGroup>
+
+</Project>
