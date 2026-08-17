@@ -1,0 +1,57 @@
+@page
+@model MonitoreoModel
+@{
+    ViewData["Title"] = "Monitoreo";
+}
+
+<h1>Monitoreo</h1>
+<p class="subtitle">Todas las cámaras con su vídeo procesado en tiempo real. Elija cuántas posiciones mostrar.</p>
+
+<div class="actions" style="margin-bottom:14px; align-items:center; gap:8px; flex-wrap:wrap">
+    <span class="hint">Distribución:</span>
+    <button type="button" class="btn small secondary" data-layout="1">1</button>
+    <button type="button" class="btn small secondary" data-layout="4">4</button>
+    <button type="button" class="btn small secondary" data-layout="6">6</button>
+    <button type="button" class="btn small secondary" data-layout="8">8</button>
+    <button type="button" class="btn small secondary" data-layout="12">12</button>
+    <span class="hint" style="margin-left:10px">Carrusel:</span>
+    <button type="button" class="btn small secondary" id="monCarrusel">▶ Activar</button>
+    <select id="monCarruselSeg" style="max-width:90px">
+        <option value="5">5 s</option>
+        <option value="10" selected>10 s</option>
+        <option value="20">20 s</option>
+        <option value="30">30 s</option>
+    </select>
+    <span style="flex:1"></span>
+    <button type="button" class="btn small secondary" id="monAnterior" hidden>← Anteriores</button>
+    <span class="hint" id="monPagina" hidden></span>
+    <button type="button" class="btn small secondary" id="monSiguiente" hidden>Siguientes →</button>
+</div>
+
+<div id="monGrid" class="mon-grid"></div>
+
+<div class="card" id="monVacio" hidden>
+    <h2>No hay cámaras habilitadas</h2>
+    <p class="subtitle">Añada cámaras en Configuración para verlas aquí.</p>
+    <a class="btn" asp-page="/Configuracion/Camaras">Ir a cámaras</a>
+</div>
+
+<div class="grid grid-3" style="margin-top:16px">
+    <div class="card">
+        <h3>Rostros</h3>
+        <div class="feed" id="feedFaces"></div>
+    </div>
+    <div class="card">
+        <h3>Matrículas</h3>
+        <div class="feed" id="feedPlates"></div>
+    </div>
+    <div class="card">
+        <h3>Objetos y textos</h3>
+        <div class="feed" id="feedObjects"></div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/lib/signalr/signalr.min.js"></script>
+    <script src="~/js/monitoreo.js" asp-append-version="true"></script>
+}

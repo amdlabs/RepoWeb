@@ -1,0 +1,109 @@
+﻿@page
+@model DashboardModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<h1>Dashboard</h1>
+<p class="subtitle">Resumen en tiempo real. <span class="hint" id="dashActualizado"></span></p>
+
+@if (Model.DatabaseError is not null)
+{
+    <div class="alert alert-error">No se pudo consultar la base de datos: @Model.DatabaseError</div>
+}
+
+@{
+    var hoy = DateTime.Today.ToString("yyyy-MM-dd");
+}
+<div class="grid grid-3" id="dashCards">
+    <a class="card dash-card" asp-page="/Eventos" asp-route-Tipo="matricula" asp-route-Desde="@hoy" title="Ver los vehículos de hoy">
+        <div class="dash-num" data-campo="vehiculosHoy">@Model.Summary.VehiculosHoy</div>
+        <div class="dash-label">Vehículos hoy</div>
+        <div class="hint">
+            <span data-campo="vehiculosNuevosHoy">@Model.Summary.VehiculosNuevosHoy</span> nuevos ·
+            <span data-campo="vehiculosRecurrentesHoy">@Model.Summary.VehiculosRecurrentesHoy</span> ya vistos antes
+        </div>
+    </a>
+    <a class="card dash-card" asp-page="/Eventos" asp-route-Tipo="matricula" title="Ver todos los vehículos del histórico">
+        <div class="dash-num" data-campo="vehiculosTotal">@Model.Summary.VehiculosTotal</div>
+        <div class="dash-label">Vehículos distintos (histórico)</div>
+    </a>
+    <a class="card dash-card" asp-page="/Personas" title="Ver las personas detectadas">
+        <div class="dash-num" data-campo="rostrosHoy">@Model.Summary.RostrosHoy</div>
+        <div class="dash-label">Rostros hoy</div>
+    </a>
+    <a class="card dash-card" asp-page="/Eventos" asp-route-Tipo="objeto" asp-route-Desde="@hoy" title="Ver los objetos de hoy">
+        <div class="dash-num" data-campo="objetosHoy">@Model.Summary.ObjetosHoy</div>
+        <div class="dash-label">Objetos hoy</div>
+    </a>
+    <a class="card dash-card" asp-page="/Eventos" asp-route-Desde="@hoy" title="Ver todos los eventos de hoy">
+        <div class="dash-num" data-campo="eventosHoy">@Model.Summary.EventosHoy</div>
+        <div class="dash-label">Eventos totales hoy</div>
+    </a>
+</div>
+
+<div class="card" style="margin-top:16px">
+    <h2>Últimos vehículos vistos</h2>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Placa</th>
+                    <th>Matrícula</th>
+                    <th>Identificación</th>
+                    <th>Memoria</th>
+                    <th>Veces visto</th>
+                    <th>Primera vez</th>
+                    <th>Última vez</th>
+                    <th>Cámara</th>
+                </tr>
+            </thead>
+            <tbody id="dashVehiculos">
+            @foreach (var v in Model.Summary.UltimosVehiculos)
+            {
+                <tr>
+                    <td data-col="Placa" class="thumb-cell">
+                        @* Foto real + placa dibujada: se comparan de un vistazo.
+                           Doble clic en cualquiera abre el visor con el editor de corrección. *@
+                        <div class="par-placa">
+                            @if (!string.IsNullOrEmpty(v.Foto))
+                            {
+                                <img src="@v.Foto" alt="Lectura de @v.Matricula" loading="lazy"
+                                     data-plate="@v.Matricula" data-evento="@v.UltimoEventoId" title="Foto original" />
+                            }
+                            <img src="/matricula/@(Uri.EscapeDataString(v.Matricula)).svg" alt="@v.Matricula"
+                                 loading="lazy" data-plate="@v.Matricula" data-evento="@v.UltimoEventoId"
+                                 title="Lectura interpretada — doble clic para corregir" />
+                        </div>
+                    </td>
+                    <td data-col="Matrícula" class="plate"><b>@v.Matricula</b></td>
+                    <td data-col="Identificación">@v.Etiqueta @if (v.Registrado) { <span class="badge badge-ok">registrado</span> }</td>
+                    <td data-col="Memoria">
+                        @if (v.YaVistoAntes)
+                        {
+                            <span class="badge badge-warn">ya visto antes</span>
+                        }
+                        else
+                        {
+                            <span class="badge badge-muted">primera vez</span>
+                        }
+                    </td>
+                    <td data-col="Veces visto">@v.VecesVisto</td>
+                    <td data-col="Primera vez">@v.PrimeraVez.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                    <td data-col="Última vez">@v.UltimaVez.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                    <td data-col="Cámara">@v.UltimaCamara</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.Summary.UltimosVehiculos.Count == 0)
+    {
+        <div class="empty">Todavía no se ha leído ninguna matrícula.</div>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/lib/signalr/signalr.min.js"></script>
+    <script src="~/js/dashboard.js" asp-append-version="true"></script>
+}

@@ -1,0 +1,211 @@
+﻿@page
+@using IVZVision.Data.Entities
+@model EventosModel
+@{
+    ViewData["Title"] = "Eventos";
+}
+
+<h1>Histórico de reconocimientos</h1>
+<p class="subtitle">@Model.Total evento(s) · página @Model.Pagina de @Model.TotalPages</p>
+
+@if (Model.DatabaseError is not null)
+{
+    <div class="alert alert-error">
+        <b>No se pudo consultar la base de datos:</b> @Model.DatabaseError
+    </div>
+}
+
+<div class="card">
+    <form method="get" class="filters">
+        <div class="field">
+            <label for="Tipo">Tipo</label>
+            <select id="Tipo" name="Tipo">
+                <option value="">Todos</option>
+                <option value="rostro" selected="@(Model.Tipo == "rostro")">Rostros</option>
+                <option value="matricula" selected="@(Model.Tipo == "matricula")">Matrículas</option>
+                <option value="objeto" selected="@(Model.Tipo == "objeto")">Objetos</option>
+                <option value="texto" selected="@(Model.Tipo == "texto")">Textos leídos</option>
+            </select>
+        </div>
+        <div class="field">
+            <label for="Camara">Cámara</label>
+            <select id="Camara" name="Camara" asp-items="Model.Cameras">
+                <option value="">Todas</option>
+            </select>
+        </div>
+        <div class="field">
+            <label for="Estado">Estado</label>
+            <select id="Estado" name="Estado">
+                <option value="">Todos</option>
+                <option value="conocido" selected="@(Model.Estado == "conocido")">Identificados</option>
+                <option value="desconocido" selected="@(Model.Estado == "desconocido")">No identificados</option>
+                <option value="noautorizado" selected="@(Model.Estado == "noautorizado")">Sin autorización</option>
+            </select>
+        </div>
+        <div class="field">
+            <label for="Texto">Texto</label>
+            <input type="search" id="Texto" name="Texto" value="@Model.Texto" placeholder="Nombre o matrícula" />
+        </div>
+        <div class="field">
+            <label for="Desde">Desde</label>
+            <input type="date" id="Desde" name="Desde" value="@(Model.Desde?.ToString("yyyy-MM-dd"))" />
+        </div>
+        <div class="field">
+            <label for="Hasta">Hasta</label>
+            <input type="date" id="Hasta" name="Hasta" value="@(Model.Hasta?.ToString("yyyy-MM-dd"))" />
+        </div>
+        <button type="submit" class="btn secondary">Filtrar</button>
+        <a class="btn secondary" asp-page="/Eventos">Limpiar</a>
+    </form>
+</div>
+
+<div class="card">
+    @if (Model.Events.Count == 0)
+    {
+        <div class="empty">No hay eventos que cumplan el filtro.</div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Imagen</th>
+                        <th>Fecha y hora</th>
+                        <th>Cámara</th>
+                        <th>Tipo</th>
+                        <th>Identificación</th>
+                        <th>Confianza</th>
+                        <th>Origen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var e in Model.Events)
+                {
+                    <tr>
+                        <td data-col="Imagen" class="thumb-cell">
+                            @{
+                                // En matrículas, el doble clic abre la placa dibujada con el
+                                // texto leído (data-plate); si no hay recorte, la placa hace de miniatura.
+                                var placa = e.Kind == RecognitionKind.Plate && !string.IsNullOrEmpty(e.PlateText)
+                                    ? e.PlateText
+                                    : null;
+                            }
+                            @{
+                                // Escena completa: doble clic sobre cualquier imagen la muestra.
+                                var escena = string.IsNullOrEmpty(e.FullFramePath)
+                                    ? null
+                                    : $"/media/recorte?path={Uri.EscapeDataString(e.FullFramePath)}";
+                            }
+                            @if (placa is not null)
+                            {
+                                @* Matrícula: foto real y placa dibujada juntas para poder contrastarlas. *@
+                                <div class="par-placa">
+                                    @if (!string.IsNullOrEmpty(e.CropPath))
+                                    {
+                                        <img src="/media/recorte?path=@Uri.EscapeDataString(e.CropPath)" alt="Lectura de @placa"
+                                             loading="lazy" data-plate="@placa" data-evento="@e.Id"
+                                             data-escena="@escena" title="Foto original" />
+                                    }
+                                    <img src="/matricula/@(Uri.EscapeDataString(placa)).svg" alt="Matrícula @placa"
+                                         loading="lazy" data-plate="@placa" data-evento="@e.Id" data-escena="@escena"
+                                         title="Lectura interpretada — doble clic para corregir" />
+                                </div>
+                            }
+                            else if (!string.IsNullOrEmpty(e.CropPath))
+                            {
+                                <img src="/media/recorte?path=@Uri.EscapeDataString(e.CropPath)" alt="Recorte"
+                                     loading="lazy" data-escena="@escena" />
+                            }
+                            else
+                            {
+                                <span class="badge badge-muted">—</span>
+                            }
+                        </td>
+                        <td data-col="Fecha y hora">@e.OccurredAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
+                        <td data-col="Cámara">@e.CameraName</td>
+                        <td data-col="Tipo">@(e.Kind switch { RecognitionKind.Plate => "Matrícula", RecognitionKind.Object => "Objeto", RecognitionKind.Text => "Texto", _ => "Rostro" })</td>
+                        <td data-col="Identificación" class="@(e.Kind == RecognitionKind.Plate ? "plate" : "")">
+                            @if (e.PersonId is int personId)
+                            {
+                                <a asp-page="/Persona" asp-route-id="@personId">@e.Label</a>
+                            }
+                            else if (e.VehicleId is int vehicleId)
+                            {
+                                <a asp-page="/Vehiculo" asp-route-id="@vehicleId">@e.Label</a>
+                            }
+                            else
+                            {
+                                @e.Label
+                            }
+
+                            @if (!e.IsKnown)
+                            {
+                                <span class="badge badge-danger">no registrado</span>
+                            }
+                            else if (!e.IsAuthorized)
+                            {
+                                <span class="badge badge-warn">sin autorización</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-ok">autorizado</span>
+                            }
+                        </td>
+                        <td data-col="Confianza">
+                            @if (e.Kind == RecognitionKind.Plate)
+                            {
+                                <span>OCR @((e.OcrConfidence ?? 0) * 100)%</span>
+                            }
+                            else if (e.IsKnown)
+                            {
+                                <span>@((int)Math.Round(e.MatchScore * 100))% similitud</span>
+                            }
+                            else
+                            {
+                                <span>@((int)Math.Round(e.DetectionScore * 100))% detección</span>
+                            }
+                        </td>
+                        <td data-col="Origen">
+                            @if (e.Source == RecognitionSource.CameraEvent)
+                            {
+                                <span class="badge badge-muted">ANPR cámara</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-muted">motor local</span>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        @if (Model.TotalPages > 1)
+        {
+            <div class="actions" style="margin-top:16px">
+                @if (Model.Pagina > 1)
+                {
+                    <a class="btn secondary" asp-page="/Eventos"
+                       asp-all-route-data="@(new Dictionary<string, string?> {
+                           ["Tipo"] = Model.Tipo, ["Camara"] = Model.Camara, ["Estado"] = Model.Estado,
+                           ["Texto"] = Model.Texto,
+                           ["Desde"] = Model.Desde?.ToString("yyyy-MM-dd"),
+                           ["Hasta"] = Model.Hasta?.ToString("yyyy-MM-dd"),
+                           ["Pagina"] = (Model.Pagina - 1).ToString() })">← Anterior</a>
+                }
+                @if (Model.Pagina < Model.TotalPages)
+                {
+                    <a class="btn secondary" asp-page="/Eventos"
+                       asp-all-route-data="@(new Dictionary<string, string?> {
+                           ["Tipo"] = Model.Tipo, ["Camara"] = Model.Camara, ["Estado"] = Model.Estado,
+                           ["Texto"] = Model.Texto,
+                           ["Desde"] = Model.Desde?.ToString("yyyy-MM-dd"),
+                           ["Hasta"] = Model.Hasta?.ToString("yyyy-MM-dd"),
+                           ["Pagina"] = (Model.Pagina + 1).ToString() })">Siguiente →</a>
+                }
+            </div>
+        }
+    }
+</div>

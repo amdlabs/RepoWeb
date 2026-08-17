@@ -1,0 +1,52 @@
+# ============================================================================
+# IVZ Vision - sistema completo "out of the box":
+#   docker compose up -d
+# Levanta SQL Server y la aplicación web ya conectados entre sí, con los
+# modelos ONNX incluidos en la imagen y los datos en volúmenes persistentes.
+# Web: http://localhost:8080  (usuario inicial: admin / admin)
+# ============================================================================
+
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: ivzvision-db
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${IVZVISION_DB_PASSWORD:-IVZVision.2024!}"
+      MSSQL_PID: "Express"
+    volumes:
+      - ivzvision-mssql:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"${IVZVISION_DB_PASSWORD:-IVZVision.2024!}\" -Q 'SELECT 1' -b -o /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+  web:
+    build: .
+    container_name: ivzvision-web
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Con estas variables la aplicación genera su configuración inicial
+      # apuntando al contenedor de SQL Server. Después todo se edita desde la web.
+      IVZVISION_DB_SERVER: "db"
+      IVZVISION_DB_NAME: "IVZVision"
+      IVZVISION_DB_USER: "sa"
+      IVZVISION_DB_PASSWORD: "${IVZVISION_DB_PASSWORD:-IVZVision.2024!}"
+    ports:
+      - "8080:8080"
+    volumes:
+      # Configuración (JSON con contraseñas cifradas) + capturas de eventos.
+      - ivzvision-datos:/app/App_Data
+    # Para usar una cámara USB del anfitrión (solo Linux), descomente:
+    # devices:
+    #   - /dev/video0:/dev/video0
+    restart: unless-stopped
+
+volumes:
+  ivzvision-mssql:
+  ivzvision-datos:

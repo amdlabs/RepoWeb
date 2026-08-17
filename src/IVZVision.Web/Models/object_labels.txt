@@ -1,0 +1,81 @@
+# Clases COCO (80) en español, en el orden estándar del dataset.
+persona
+bicicleta
+coche
+moto
+avion
+autobus
+tren
+camion
+barco
+semaforo
+boca de incendios
+señal de stop
+parquimetro
+banco
+pajaro
+gato
+perro
+caballo
+oveja
+vaca
+elefante
+oso
+cebra
+jirafa
+mochila
+paraguas
+bolso
+corbata
+maleta
+frisbee
+esquis
+snowboard
+pelota
+cometa
+bate de beisbol
+guante de beisbol
+monopatin
+tabla de surf
+raqueta de tenis
+botella
+copa de vino
+taza
+tenedor
+cuchillo
+cuchara
+cuenco
+platano
+manzana
+sandwich
+naranja
+brocoli
+zanahoria
+perrito caliente
+pizza
+donut
+tarta
+silla
+sofa
+planta
+cama
+mesa
+inodoro
+televisor
+portatil
+raton
+mando a distancia
+teclado
+telefono movil
+microondas
+horno
+tostadora
+fregadero
+nevera
+libro
+reloj
+jarron
+tijeras
+oso de peluche
+secador
+cepillo de dientes

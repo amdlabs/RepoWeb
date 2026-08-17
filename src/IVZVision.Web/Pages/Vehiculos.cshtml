@@ -1,0 +1,276 @@
+﻿@page
+@model VehiculosModel
+@{
+    ViewData["Title"] = "Vehículos";
+}
+
+<h1>Vehículos</h1>
+<p class="subtitle">Padrón de matrículas conocidas. Al leer una matrícula se compara contra esta tabla.</p>
+
+<partial name="_DeteccionesTabs" model="@("vehiculos")" />
+
+@if (Model.DatabaseError is not null)
+{
+    <div class="alert alert-error">
+        <b>No se pudo consultar la base de datos:</b> @Model.DatabaseError<br />
+        Revise los datos en <a asp-page="/Configuracion/Index">Configuración → Base de datos</a>.
+    </div>
+}
+
+<div class="card" style="margin-bottom:16px">
+    <h2>Vehículos detectados (@Model.DetectedTotal)</h2>
+    <p class="subtitle">
+        Matrículas leídas por las cámaras, de la más reciente a la más antigua. Las no registradas
+        se pueden dar de alta con un clic. Doble clic sobre la foto la amplía.
+    </p>
+
+    <form method="get" class="filters" style="margin-bottom:12px">
+        <div class="field">
+            <label for="Camara">Origen (cámara)</label>
+            <select id="Camara" name="Camara">
+                <option value="">Todas</option>
+                @foreach (var cam in Model.CamerasDisponibles)
+                {
+                    <option value="@cam" selected="@(Model.Camara == cam)">@cam</option>
+                }
+            </select>
+        </div>
+        <button type="submit" class="btn secondary">Filtrar</button>
+        @if (!string.IsNullOrWhiteSpace(Model.Camara))
+        {
+            <a class="btn secondary" asp-page="/Vehiculos">Quitar filtro</a>
+        }
+    </form>
+
+    <form method="post" asp-page-handler="LimpiarDetecciones" class="actions"
+          style="gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center"
+          onsubmit="return confirm('¿Borrar las lecturas de matrícula según el filtro indicado? No se puede deshacer.');">
+        <input type="hidden" name="camara" value="@Model.Camara" />
+        <span class="hint">Eliminar registros:</span>
+        <select name="dias" style="max-width:150px">
+            <option value="0">todos</option>
+            <option value="1">de más de 1 día</option>
+            <option value="7">de más de 7 días</option>
+            <option value="30">de más de 30 días</option>
+        </select>
+        <label class="check" style="margin:0">
+            <input type="checkbox" name="soloNoIdentificadas" value="true" checked /> sólo no registradas
+        </label>
+        @if (!string.IsNullOrWhiteSpace(Model.Camara))
+        {
+            <span class="badge badge-muted">sólo de @Model.Camara</span>
+        }
+        <button class="btn small danger" type="submit">Eliminar</button>
+    </form>
+
+    @if (Model.Detected.Count == 0)
+    {
+        <div class="empty">Todavía no hay lecturas de matrícula.</div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Foto</th>
+                        <th>Matrícula</th>
+                        <th>Estado</th>
+                        <th>Fecha</th>
+                        <th>Hora</th>
+                        <th>Cámara</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var v in Model.Detected)
+                {
+                    var local = v.OccurredAt.ToLocalTime();
+                    <tr>
+                        <td data-col="Foto" class="thumb-cell">
+                            @* Foto real y placa dibujada juntas; doble clic abre el editor y la escena. *@
+                            @{
+                                var escena = string.IsNullOrEmpty(v.FullFramePath)
+                                    ? null
+                                    : $"/media/recorte?path={Uri.EscapeDataString(v.FullFramePath)}";
+                            }
+                            <div class="par-placa">
+                                @if (!string.IsNullOrEmpty(v.CropBase64))
+                                {
+                                    <img src="data:image/jpeg;base64,@v.CropBase64" alt="Lectura de @v.Plate"
+                                         data-plate="@v.Plate" data-evento="@v.EventId" data-escena="@escena" title="Foto original" />
+                                }
+                                else if (!string.IsNullOrEmpty(v.CropPath))
+                                {
+                                    <img src="/media/recorte?path=@Uri.EscapeDataString(v.CropPath)" alt="Lectura de @v.Plate"
+                                         loading="lazy" data-plate="@v.Plate" data-evento="@v.EventId" data-escena="@escena" title="Foto original" />
+                                }
+                                <img src="/matricula/@(Uri.EscapeDataString(v.Plate)).svg" alt="@v.Plate"
+                                     loading="lazy" data-plate="@v.Plate" data-evento="@v.EventId" data-escena="@escena"
+                                     title="Lectura interpretada — doble clic para corregir" />
+                            </div>
+                        </td>
+                        <td data-col="Matrícula" class="plate"><b>@v.Plate</b></td>
+                        <td data-col="Estado">
+                            @if (v.IsKnown)
+                            {
+                                <span class="badge badge-ok">registrada</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-danger">no registrada</span>
+                            }
+                        </td>
+                        <td data-col="Fecha">@local.ToString("dd/MM/yyyy")</td>
+                        <td data-col="Hora">
+                            @local.ToString("HH:mm:ss")
+                            @if (v.Repeticiones > 1)
+                            {
+                                <span class="badge badge-muted" title="Lecturas agrupadas de la misma cámara en 10 minutos">×@v.Repeticiones</span>
+                            }
+                        </td>
+                        <td data-col="Cámara">@v.CameraName</td>
+                        <td class="acciones">
+                            @if (!v.IsKnown)
+                            {
+                                <form method="post" asp-page-handler="Crear" class="actions" style="gap:6px">
+                                    <input type="hidden" name="NewVehicle.Plate" value="@v.Plate" />
+                                    <input name="NewVehicle.Make" placeholder="Marca (opcional)" style="max-width:120px" />
+                                    <button class="btn small" type="submit">Registrar</button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        @if (Model.TotalPaginas > 1)
+        {
+            <div class="actions" style="margin-top:12px; align-items:center">
+                @if (Model.Pagina > 1)
+                {
+                    <a class="btn small secondary" asp-page="/Vehiculos" asp-route-Camara="@Model.Camara"
+                       asp-route-Buscar="@Model.Buscar" asp-route-Pagina="@(Model.Pagina - 1)">← Anteriores</a>
+                }
+                <span class="hint">Página @Model.Pagina de @Model.TotalPaginas</span>
+                @if (Model.Pagina < Model.TotalPaginas)
+                {
+                    <a class="btn small secondary" asp-page="/Vehiculos" asp-route-Camara="@Model.Camara"
+                       asp-route-Buscar="@Model.Buscar" asp-route-Pagina="@(Model.Pagina + 1)">Siguientes →</a>
+                }
+            </div>
+        }
+    }
+</div>
+
+<div class="grid grid-live">
+    <div class="card">
+        <div class="filters" style="margin-bottom:16px">
+            <form method="get" class="filters">
+                <div class="field">
+                    <label for="Buscar">Buscar</label>
+                    <input type="search" id="Buscar" name="Buscar" value="@Model.Buscar" placeholder="Matrícula, marca o modelo" />
+                </div>
+                <button type="submit" class="btn secondary">Buscar</button>
+                @if (!string.IsNullOrWhiteSpace(Model.Buscar))
+                {
+                    <a class="btn secondary" asp-page="/Vehiculos">Limpiar</a>
+                }
+            </form>
+        </div>
+
+        @if (Model.Vehicles.Count == 0)
+        {
+            <div class="empty">No hay vehículos registrados.</div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Matrícula</th>
+                            <th>Vehículo</th>
+                            <th>Titular</th>
+                            <th>Acceso</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var v in Model.Vehicles)
+                    {
+                        <tr>
+                            <td data-col="Matrícula" class="plate">
+                                <a asp-page="/Vehiculo" asp-route-id="@v.Id">@v.Plate</a>
+                                @if (!v.IsActive)
+                                {
+                                    <span class="badge badge-muted">inactivo</span>
+                                }
+                            </td>
+                            <td data-col="Vehículo">@(string.IsNullOrWhiteSpace(v.Description) ? "—" : v.Description)</td>
+                            <td data-col="Titular">@(v.Owner ?? "—")</td>
+                            <td data-col="Acceso">
+                                @if (v.IsAuthorized)
+                                {
+                                    <span class="badge badge-ok">autorizado</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-warn">no autorizado</span>
+                                }
+                            </td>
+                            <td class="acciones" style="white-space:nowrap">
+                                <a class="btn small secondary" asp-page="/Vehiculo" asp-route-id="@v.Id">Editar</a>
+                                <form method="post" style="display:inline"
+                                      onsubmit="return confirm('¿Eliminar la matrícula @v.Plate?');">
+                                    <button class="btn small danger" asp-page-handler="Eliminar" asp-route-id="@v.Id">Eliminar</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <div class="card">
+        <h2>Nuevo vehículo</h2>
+        <form method="post">
+            <div class="field">
+                <label asp-for="NewVehicle.Plate">Matrícula</label>
+                <input asp-for="NewVehicle.Plate" required placeholder="1234 ABC" />
+                <div class="hint">Se guarda normalizada (mayúsculas, sin espacios ni guiones).</div>
+            </div>
+            <div class="field">
+                <label asp-for="NewVehicle.Make">Marca</label>
+                <input asp-for="NewVehicle.Make" />
+            </div>
+            <div class="field">
+                <label asp-for="NewVehicle.Model">Modelo</label>
+                <input asp-for="NewVehicle.Model" />
+            </div>
+            <div class="field">
+                <label asp-for="NewVehicle.Color">Color</label>
+                <input asp-for="NewVehicle.Color" />
+            </div>
+            <div class="field">
+                <label asp-for="NewVehicle.OwnerPersonId">Titular</label>
+                <select asp-for="NewVehicle.OwnerPersonId" asp-items="Model.Owners">
+                    <option value="">— sin titular —</option>
+                </select>
+            </div>
+            <div class="check">
+                <input asp-for="NewVehicle.IsAuthorized" type="checkbox" checked />
+                <label asp-for="NewVehicle.IsAuthorized">Acceso autorizado</label>
+            </div>
+            <div class="field">
+                <label asp-for="NewVehicle.Notes">Notas</label>
+                <textarea asp-for="NewVehicle.Notes"></textarea>
+            </div>
+            <button type="submit" class="btn" asp-page-handler="Crear">Registrar vehículo</button>
+        </form>
+    </div>
+</div>

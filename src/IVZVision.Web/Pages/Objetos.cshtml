@@ -1,0 +1,200 @@
+﻿@page
+@model ObjetosModel
+@{
+    ViewData["Title"] = "Objetos";
+}
+
+<h1>Objetos</h1>
+<partial name="_DeteccionesTabs" model="@("objetos")" />
+<p class="subtitle">
+    Clases de objeto detectadas por las cámaras. Póngales su <b>categoría real</b> — si el detector
+    dice «horno» pero es su portón, etiquételo como «Portón» — y las siguientes detecciones saldrán
+    como objetos conocidos con ese nombre. Las personas no se listan aquí: sus rostros aparecen en
+    la página <a asp-page="/Personas">Personas</a> para darles nombre.
+</p>
+
+@if (Model.DatabaseError is not null)
+{
+    <div class="alert alert-error">No se pudo consultar la base de datos: @Model.DatabaseError</div>
+}
+
+<div class="grid grid-2">
+    <div class="card">
+        <h2>Detectados sin etiquetar (@Model.UnlabeledTotal)</h2>
+
+        <form method="get" class="filters" style="margin-bottom:12px">
+            <div class="field">
+                <label for="Camara">Origen (cámara)</label>
+                <select id="Camara" name="Camara">
+                    <option value="">Todas</option>
+                    @foreach (var cam in Model.CamerasDisponibles)
+                    {
+                        <option value="@cam" selected="@(Model.Camara == cam)">@cam</option>
+                    }
+                </select>
+            </div>
+            <button type="submit" class="btn secondary">Filtrar</button>
+            @if (!string.IsNullOrWhiteSpace(Model.Camara))
+            {
+                <a class="btn secondary" asp-page="/Objetos">Quitar filtro</a>
+            }
+        </form>
+
+        <form method="post" asp-page-handler="LimpiarDetecciones" class="actions"
+              style="gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center"
+              onsubmit="return confirm('¿Borrar las detecciones de objetos y textos según el filtro indicado? No se puede deshacer.');">
+            <input type="hidden" name="camara" value="@Model.Camara" />
+            <span class="hint">Eliminar registros:</span>
+            <select name="dias" style="max-width:150px">
+                <option value="0">todos</option>
+                <option value="1">de más de 1 día</option>
+                <option value="7">de más de 7 días</option>
+                <option value="30">de más de 30 días</option>
+            </select>
+            <label class="check" style="margin:0">
+                <input type="checkbox" name="soloSinEtiquetar" value="true" checked /> sólo clases sin etiquetar
+            </label>
+            @if (!string.IsNullOrWhiteSpace(Model.Camara))
+            {
+                <span class="badge badge-muted">sólo de @Model.Camara</span>
+            }
+            <button class="btn small danger" type="submit">Eliminar</button>
+        </form>
+
+        @if (Model.Unlabeled.Count == 0)
+        {
+            <div class="empty">No hay clases pendientes de etiquetar.</div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Clase</th>
+                            <th>Detecciones</th>
+                            <th>Última vez</th>
+                            <th>Etiquetar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var item in Model.Unlabeled)
+                    {
+                        <tr>
+                            <td data-col="Clase">
+                                @if (!string.IsNullOrEmpty(item.LastCropPath))
+                                {
+                                    @* Doble clic: recorte y escena completa donde se detectó. *@
+                                    <img src="/media/recorte?path=@Uri.EscapeDataString(item.LastCropPath)"
+                                         alt="@item.ClassName" style="height:42px;border-radius:4px;vertical-align:middle;margin-right:8px"
+                                         data-escena="@(string.IsNullOrEmpty(item.LastFullFramePath) ? null : $"/media/recorte?path={Uri.EscapeDataString(item.LastFullFramePath)}")" />
+                                }
+                                <b>@item.ClassName</b>
+                            </td>
+                            <td data-col="Detecciones">@item.Detections</td>
+                            <td data-col="Última vez">@item.LastSeen.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                            <td data-col="Etiquetar">
+                                <form method="post" asp-page-handler="Etiquetar" class="actions" style="gap:6px">
+                                    <input type="hidden" name="className" value="@item.ClassName" />
+                                    <input name="displayName" placeholder="Categoría real (p. ej. Portón)" required style="max-width:170px" />
+                                    <label class="check" style="margin:0">
+                                        <input type="checkbox" name="isAuthorized" value="true" checked /> Autorizado
+                                    </label>
+                                    <button class="btn small" type="submit">Guardar</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (Model.TotalPaginas > 1)
+            {
+                <div class="actions" style="margin-top:12px; align-items:center">
+                    @if (Model.Pagina > 1)
+                    {
+                        <a class="btn small secondary" asp-page="/Objetos" asp-route-Camara="@Model.Camara"
+                           asp-route-Pagina="@(Model.Pagina - 1)">← Anteriores</a>
+                    }
+                    <span class="hint">Página @Model.Pagina de @Model.TotalPaginas</span>
+                    @if (Model.Pagina < Model.TotalPaginas)
+                    {
+                        <a class="btn small secondary" asp-page="/Objetos" asp-route-Camara="@Model.Camara"
+                           asp-route-Pagina="@(Model.Pagina + 1)">Siguientes →</a>
+                    }
+                </div>
+            }
+        }
+    </div>
+
+    <div class="card">
+        <h2>Objetos conocidos (etiquetados)</h2>
+        @if (Model.Labels.Count == 0)
+        {
+            <div class="empty">Todavía no se ha etiquetado ningún objeto.</div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Clase</th>
+                            <th>Estado</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var label in Model.Labels)
+                    {
+                        <tr>
+                            <td data-col="Nombre">
+                                <b>@label.DisplayName</b>
+                                @if (!string.IsNullOrEmpty(label.Notes))
+                                {
+                                    <div class="hint">@label.Notes</div>
+                                }
+                            </td>
+                            <td data-col="Clase"><code>@label.ClassName</code></td>
+                            <td data-col="Estado">
+                                @if (label.IsAuthorized)
+                                {
+                                    <span class="badge badge-ok">Autorizado</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-warn">No autorizado</span>
+                                }
+                            </td>
+                            <td class="acciones" style="white-space:nowrap">
+                                <form method="post" style="display:inline">
+                                    <button class="btn small secondary" asp-page-handler="Alternar" asp-route-id="@label.Id">
+                                        @(label.IsAuthorized ? "Marcar no autorizado" : "Autorizar")
+                                    </button>
+                                </form>
+                                <form method="post" style="display:inline"
+                                      onsubmit="return confirm('¿Quitar la etiqueta @label.DisplayName?');">
+                                    <button class="btn small danger" asp-page-handler="Eliminar" asp-route-id="@label.Id">Quitar</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        <h3 style="margin-top:18px">Etiquetar una clase a mano</h3>
+        <form method="post" asp-page-handler="Etiquetar" class="actions" style="gap:6px;flex-wrap:wrap">
+            <input name="className" placeholder="clase (p. ej. perro)" required style="max-width:160px" />
+            <input name="displayName" placeholder="Nombre visible" required style="max-width:180px" />
+            <input name="notes" placeholder="Notas (opcional)" style="max-width:200px" />
+            <label class="check" style="margin:0">
+                <input type="checkbox" name="isAuthorized" value="true" checked /> Autorizado
+            </label>
+            <button class="btn small" type="submit">Añadir</button>
+        </form>
+    </div>
+</div>
