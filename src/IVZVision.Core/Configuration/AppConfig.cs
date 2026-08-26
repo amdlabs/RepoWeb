@@ -1,4 +1,4 @@
-namespace IVZVision.Core.Configuration;
+﻿namespace IVZVision.Core.Configuration;
 
 /// <summary>
 /// Configuración completa de la aplicación. Se persiste en
@@ -17,6 +17,13 @@ public sealed class AppConfig
     public StorageConfig Storage { get; set; } = new();
 
     public SecurityConfig Security { get; set; } = new();
+
+    /// <summary>
+    /// Motor de reconocimiento encendido. Es persistente: si se apaga desde la web,
+    /// sigue apagado tras reiniciar el equipo. La web permanece accesible en ambos
+    /// casos; lo que arranca o se detiene es la captura y el análisis de las cámaras.
+    /// </summary>
+    public bool EngineEnabled { get; set; } = true;
 
     /// <summary>Marca de la última modificación, útil para saber si hay que reiniciar el pipeline.</summary>
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;

@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using IVZVision.Core.Configuration;
 using IVZVision.Core.Detection;
 using IVZVision.Core.Util;
@@ -52,6 +52,33 @@ public sealed class CameraPipelineManager : IHostedService, IDisposable
         _contentRoot = contentRoot;
 
         _config.Changed += OnConfigChanged;
+    }
+
+    /// <summary>True si el motor está capturando y analizando (hay trabajadores activos).</summary>
+    public bool EngineRunning => !_workers.IsEmpty;
+
+    /// <summary>True si el motor está encendido en la configuración (persistente entre reinicios).</summary>
+    public bool EngineEnabled => _config.Current.EngineEnabled;
+
+    /// <summary>
+    /// Enciende o apaga el motor de reconocimiento y lo deja anotado en la
+    /// configuración, de modo que la decisión sobrevive al reinicio del equipo.
+    /// La web sigue accesible en ambos casos.
+    /// </summary>
+    public async Task SetEngineEnabledAsync(bool enabled, CancellationToken ct = default)
+    {
+        if (_config.Current.EngineEnabled == enabled)
+        {
+            // Ya está en ese estado; se sincronizan los trabajadores por si difieren.
+            if (enabled && !EngineRunning) await RestartWorkersAsync(_lifetime?.Token ?? ct).ConfigureAwait(false);
+            else if (!enabled && EngineRunning) await StopWorkersAsync().ConfigureAwait(false);
+            return;
+        }
+
+        // Guardar dispara OnConfigChanged, que aplica el arranque o la parada.
+        await _config.UpdateAsync(cfg => cfg.EngineEnabled = enabled, ct).ConfigureAwait(false);
+
+        _logger.LogInformation("Motor de reconocimiento {Estado} desde la web", enabled ? "encendido" : "apagado");
     }
 
     public IReadOnlyList<CameraStatus> Statuses =>
@@ -169,6 +196,13 @@ public sealed class CameraPipelineManager : IHostedService, IDisposable
             await StopWorkersAsync().ConfigureAwait(false);
 
             if (ct.IsCancellationRequested) return;
+
+            // Motor apagado: la web sigue en pie, pero no se captura ni se analiza.
+            if (!_config.Current.EngineEnabled)
+            {
+                _logger.LogInformation("Motor de reconocimiento apagado: no se arranca ninguna cámara.");
+                return;
+            }
 
             var snapshotsRoot = _config.Current.Storage.Resolve(_contentRoot);
             Directory.CreateDirectory(snapshotsRoot);

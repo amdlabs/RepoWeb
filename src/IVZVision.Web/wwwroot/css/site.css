@@ -673,3 +673,22 @@ a.dash-card:hover {
 .lb-original { max-width: 70vw; max-height: 26vh; border-radius: 8px; }
 .lb-escena { max-width: 92vw; max-height: 46vh; border-radius: 8px; border: 1px solid rgba(255,255,255,.15); }
 .lb-pila .mon-overlay-video { max-height: 40vh; }
+
+/* ---- Panel del motor de reconocimiento ---- */
+.motor-panel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    border-left: 3px solid var(--ok, #4caf50);
+}
+.motor-panel.motor-apagado { border-left-color: var(--danger, #e05555); }
+.motor-info { display: flex; align-items: center; gap: 12px; }
+.motor-estado { font-weight: 600; font-size: 15px; }
+.dot.warn { background: var(--warn, #f0a13a); }
+@media (max-width: 920px) {
+    .motor-panel { flex-direction: column; align-items: stretch; }
+    .motor-panel .actions .btn { width: 100%; }
+}

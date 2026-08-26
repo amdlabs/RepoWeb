@@ -12,6 +12,29 @@
     <div class="alert alert-error">No se pudo consultar la base de datos: @Model.DatabaseError</div>
 }
 
+@* Panel del motor: la web siempre está accesible; esto arranca o detiene la
+   captura y el análisis, y la decisión se recuerda tras reiniciar el equipo. *@
+<div class="card motor-panel" id="motorPanel">
+    <div class="motor-info">
+        <span class="dot" id="motorDot"></span>
+        <div>
+            <div class="motor-estado" id="motorEstado">Comprobando el motor…</div>
+            <div class="hint" id="motorDetalle"></div>
+        </div>
+    </div>
+    @if (User.IsInRole("Administrator"))
+    {
+        <div class="actions" style="margin:0">
+            <button type="button" class="btn" id="motorEncender" hidden>▶ Encender motor</button>
+            <button type="button" class="btn danger" id="motorApagar" hidden>■ Apagar motor</button>
+        </div>
+    }
+    else
+    {
+        <span class="hint">Sólo un administrador puede encender o apagar el motor.</span>
+    }
+</div>
+
 @{
     var hoy = DateTime.Today.ToString("yyyy-MM-dd");
 }
@@ -106,4 +129,5 @@
 @section Scripts {
     <script src="~/lib/signalr/signalr.min.js"></script>
     <script src="~/js/dashboard.js" asp-append-version="true"></script>
+    <script src="~/js/motor.js" asp-append-version="true"></script>
 }
