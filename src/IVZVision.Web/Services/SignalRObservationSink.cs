@@ -27,7 +27,9 @@ public sealed record ObservationDto(
     double? CajaX = null,
     double? CajaY = null,
     double? CajaAncho = null,
-    double? CajaAlto = null);
+    double? CajaAlto = null,
+    /// <summary>Grupo de rostros al que pertenece, para poder agruparlo o etiquetarlo desde el muro.</summary>
+    int? GrupoId = null);
 
 public sealed record CameraStatusDto(
     string CamaraId,
@@ -106,5 +108,6 @@ public sealed class SignalRObservationSink : IObservationSink
         o.FrameWidth > 0 ? o.Box.X * 100.0 / o.FrameWidth : null,
         o.FrameHeight > 0 ? o.Box.Y * 100.0 / o.FrameHeight : null,
         o.FrameWidth > 0 ? o.Box.Width * 100.0 / o.FrameWidth : null,
-        o.FrameHeight > 0 ? o.Box.Height * 100.0 / o.FrameHeight : null);
+        o.FrameHeight > 0 ? o.Box.Height * 100.0 / o.FrameHeight : null,
+        o.FaceClusterId);
 }

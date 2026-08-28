@@ -979,3 +979,24 @@ a.dash-card:hover {
 @media (prefers-reduced-motion: reduce) {
     .aviso, .mon-marca { transition: none; animation: none; }
 }
+
+
+/* ---- Marcar rostros en el muro y editar qué cámara va en cada recuadro ---- */
+.hit-marca { width: 16px; height: 16px; align-self: center; flex-shrink: 0; cursor: pointer; }
+
+.mon-selector {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    right: 6px;
+    z-index: 3;
+}
+
+.mon-selector select {
+    width: 100%;
+    font-size: 12px;
+    padding: 3px 6px;
+}
+
+.mon-editando .mon-cell { outline: 1px dashed var(--border); outline-offset: -2px; }
+.mon-editando .mon-cell img { opacity: .55; }

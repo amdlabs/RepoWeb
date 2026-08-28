@@ -55,6 +55,8 @@
         <form method="post" asp-page-handler="Unificar" id="formUnificar"
               class="actions" style="margin-bottom:10px; gap:10px; flex-wrap:wrap; align-items:center">
             <input type="hidden" name="PaginaGrupos" value="@Model.PaginaGrupos" />
+            <input type="hidden" name="Orden" value="@Model.Orden" />
+            <input type="hidden" name="CamaraGrupo" value="@Model.CamaraGrupo" />
             <button class="btn small" type="submit" id="btnUnificar" disabled>Unificar seleccionados</button>
             <button class="btn small secondary" type="button" id="btnLimpiarSeleccion" hidden>Limpiar selección</button>
             <span class="badge badge-muted" id="grupoSeleccionCuenta">ningún grupo marcado</span>
@@ -66,12 +68,35 @@
             </span>
         </form>
 
+        <form method="get" class="filters" style="margin-bottom:10px">
+            <div class="field">
+                <label for="CamaraGrupo">Cámara</label>
+                <select id="CamaraGrupo" name="CamaraGrupo" onchange="this.form.submit()">
+                    <option value="">Todas las cámaras</option>
+                    @foreach (var cam in Model.CamarasGrupos)
+                    {
+                        <option value="@cam" selected="@(cam == Model.CamaraGrupo)">@cam</option>
+                    }
+                </select>
+            </div>
+            <input type="hidden" name="Orden" value="@Model.Orden" />
+            <button class="btn small secondary" type="submit">Filtrar</button>
+            @if (!string.IsNullOrWhiteSpace(Model.CamaraGrupo))
+            {
+                <a class="btn small secondary" asp-page="/Personas" asp-route-Orden="@Model.Orden">Quitar filtro</a>
+                <span class="hint">
+                    Se listan las personas que pasaron por «@Model.CamaraGrupo», con todas sus fotos
+                    de todas las cámaras.
+                </span>
+            }
+        </form>
+
         <div class="actions" style="margin-bottom:10px; gap:8px; align-items:center; flex-wrap:wrap">
             <span class="hint">Orden:</span>
             <a class="btn small @(Model.OrdenPorParecido ? "" : "secondary")"
-               asp-page="/Personas" asp-route-Orden="parecido">Por parecido</a>
+               asp-page="/Personas" asp-route-Orden="parecido" asp-route-CamaraGrupo="@Model.CamaraGrupo">Por parecido</a>
             <a class="btn small @(Model.OrdenPorParecido ? "secondary" : "")"
-               asp-page="/Personas" asp-route-Orden="fecha">Más recientes</a>
+               asp-page="/Personas" asp-route-Orden="fecha" asp-route-CamaraGrupo="@Model.CamaraGrupo">Más recientes</a>
             <span class="hint">
                 Por parecido, las fichas salen encadenadas: cada una es la más parecida a la
                 anterior, así las que son la misma persona caen contiguas.
@@ -122,6 +147,8 @@
                             <form method="post" asp-page-handler="NombrarGrupo" class="actions" style="gap:6px">
                                 <input type="hidden" name="grupoId" value="@grupo.ClusterId" />
                                 <input type="hidden" name="PaginaGrupos" value="@Model.PaginaGrupos" />
+                                <input type="hidden" name="Orden" value="@Model.Orden" />
+                                <input type="hidden" name="CamaraGrupo" value="@Model.CamaraGrupo" />
                                 <input name="nombre" placeholder="Nombre de la persona" required
                                        value="@(grupo.PersonId is null ? "" : grupo.DisplayName)"
                                        style="max-width:190px" />
@@ -131,6 +158,8 @@
                                   onsubmit="return confirm('¿Deshacer este grupo? Las fotos dejarán de estar agrupadas.');">
                                 <input type="hidden" name="grupoId" value="@grupo.ClusterId" />
                                 <input type="hidden" name="PaginaGrupos" value="@Model.PaginaGrupos" />
+                                <input type="hidden" name="Orden" value="@Model.Orden" />
+                                <input type="hidden" name="CamaraGrupo" value="@Model.CamaraGrupo" />
                                 <button class="btn small secondary" type="submit" title="El grupo mezcla dos personas distintas">Deshacer</button>
                             </form>
                         </div>
@@ -161,6 +190,7 @@
                                     <input type="hidden" name="grupoId" value="@grupo.ClusterId" />
                                     <input type="hidden" name="PaginaGrupos" value="@Model.PaginaGrupos" />
                                     <input type="hidden" name="Orden" value="@Model.Orden" />
+                                    <input type="hidden" name="CamaraGrupo" value="@Model.CamaraGrupo" />
                                     <button class="btn-quitar" type="submit"
                                             title="Esta cara no es de esta persona: sacarla del grupo">✕</button>
                                 </form>
@@ -181,12 +211,14 @@
                 @if (Model.PaginaGrupos > 1)
                 {
                     <a class="btn small secondary" asp-page="/Personas" asp-route-Orden="@Model.Orden"
+                       asp-route-CamaraGrupo="@Model.CamaraGrupo"
                        asp-route-PaginaGrupos="@(Model.PaginaGrupos - 1)">← Anteriores</a>
                 }
                 <span class="hint">Página @Model.PaginaGrupos de @Model.TotalPaginasGrupos</span>
                 @if (Model.PaginaGrupos < Model.TotalPaginasGrupos)
                 {
                     <a class="btn small secondary" asp-page="/Personas" asp-route-Orden="@Model.Orden"
+                       asp-route-CamaraGrupo="@Model.CamaraGrupo"
                        asp-route-PaginaGrupos="@(Model.PaginaGrupos + 1)">Siguientes →</a>
                 }
             </div>

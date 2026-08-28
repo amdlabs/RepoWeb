@@ -75,7 +75,50 @@
     var liveOffset = 0;
 
     function celdas() { return layout; }
-    function totalPaginas() { return Math.max(1, Math.ceil(camaras.length / celdas())); }
+
+    /* La vista es el orden en que se colocan las cámaras en el muro. Mientras nadie
+       la toque es el orden natural; al editarla se guarda la lista de identificadores
+       en este navegador. Las cámaras que la vista no menciona van detrás, para que
+       una cámara nueva no quede inalcanzable. */
+    var CLAVE_VISTA = "ivz.monitoreo.vista";
+    var editando = false;
+
+    function vistaGuardada() {
+        try {
+            var crudo = localStorage.getItem(CLAVE_VISTA);
+            var lista = crudo ? JSON.parse(crudo) : null;
+            return Array.isArray(lista) ? lista : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function guardarVista(lista) {
+        try {
+            if (lista) localStorage.setItem(CLAVE_VISTA, JSON.stringify(lista));
+            else localStorage.removeItem(CLAVE_VISTA);
+        } catch (e) { /* sin memoria: la vista dura lo que la sesión */ }
+    }
+
+    /// Cámaras en el orden en que deben verse; los huecos vacíos son null.
+    function ordenadas() {
+        var vista = vistaGuardada();
+        if (!vista) return camaras.slice();
+
+        var porId = {};
+        camaras.forEach(function (c) { porId[c.id] = c; });
+
+        var lista = vista.map(function (id) { return id ? (porId[id] || null) : null; });
+
+        // Las que la vista no nombra se añaden al final para no perderlas de vista.
+        var puestas = {};
+        vista.forEach(function (id) { if (id) puestas[id] = true; });
+        camaras.forEach(function (c) { if (!puestas[c.id]) lista.push(c); });
+
+        return lista;
+    }
+
+    function totalPaginas() { return Math.max(1, Math.ceil(ordenadas().length / celdas())); }
 
     /* ---------- Vídeo por WebSocket: streaming real en TODAS las celdas ----------
        Un único WebSocket multiplexa los fotogramas de todas las cámaras visibles
@@ -267,11 +310,30 @@
 
         pagina = Math.min(pagina, totalPaginas() - 1);
         var inicio = pagina * celdas();
-        var visibles = camaras.slice(inicio, inicio + celdas());
+        var listado = ordenadas();
+        var visibles = listado.slice(inicio, inicio + celdas());
 
-        visibles.forEach(function (cam) {
+        // En edición se dibujan siempre todos los recuadros, incluidos los vacíos,
+        // para poder asignarles una cámara.
+        if (editando) {
+            while (visibles.length < celdas()) visibles.push(null);
+        }
+
+        visibles.forEach(function (cam, indice) {
+            var posicion = inicio + indice;
+
+            if (!cam) {
+                var hueco = document.createElement("div");
+                hueco.className = "mon-cell mon-empty";
+                hueco.appendChild(selectorCamara(posicion, null));
+                grid.appendChild(hueco);
+                return;
+            }
+
             var cell = document.createElement("div");
             cell.className = "mon-cell";
+
+            if (editando) cell.appendChild(selectorCamara(posicion, cam.id));
 
             var img = document.createElement("img");
             img.alt = cam.nombre;
@@ -311,7 +373,7 @@
         });
 
         // Relleno para mantener la cuadrícula estable
-        for (var i = visibles.length; i < celdas(); i++) {
+        for (var i = editando ? celdas() : visibles.length; i < celdas(); i++) {
             var empty = document.createElement("div");
             empty.className = "mon-cell mon-empty";
             empty.textContent = "—";
@@ -371,6 +433,79 @@
         if (rotateTimer) clearInterval(rotateTimer);
         stopWs();
     });
+
+    /* ---------- Edición de la vista: qué cámara va en cada recuadro ---------- */
+
+    function selectorCamara(posicion, idActual) {
+        var caja = document.createElement("div");
+        caja.className = "mon-selector";
+
+        var sel = document.createElement("select");
+
+        var vacio = document.createElement("option");
+        vacio.value = "";
+        vacio.textContent = "— vacío —";
+        sel.appendChild(vacio);
+
+        camaras.forEach(function (c) {
+            var op = document.createElement("option");
+            op.value = c.id;
+            op.textContent = c.nombre;
+            if (c.id === idActual) op.selected = true;
+            sel.appendChild(op);
+        });
+
+        sel.addEventListener("change", function () {
+            var vista = vistaGuardada();
+
+            // La primera edición parte del orden que se está viendo.
+            if (!vista) vista = ordenadas().map(function (c) { return c ? c.id : null; });
+
+            while (vista.length <= posicion) vista.push(null);
+
+            // Una cámara no puede estar dos veces: se libera su hueco anterior.
+            var nuevo = sel.value || null;
+            if (nuevo) {
+                for (var i = 0; i < vista.length; i++) {
+                    if (i !== posicion && vista[i] === nuevo) vista[i] = null;
+                }
+            }
+
+            vista[posicion] = nuevo;
+            guardarVista(vista);
+            render();
+        });
+
+        // El clic en el desplegable no debe maximizar la celda.
+        caja.addEventListener("dblclick", function (e) { e.stopPropagation(); });
+        caja.addEventListener("click", function (e) { e.stopPropagation(); });
+
+        caja.appendChild(sel);
+        return caja;
+    }
+
+    var btnEditar = document.getElementById("monEditar");
+    if (btnEditar) {
+        btnEditar.addEventListener("click", function () {
+            editando = !editando;
+            btnEditar.textContent = editando ? "Terminar edición" : "Editar vista";
+            btnEditar.classList.toggle("secondary", !editando);
+            grid.classList.toggle("mon-editando", editando);
+            render();
+        });
+
+        // Con la vista personalizada, un segundo botón permite volver al orden natural.
+        var btnRestablecer = document.createElement("button");
+        btnRestablecer.type = "button";
+        btnRestablecer.className = "btn small secondary";
+        btnRestablecer.textContent = "Orden por defecto";
+        btnRestablecer.title = "Olvidar la vista personalizada";
+        btnRestablecer.addEventListener("click", function () {
+            guardarVista(null);
+            render();
+        });
+        btnEditar.parentNode.insertBefore(btnRestablecer, btnEditar.nextSibling);
+    }
 
     /* ---------- Recuadro con el nombre sobre la imagen en vivo ---------- */
 
@@ -478,7 +613,111 @@
             item.appendChild(img);
             item.appendChild(body);
             item.appendChild(flag);
+
+            // Los rostros ya agrupados se pueden marcar para unirlos o etiquetarlos
+            // sin salir del muro.
+            if (hit.tipo === "rostro" && hit.grupoId) {
+                item.dataset.grupo = hit.grupoId;
+
+                var marca = document.createElement("input");
+                marca.type = "checkbox";
+                marca.className = "hit-marca";
+                marca.title = "Marcar este rostro";
+                marca.addEventListener("click", function (e) { e.stopPropagation(); });
+                marca.addEventListener("change", refrescarSeleccion);
+                item.insertBefore(marca, item.firstChild);
+            }
+
             return item;
+        }
+
+        /* ---- Agrupar y etiquetar rostros desde el propio muro ---- */
+
+        var btnAgrupar = document.getElementById("btnAgruparRostros");
+        var btnEtiquetar = document.getElementById("btnEtiquetarRostro");
+        var lblSeleccion = document.getElementById("rostrosSeleccion");
+
+        /// Grupos distintos entre los rostros marcados (uno puede repetirse en varias fotos).
+        function gruposMarcados() {
+            var vistos = {};
+            var lista = [];
+
+            Array.prototype.slice.call(feedFaces.querySelectorAll(".hit-marca:checked"))
+                .forEach(function (c) {
+                    var id = parseInt(c.parentNode.dataset.grupo, 10);
+                    if (!id || vistos[id]) return;
+                    vistos[id] = true;
+                    lista.push(id);
+                });
+
+            return lista;
+        }
+
+        function refrescarSeleccion() {
+            var grupos = gruposMarcados();
+
+            if (btnAgrupar) btnAgrupar.disabled = grupos.length < 2;
+            if (btnEtiquetar) btnEtiquetar.disabled = grupos.length !== 1;
+
+            if (!lblSeleccion) return;
+            lblSeleccion.textContent = grupos.length === 0
+                ? "marque los rostros que sean la misma persona"
+                : grupos.length === 1
+                    ? "1 rostro marcado: puede etiquetarlo"
+                    : grupos.length + " rostros marcados: puede agruparlos";
+        }
+
+        function avisar(texto, error) {
+            if (!lblSeleccion) return;
+            lblSeleccion.textContent = texto;
+            lblSeleccion.className = error ? "badge badge-danger" : "badge badge-ok";
+            setTimeout(function () {
+                lblSeleccion.className = "hint";
+                refrescarSeleccion();
+            }, 6000);
+        }
+
+        function pedir(url, cuerpo, alTerminar) {
+            fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(cuerpo),
+            })
+                .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+                .then(function (res) {
+                    avisar(res.j.mensaje || (res.ok ? "Hecho." : "No se pudo completar."), !res.ok);
+                    if (res.ok && alTerminar) alTerminar(res.j);
+                })
+                .catch(function () { avisar("No se pudo contactar con el servidor.", true); });
+        }
+
+        function desmarcarTodo() {
+            Array.prototype.slice.call(feedFaces.querySelectorAll(".hit-marca:checked"))
+                .forEach(function (c) { c.checked = false; });
+        }
+
+        if (btnAgrupar) {
+            btnAgrupar.addEventListener("click", function () {
+                var grupos = gruposMarcados();
+                if (grupos.length < 2) return;
+
+                btnAgrupar.disabled = true;
+                pedir("/api/rostros/unificar", { grupos: grupos }, function () { desmarcarTodo(); });
+            });
+        }
+
+        if (btnEtiquetar) {
+            btnEtiquetar.addEventListener("click", function () {
+                var grupos = gruposMarcados();
+                if (grupos.length !== 1) return;
+
+                var nombre = window.prompt("Nombre de esta persona:");
+                if (!nombre) return;
+
+                btnEtiquetar.disabled = true;
+                pedir("/api/rostros/etiquetar", { grupoId: grupos[0], nombre: nombre },
+                      function () { desmarcarTodo(); });
+            });
         }
 
         function push(hit) {

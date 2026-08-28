@@ -90,6 +90,7 @@ builder.Services.AddSingleton<SnapshotPathResolver>();
 builder.Services.AddSingleton<DiagnosticsService>();
 builder.Services.AddSingleton<DashboardService>();
 builder.Services.AddSingleton<DetectionCleanup>();
+builder.Services.AddSingleton<FaceGroupService>();
 builder.Services.AddSingleton<FaceClusterBackfill>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<FaceClusterBackfill>());
 

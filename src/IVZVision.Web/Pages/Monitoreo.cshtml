@@ -16,6 +16,8 @@
     <button type="button" class="btn small secondary" data-layout="12">12</button>
     <span class="hint" style="margin-left:10px">Carrusel:</span>
     <button type="button" class="btn small secondary" id="monCarrusel">▶ Activar</button>
+        <button class="btn small secondary" type="button" id="monEditar"
+                title="Elegir qué cámara va en cada recuadro">Editar vista</button>
     <select id="monCarruselSeg" style="max-width:90px">
         <option value="5">5 s</option>
         <option value="10" selected>10 s</option>
@@ -39,7 +41,12 @@
 <div class="grid grid-3" style="margin-top:16px">
     <div class="card">
         <h3>Rostros</h3>
-        <div class="feed" id="feedFaces"></div>
+        <div class="actions" id="rostrosAcciones" style="gap:8px; margin-bottom:8px; flex-wrap:wrap; align-items:center">
+    <button class="btn small" type="button" id="btnAgruparRostros" disabled>Agrupar</button>
+    <button class="btn small secondary" type="button" id="btnEtiquetarRostro" disabled>Etiquetar</button>
+    <span class="hint" id="rostrosSeleccion">marque los rostros que sean la misma persona</span>
+</div>
+<div class="feed" id="feedFaces"></div>
     </div>
     <div class="card">
         <h3>Matrículas</h3>

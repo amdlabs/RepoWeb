@@ -146,60 +146,72 @@ public sealed class RecognitionEngine : IDisposable
     /// <summary>Descarga los modelos; se volverán a cargar en el siguiente análisis.</summary>
     public void Reload()
     {
-        lock (_gate)
+        // Liberar las sesiones ONNX mientras otro hilo está dentro de Run rompe la
+        // librería, así que hay que esperar a que no quede ninguna inferencia en vuelo.
+        // El orden de espera es SIEMPRE _inferenceGate y después _gate, que es el que
+        // sigue Analyze; tomarlos al revés bloquearía el motor entero.
+        _inferenceGate.Wait();
+        try
         {
-            // Liberar las sesiones ONNX mientras otro hilo está dentro de Run provoca
-            // fallos en la propia librería: hay que esperar a que termine la inferencia
-            // en curso. El orden de espera es siempre _gate → _inferenceGate, nunca al
-            // revés, de modo que no puede haber bloqueo cruzado.
-            _inferenceGate.Wait();
-            try
+            lock (_gate)
             {
                 DisposeModels();
                 _loaded = false;
                 _logger.LogInformation("Modelos marcados para recarga");
             }
-            finally
-            {
-                _inferenceGate.Release();
-            }
+        }
+        finally
+        {
+            _inferenceGate.Release();
         }
     }
 
     private DateTimeOffset _lastRetryAt = DateTimeOffset.MinValue;
     private readonly List<string> _missingModelFiles = new();
 
+    /// <summary>
+    /// Un modelo que faltaba ya está en disco (p. ej. recién descargado): merece la
+    /// pena recargar sin reiniciar la aplicación. Se consulta con _gate tomado.
+    /// </summary>
+    private bool ConvieneReintentar()
+        => _missingModelFiles.Count > 0
+           && DateTimeOffset.UtcNow - _lastRetryAt > TimeSpan.FromSeconds(30)
+           && _missingModelFiles.Any(File.Exists);
+
     /// <summary>Fuerza la carga inmediata y devuelve el estado resultante (lo usa la pantalla de configuración).</summary>
     public ModelStatus EnsureLoaded()
     {
+        // Camino rápido: con los modelos ya cargados esto se llama en cada fotograma,
+        // así que no debe tocar el semáforo de inferencia.
         lock (_gate)
         {
-            if (!_loaded)
+            if (_loaded && !ConvieneReintentar()) return Status;
+        }
+
+        // Hay que cargar o recargar. Primero el semáforo de inferencia y después el
+        // estado, el mismo orden que sigue Analyze: al revés se bloquearía el motor.
+        _inferenceGate.Wait();
+        try
+        {
+            lock (_gate)
             {
-                Load();
-            }
-            else if (_missingModelFiles.Count > 0
-                     && DateTimeOffset.UtcNow - _lastRetryAt > TimeSpan.FromSeconds(30)
-                     && _missingModelFiles.Any(File.Exists))
-            {
-                // Un modelo que faltaba ya está en disco (p. ej. recién descargado):
-                // se recarga sin necesidad de reiniciar la aplicación. Igual que en
-                // Reload, se espera a que no haya ninguna inferencia en vuelo antes de
-                // soltar las sesiones que esa inferencia está usando.
-                _lastRetryAt = DateTimeOffset.UtcNow;
-                _inferenceGate.Wait();
-                try
+                if (!_loaded)
                 {
+                    Load();
+                }
+                else if (ConvieneReintentar())
+                {
+                    _lastRetryAt = DateTimeOffset.UtcNow;
                     DisposeModels();
                     Load();
                 }
-                finally
-                {
-                    _inferenceGate.Release();
-                }
-            }
 
-            return Status;
+                return Status;
+            }
+        }
+        finally
+        {
+            _inferenceGate.Release();
         }
     }
 
