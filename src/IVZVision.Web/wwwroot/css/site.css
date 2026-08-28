@@ -822,3 +822,36 @@ a.dash-card:hover {
 
 .grupo-marca { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
 .grupo-marca input { width: 16px; height: 16px; }
+
+.grupo-rostro.grupo-marcado {
+    border-color: var(--accent, #4c8dff);
+    box-shadow: 0 0 0 1px var(--accent, #4c8dff) inset;
+}
+
+/* Aspa para sacar una foto de su grupo: discreta hasta que se pasa por encima. */
+.grupo-fotos figure { position: relative; }
+
+.btn-quitar {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 20px;
+    height: 20px;
+    line-height: 18px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, .65);
+    color: #fff;
+    font-size: 12px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .12s;
+}
+
+.grupo-fotos figure:hover .btn-quitar,
+.btn-quitar:focus { opacity: 1; }
+
+@media (hover: none) {
+    .btn-quitar { opacity: .9; }
+}

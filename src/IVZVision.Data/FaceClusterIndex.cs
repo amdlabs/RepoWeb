@@ -219,6 +219,116 @@ public sealed class FaceClusterIndex
         }
     }
 
+    /// <summary>Un grupo dentro de la lista ordenada, con lo que se parece al anterior.</summary>
+    public sealed record ClusterOrder(int Id, float SimilitudPrevia);
+
+    /// <summary>
+    /// Ordena los grupos poniendo juntos los que más se parecen entre sí, de manera
+    /// que las caras candidatas a ser la misma persona caigan una al lado de la otra
+    /// y unificarlas sea cuestión de mirar dos fichas contiguas.
+    /// Se recorre en cadena: se arranca por el grupo con más fotos y cada paso elige,
+    /// de los que quedan, el más parecido al último colocado.
+    /// </summary>
+    public async Task<IReadOnlyList<ClusterOrder>> OrderBySimilarityAsync(CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+
+        var filas = await db.FaceClusters.AsNoTracking()
+            .Select(f => new { f.Id, f.Centroid, f.SampleCount })
+            .ToListAsync(ct).ConfigureAwait(false);
+
+        var vectores = filas
+            .Select(f => new { f.Id, f.SampleCount, Vector = VectorMath.L2Normalize(VectorMath.FromBytes(f.Centroid)) })
+            .Where(f => f.Vector.Length > 0)
+            .ToList();
+
+        if (vectores.Count == 0) return Array.Empty<ClusterOrder>();
+
+        var pendientes = vectores.OrderByDescending(v => v.SampleCount).ToList();
+        var orden = new List<ClusterOrder>(pendientes.Count);
+
+        var actual = pendientes[0];
+        pendientes.RemoveAt(0);
+        orden.Add(new ClusterOrder(actual.Id, 0));
+
+        while (pendientes.Count > 0)
+        {
+            var mejorIndice = 0;
+            var mejorParecido = float.MinValue;
+
+            for (var i = 0; i < pendientes.Count; i++)
+            {
+                var otro = pendientes[i];
+                if (otro.Vector.Length != actual.Vector.Length) continue;
+
+                float dot = 0;
+                for (var j = 0; j < actual.Vector.Length; j++) dot += actual.Vector[j] * otro.Vector[j];
+
+                if (dot > mejorParecido) { mejorParecido = dot; mejorIndice = i; }
+            }
+
+            actual = pendientes[mejorIndice];
+            pendientes.RemoveAt(mejorIndice);
+            orden.Add(new ClusterOrder(actual.Id, mejorParecido == float.MinValue ? 0 : mejorParecido));
+        }
+
+        return orden;
+    }
+
+    /// <summary>
+    /// Rehace la cara promedio de un grupo a partir de las caras que le quedan.
+    /// Se usa al sacar una foto que no pertenecía al grupo: sin esto, esa cara
+    /// seguiría pesando en el promedio y el grupo seguiría atrayendo caras ajenas.
+    /// </summary>
+    public async Task<bool> RecomputeCentroidAsync(int clusterId, IReadOnlyList<float[]> embeddings,
+                                                   CancellationToken ct = default)
+    {
+        if (embeddings.Count == 0) return false;
+
+        await _gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            var dimensiones = embeddings[0].Length;
+            var suma = new float[dimensiones];
+            var usadas = 0;
+
+            foreach (var e in embeddings)
+            {
+                if (e.Length != dimensiones) continue;
+                var v = VectorMath.L2Normalize(e);
+                for (var i = 0; i < dimensiones; i++) suma[i] += v[i];
+                usadas++;
+            }
+
+            if (usadas == 0) return false;
+
+            for (var i = 0; i < dimensiones; i++) suma[i] /= usadas;
+            var centroide = VectorMath.L2Normalize(suma);
+
+            await using var db = await _dbFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+
+            var fila = await db.FaceClusters.FirstOrDefaultAsync(f => f.Id == clusterId, ct).ConfigureAwait(false);
+            if (fila is null) return false;
+
+            fila.Centroid = VectorMath.ToBytes(centroide);
+            fila.Dimensions = dimensiones;
+            fila.SampleCount = Math.Max(1, usadas);
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+            _loaded = false;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "No se pudo recalcular la cara promedio del grupo {Grupo}", clusterId);
+            return false;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     private async Task EnsureLoadedAsync(CancellationToken ct)
     {
         if (_loaded) return;

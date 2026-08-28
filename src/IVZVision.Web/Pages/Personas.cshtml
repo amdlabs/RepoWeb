@@ -55,13 +55,28 @@
         <form method="post" asp-page-handler="Unificar" id="formUnificar"
               class="actions" style="margin-bottom:10px; gap:10px; flex-wrap:wrap; align-items:center">
             <input type="hidden" name="PaginaGrupos" value="@Model.PaginaGrupos" />
-            <button class="btn small" type="submit">Unificar seleccionados</button>
+            <button class="btn small" type="submit" id="btnUnificar" disabled>Unificar seleccionados</button>
+            <button class="btn small secondary" type="button" id="btnLimpiarSeleccion" hidden>Limpiar selección</button>
+            <span class="badge badge-muted" id="grupoSeleccionCuenta">ningún grupo marcado</span>
             <span class="hint">
                 Marque los grupos que sean la misma persona (de frente, de lado, en otra cámara)
                 y únalos: se recalcula su cara promedio con todas las fotos y, si el conjunto ya
                 tiene nombre, el sistema aprende también las poses nuevas.
+                La selección se conserva al cambiar de página.
             </span>
         </form>
+
+        <div class="actions" style="margin-bottom:10px; gap:8px; align-items:center; flex-wrap:wrap">
+            <span class="hint">Orden:</span>
+            <a class="btn small @(Model.OrdenPorParecido ? "" : "secondary")"
+               asp-page="/Personas" asp-route-Orden="parecido">Por parecido</a>
+            <a class="btn small @(Model.OrdenPorParecido ? "secondary" : "")"
+               asp-page="/Personas" asp-route-Orden="fecha">Más recientes</a>
+            <span class="hint">
+                Por parecido, las fichas salen encadenadas: cada una es la más parecida a la
+                anterior, así las que son la misma persona caen contiguas.
+            </span>
+        </div>
 
         <div class="grupos-rostros">
             @foreach (var grupo in Model.FaceGroups)
@@ -91,6 +106,17 @@
                             <div class="hint">
                                 Visto de @primera.ToString("dd/MM/yyyy HH:mm") a @ultima.ToString("dd/MM/yyyy HH:mm")
                             </div>
+                            @if (Model.OrdenPorParecido && grupo.SimilitudPrevia > 0)
+                            {
+                                var pct = (int)Math.Round(grupo.SimilitudPrevia * 100);
+                                <div class="hint">
+                                    Se parece un <b>@pct %</b> a la ficha anterior.
+                                    @if (grupo.SimilitudPrevia >= 0.30f)
+                                    {
+                                        <span class="badge badge-muted">posible misma persona</span>
+                                    }
+                                </div>
+                            }
                         </div>
                         <div class="actions" style="gap:6px; flex-wrap:wrap; justify-content:flex-end">
                             <form method="post" asp-page-handler="NombrarGrupo" class="actions" style="gap:6px">
@@ -129,6 +155,15 @@
                                          loading="lazy" data-escena="@escena" />
                                 }
                                 <figcaption>@foto.CameraName</figcaption>
+                                <form method="post" asp-page-handler="QuitarFoto"
+                                      onsubmit="return confirm('¿Sacar esta foto del grupo? No es esta persona.');">
+                                    <input type="hidden" name="eventoId" value="@foto.EventId" />
+                                    <input type="hidden" name="grupoId" value="@grupo.ClusterId" />
+                                    <input type="hidden" name="PaginaGrupos" value="@Model.PaginaGrupos" />
+                                    <input type="hidden" name="Orden" value="@Model.Orden" />
+                                    <button class="btn-quitar" type="submit"
+                                            title="Esta cara no es de esta persona: sacarla del grupo">✕</button>
+                                </form>
                             </figure>
                         }
                         @if (grupo.TotalFotos > grupo.Fotos.Count)
@@ -145,13 +180,13 @@
             <div class="actions" style="margin-top:12px; align-items:center">
                 @if (Model.PaginaGrupos > 1)
                 {
-                    <a class="btn small secondary" asp-page="/Personas"
+                    <a class="btn small secondary" asp-page="/Personas" asp-route-Orden="@Model.Orden"
                        asp-route-PaginaGrupos="@(Model.PaginaGrupos - 1)">← Anteriores</a>
                 }
                 <span class="hint">Página @Model.PaginaGrupos de @Model.TotalPaginasGrupos</span>
                 @if (Model.PaginaGrupos < Model.TotalPaginasGrupos)
                 {
-                    <a class="btn small secondary" asp-page="/Personas"
+                    <a class="btn small secondary" asp-page="/Personas" asp-route-Orden="@Model.Orden"
                        asp-route-PaginaGrupos="@(Model.PaginaGrupos + 1)">Siguientes →</a>
                 }
             </div>
@@ -408,3 +443,7 @@
         </form>
     </div>
 </div>
+
+@section Scripts {
+    <script src="~/js/rostros.js" asp-append-version="true"></script>
+}
