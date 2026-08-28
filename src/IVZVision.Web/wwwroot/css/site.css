@@ -819,3 +819,6 @@ a.dash-card:hover {
     .grupo-cabecera { flex-direction: column; }
     .grupo-cabecera .actions { justify-content: flex-start !important; }
 }
+
+.grupo-marca { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.grupo-marca input { width: 16px; height: 16px; }

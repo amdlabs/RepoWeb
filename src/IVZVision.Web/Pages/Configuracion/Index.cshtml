@@ -1,4 +1,4 @@
-@page "/Configuracion"
+﻿@page "/Configuracion"
 @model IVZVision.Web.Pages.Configuracion.IndexModel
 @{
     ViewData["Title"] = "Configuración";
@@ -272,6 +272,15 @@
                 <label asp-for="Recognition.FaceMatchThreshold">Similitud mínima para identificar (0-1)</label>
                 <input asp-for="Recognition.FaceMatchThreshold" type="number" step="0.001" min="0" max="1" />
                 <div class="hint">0,363 es el valor recomendado para SFace. Súbalo para reducir falsos positivos.</div>
+            </div>
+            <div class="field campo-clave">
+                <label asp-for="Recognition.FaceClusterSimilarity">Similitud para agrupar rostros (0-1)</label>
+                <input asp-for="Recognition.FaceClusterSimilarity" type="number" step="0.001" min="0.05" max="0.99" />
+                <div class="hint">
+                    Decide cuándo dos fotos son la misma persona y van a la misma ficha de
+                    <a asp-page="/Personas">Rostros agrupados</a>. Bájelo si la misma cara se parte
+                    en varios grupos; súbalo si se mezclan personas distintas.
+                </div>
             </div>
             <div class="grid grid-3">
                 <div class="field">

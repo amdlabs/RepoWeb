@@ -26,19 +26,25 @@
         nombre en todas las cámaras. Doble clic sobre una foto la amplía.
     </p>
 
-    @if (Model.RostrosSinAgrupar > 0)
-    {
-        <form method="post" asp-page-handler="AgruparAnteriores" style="margin-bottom:12px">
-            <input type="hidden" name="PaginaGrupos" value="@Model.PaginaGrupos" />
-            <button class="btn small secondary" type="submit">
-                Agrupar fotos anteriores (@Model.RostrosSinAgrupar pendientes)
-            </button>
-            <span class="hint">
-                Las fotos guardadas antes de activar el agrupamiento se reprocesan por tandas;
-                si quedan pendientes, vuelva a pulsar.
-            </span>
+    <div class="actions" style="margin-bottom:12px; align-items:center; gap:10px; flex-wrap:wrap">
+        @if (Model.EstadoReproceso is { } estado)
+        {
+            @if (estado.Pendientes > 0)
+            {
+                <span class="badge badge-muted">Agrupando fotos anteriores: quedan @estado.Pendientes</span>
+            }
+            else
+            {
+                <span class="badge badge-ok">Todas las fotos están agrupadas</span>
+            }
+            <span class="hint">@estado.Mensaje</span>
+        }
+        <form method="post" asp-page-handler="Reagrupar"
+              onsubmit="return confirm('¿Rehacer todos los grupos desde cero con el criterio actual? Los nombres ya puestos se conservan en el padrón de personas.');">
+            <button class="btn small secondary" type="submit"
+                    title="Útil tras cambiar el umbral de agrupamiento en Configuración">Reagrupar todo</button>
         </form>
-    }
+    </div>
 
     @if (Model.FaceGroups.Count == 0)
     {
@@ -46,6 +52,17 @@
     }
     else
     {
+        <form method="post" asp-page-handler="Unificar" id="formUnificar"
+              class="actions" style="margin-bottom:10px; gap:10px; flex-wrap:wrap; align-items:center">
+            <input type="hidden" name="PaginaGrupos" value="@Model.PaginaGrupos" />
+            <button class="btn small" type="submit">Unificar seleccionados</button>
+            <span class="hint">
+                Marque los grupos que sean la misma persona (de frente, de lado, en otra cámara)
+                y únalos: se recalcula su cara promedio con todas las fotos y, si el conjunto ya
+                tiene nombre, el sistema aprende también las poses nuevas.
+            </span>
+        </form>
+
         <div class="grupos-rostros">
             @foreach (var grupo in Model.FaceGroups)
             {
@@ -54,7 +71,10 @@
                 <div class="grupo-rostro">
                     <div class="grupo-cabecera">
                         <div>
-                            <b>@grupo.DisplayName</b>
+                            <label class="grupo-marca">
+                                <input type="checkbox" name="grupos" value="@grupo.ClusterId" form="formUnificar" />
+                                <b>@grupo.DisplayName</b>
+                            </label>
                             @if (grupo.PersonId is not null)
                             {
                                 <span class="badge badge-ok">identificado</span>

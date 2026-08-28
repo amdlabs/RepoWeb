@@ -1,4 +1,4 @@
-using IVZVision.Core.Configuration;
+﻿using IVZVision.Core.Configuration;
 using IVZVision.Core.Util;
 using IVZVision.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -124,6 +124,93 @@ public sealed class FaceClusterIndex
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "No se pudo agrupar el rostro");
+            return null;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Une varios grupos en uno solo porque son la misma persona vista en distintos
+    /// ángulos o cámaras. La cara promedio del grupo resultante se calcula ponderando
+    /// cada grupo por las fotos que aporta, de modo que ninguno domine al resto: así
+    /// el sistema aprende esa cara «de frente y de lado» en lugar de sólo una pose.
+    /// Devuelve el grupo que sobrevive.
+    /// </summary>
+    public async Task<int?> MergeAsync(IReadOnlyList<int> ids, CancellationToken ct = default)
+    {
+        if (ids.Count < 2) return ids.Count == 1 ? ids[0] : null;
+
+        await _gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+
+            var filas = await db.FaceClusters.Where(c => ids.Contains(c.Id))
+                .ToListAsync(ct).ConfigureAwait(false);
+
+            if (filas.Count < 2) return filas.FirstOrDefault()?.Id;
+
+            // Sobrevive el que ya tiene nombre; si ninguno lo tiene, el más antiguo.
+            var destino = filas.FirstOrDefault(f => f.PersonId is not null || !string.IsNullOrWhiteSpace(f.Label))
+                          ?? filas.OrderBy(f => f.Numero).First();
+
+            var dimensiones = filas.Select(f => VectorMath.FromBytes(f.Centroid))
+                                   .Where(v => v.Length > 0)
+                                   .Select(v => v.Length)
+                                   .DefaultIfEmpty(0)
+                                   .Max();
+
+            if (dimensiones == 0) return destino.Id;
+
+            var suma = new float[dimensiones];
+            var total = 0;
+
+            foreach (var f in filas)
+            {
+                var vector = VectorMath.FromBytes(f.Centroid);
+                if (vector.Length != dimensiones) continue;
+
+                var peso = Math.Max(1, f.SampleCount);
+                for (var i = 0; i < dimensiones; i++) suma[i] += vector[i] * peso;
+                total += peso;
+            }
+
+            if (total == 0) return destino.Id;
+
+            for (var i = 0; i < dimensiones; i++) suma[i] /= total;
+            var centroide = VectorMath.L2Normalize(suma);
+
+            destino.Centroid = VectorMath.ToBytes(centroide);
+            destino.Dimensions = dimensiones;
+            destino.SampleCount = total;
+            destino.FirstSeenAt = filas.Min(f => f.FirstSeenAt);
+            destino.LastSeenAt = filas.Max(f => f.LastSeenAt);
+            destino.Label ??= filas.FirstOrDefault(f => !string.IsNullOrWhiteSpace(f.Label))?.Label;
+            destino.PersonId ??= filas.FirstOrDefault(f => f.PersonId is not null)?.PersonId;
+
+            var absorbidos = filas.Where(f => f.Id != destino.Id).Select(f => f.Id).ToList();
+
+            // Las fotos de los grupos absorbidos pasan al que sobrevive.
+            await db.RecognitionEvents
+                .Where(e => e.FaceClusterId != null && absorbidos.Contains(e.FaceClusterId!.Value))
+                .ExecuteUpdateAsync(u => u.SetProperty(e => e.FaceClusterId, destino.Id), ct)
+                .ConfigureAwait(false);
+
+            db.FaceClusters.RemoveRange(filas.Where(f => f.Id != destino.Id));
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+            _loaded = false; // el índice en memoria se rehace con la nueva cara promedio
+            _logger.LogInformation("Grupos de rostros unificados: {Absorbidos} → «{Destino}» ({Fotos} muestras)",
+                                   string.Join(", ", absorbidos), destino.DisplayName, total);
+
+            return destino.Id;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "No se pudieron unificar los grupos de rostros");
             return null;
         }
         finally

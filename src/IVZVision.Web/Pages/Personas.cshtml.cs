@@ -29,9 +29,10 @@ public class PersonasModel : PageModel
 
     public string? DatabaseError { get; private set; }
 
-    public async Task OnGetAsync(CancellationToken ct)
+    public async Task OnGetAsync([FromServices] FaceClusterBackfill backfill, CancellationToken ct)
     {
         await LoadAsync(ct);
+        EstadoReproceso = backfill.Status with { Pendientes = await backfill.PendingCountAsync(ct) };
     }
 
     /// <summary>Persona detectada por las cámaras (rostro u objeto persona), con su recorte.</summary>
@@ -139,7 +140,7 @@ public class PersonasModel : PageModel
     {
         // Un grupo sólo interesa si conserva alguna foto que enseñar.
         var resumen = await db.RecognitionEvents.AsNoTracking()
-            .Where(e => e.FaceClusterId != null && (e.CropBase64 != null || e.CropPath != null))
+            .Where(e => e.FaceClusterId > 0 && (e.CropBase64 != null || e.CropPath != null))
             .GroupBy(e => e.FaceClusterId!.Value)
             .Select(g => new { ClusterId = g.Key, Fotos = g.Count(), Ultima = g.Max(e => e.OccurredAt) })
             .ToListAsync(ct);
@@ -168,7 +169,7 @@ public class PersonasModel : PageModel
 
         // Las fotos de todos los grupos de la página, en una sola consulta.
         var fotos = await db.RecognitionEvents.AsNoTracking()
-            .Where(e => e.FaceClusterId != null && ids.Contains(e.FaceClusterId!.Value)
+            .Where(e => e.FaceClusterId > 0 && ids.Contains(e.FaceClusterId!.Value)
                         && (e.CropBase64 != null || e.CropPath != null))
             .OrderByDescending(e => e.OccurredAt)
             .Select(e => new { e.Id, e.FaceClusterId, e.OccurredAt, e.CameraName,
@@ -235,40 +236,7 @@ public class PersonasModel : PageModel
             await db.SaveChangesAsync(ct);
         }
 
-        var candidatas = await db.RecognitionEvents.AsNoTracking()
-            .Where(e => e.FaceClusterId == grupoId && e.Kind == RecognitionKind.Face
-                        && (e.CropBase64 != null || e.CropPath != null))
-            .OrderByDescending(e => e.DetectionScore)
-            .Take(12)
-            .Select(e => new { e.CropBase64, e.CropPath })
-            .ToListAsync(ct);
-
-        var resolver = HttpContext.RequestServices.GetRequiredService<SnapshotPathResolver>();
-        var registradas = 0;
-
-        foreach (var foto in candidatas)
-        {
-            byte[]? imagen = null;
-            if (foto.CropBase64 is not null)
-            {
-                try { imagen = Convert.FromBase64String(foto.CropBase64); }
-                catch (FormatException) { }
-            }
-            else if (foto.CropPath is not null)
-            {
-                var ruta = resolver.Resolve(foto.CropPath);
-                if (ruta is not null && System.IO.File.Exists(ruta))
-                    imagen = await System.IO.File.ReadAllBytesAsync(ruta, ct);
-            }
-
-            if (imagen is null) continue;
-
-            // Basta con que unas cuantas fotos sirvan: las borrosas o de perfil se
-            // descartan solas porque el detector no encuentra la cara en ellas.
-            var alta = await enrollment.EnrollFromBytesAsync(persona.Id, imagen, ct);
-            if (alta.Success) registradas++;
-            if (registradas >= 6) break;
-        }
+        var registradas = await AprenderDelGrupoAsync(db, grupoId, persona.Id, enrollment, ct);
 
         if (registradas == 0 && creada)
         {
@@ -301,21 +269,131 @@ public class PersonasModel : PageModel
         return RedirectToPage(new { PaginaGrupos });
     }
 
-    /// <summary>Fotos del histórico anteriores al agrupamiento que aún no pertenecen a ningún grupo.</summary>
-    public int RostrosSinAgrupar { get; private set; }
+    /// <summary>Cómo va el reproceso automático de las fotos anteriores.</summary>
+    public BackfillStatus? EstadoReproceso { get; private set; }
 
     /// <summary>
-    /// Reprocesa las fotos guardadas antes de existir el agrupamiento: vuelve a
-    /// calcular la cara de cada recorte y la mete en el grupo que le toca.
+    /// Rehace todos los grupos desde cero. Se usa después de tocar el umbral de
+    /// agrupamiento, para que el criterio nuevo se aplique también a lo ya visto;
+    /// el trabajo lo va haciendo solo el servicio en segundo plano.
     /// </summary>
-    public async Task<IActionResult> OnPostAgruparAnterioresAsync([FromServices] FaceClusterBackfill backfill,
-                                                                  CancellationToken ct)
+    public async Task<IActionResult> OnPostReagruparAsync([FromServices] FaceClusterBackfill backfill,
+                                                          CancellationToken ct)
     {
         if (!RoleGuard.CanEdit(User)) return Forbid();
 
-        var resultado = await backfill.RunBatchAsync(ct);
-        TempData["Ok"] = resultado.Mensaje;
+        var afectadas = await backfill.ReagruparTodoAsync(ct);
+        TempData["Ok"] = $"Se han deshecho los grupos: {afectadas} foto(s) volverán a agruparse " +
+                          "con el criterio actual. El sistema lo hace solo en segundo plano; " +
+                          "recargue esta página para ver cómo avanza.";
+        return RedirectToPage();
+    }
+
+    /// <summary>
+    /// Une los grupos marcados en uno solo: son la misma persona vista de frente,
+    /// de lado o desde otra cámara. La cara promedio resultante pondera cada grupo
+    /// por las fotos que aporta, así que el sistema queda conociendo esa cara en
+    /// todas esas poses en vez de en una sola. Si el conjunto ya tiene nombre, se
+    /// añaden plantillas de las poses recién incorporadas.
+    /// </summary>
+    public async Task<IActionResult> OnPostUnificarAsync(int[] grupos,
+                                                         [FromServices] FaceClusterIndex clusters,
+                                                         [FromServices] EnrollmentService enrollment,
+                                                         CancellationToken ct)
+    {
+        if (!RoleGuard.CanEdit(User)) return Forbid();
+
+        grupos = (grupos ?? Array.Empty<int>()).Distinct().ToArray();
+        if (grupos.Length < 2)
+        {
+            TempData["Error"] = "Marque al menos dos grupos para unificarlos.";
+            return RedirectToPage(new { PaginaGrupos });
+        }
+
+        var destino = await clusters.MergeAsync(grupos, ct);
+        if (destino is null)
+        {
+            TempData["Error"] = "No se pudieron unificar los grupos seleccionados.";
+            return RedirectToPage(new { PaginaGrupos });
+        }
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        var ficha = await db.FaceClusters.AsNoTracking().FirstOrDefaultAsync(c => c.Id == destino, ct);
+
+        var aprendidas = 0;
+        if (ficha?.PersonId is int personaId)
+        {
+            // El grupo ya tenía nombre: las poses nuevas se registran como plantillas
+            // para que el reconocimiento mejore con los ángulos recién sumados.
+            aprendidas = await AprenderDelGrupoAsync(db, destino.Value, personaId, enrollment, ct);
+
+            await db.RecognitionEvents
+                .Where(e => e.FaceClusterId == destino)
+                .ExecuteUpdateAsync(u => u.SetProperty(e => e.Label, ficha.DisplayName)
+                                          .SetProperty(e => e.PersonId, (int?)personaId)
+                                          .SetProperty(e => e.IsKnown, true), ct);
+
+            _index.MarkDirty();
+            await _index.RefreshAsync(ct);
+        }
+
+        TempData["Ok"] = $"{grupos.Length} grupos unificados en «{ficha?.DisplayName ?? "el grupo elegido"}»" +
+                          (aprendidas > 0 ? $", con {aprendidas} pose(s) nuevas aprendidas." : ".") +
+                          " La cara promedio del grupo se ha recalculado con todas las fotos.";
         return RedirectToPage(new { PaginaGrupos });
+    }
+
+    /// <summary>
+    /// Registra como plantillas las fotos más variadas del grupo, repartiéndolas
+    /// entre las cámaras que lo vieron: distintas cámaras dan distintos ángulos y
+    /// luces, que es la variedad que hace robusto al reconocimiento.
+    /// Devuelve cuántas se han podido aprovechar.
+    /// </summary>
+    private async Task<int> AprenderDelGrupoAsync(VisionDbContext db, int grupoId, int personaId,
+                                                  EnrollmentService enrollment, CancellationToken ct)
+    {
+        var candidatas = await db.RecognitionEvents.AsNoTracking()
+            .Where(e => e.FaceClusterId == grupoId && e.Kind == RecognitionKind.Face
+                        && (e.CropBase64 != null || e.CropPath != null))
+            .OrderByDescending(e => e.DetectionScore)
+            .Take(40)
+            .Select(e => new { e.CameraName, e.DetectionScore, e.CropBase64, e.CropPath })
+            .ToListAsync(ct);
+
+        var repartidas = candidatas
+            .GroupBy(c => c.CameraName)
+            .SelectMany(g => g.Take(3))
+            .OrderByDescending(c => c.DetectionScore)
+            .Take(8)
+            .ToList();
+
+        var resolver = HttpContext.RequestServices.GetRequiredService<SnapshotPathResolver>();
+        var aprendidas = 0;
+
+        foreach (var foto in repartidas)
+        {
+            byte[]? imagen = null;
+            if (foto.CropBase64 is not null)
+            {
+                try { imagen = Convert.FromBase64String(foto.CropBase64); }
+                catch (FormatException) { }
+            }
+            else if (foto.CropPath is not null)
+            {
+                var ruta = resolver.Resolve(foto.CropPath);
+                if (ruta is not null && System.IO.File.Exists(ruta))
+                    imagen = await System.IO.File.ReadAllBytesAsync(ruta, ct);
+            }
+
+            if (imagen is null) continue;
+
+            // Las borrosas o muy de perfil se descartan solas: el detector no
+            // encuentra la cara en ellas y el alta falla sin efecto.
+            var alta = await enrollment.EnrollFromBytesAsync(personaId, imagen, ct);
+            if (alta.Success) aprendidas++;
+        }
+
+        return aprendidas;
     }
 
     /// <summary>Deshace una agrupación mal formada (dos personas mezcladas en un grupo).</summary>
@@ -491,9 +569,7 @@ public class PersonasModel : PageModel
                 .ToListAsync(ct);
 
             await LoadFaceGroupsAsync(db, ct);
-            RostrosSinAgrupar = await db.RecognitionEvents
-                .CountAsync(e => e.FaceClusterId == null && e.Kind == RecognitionKind.Face
-                                 && (e.CropBase64 != null || e.CropPath != null), ct);
+
             await LoadUnknownFacesAsync(db, ct);
         }
         catch (Exception ex)

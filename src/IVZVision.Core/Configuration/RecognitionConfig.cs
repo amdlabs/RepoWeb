@@ -101,7 +101,7 @@ public sealed class RecognitionConfig
     /// Parecido mínimo para considerar que dos rostros son la misma persona y
     /// agruparlos bajo la misma ficha, aunque aparezcan en cámaras distintas.
     /// </summary>
-    public float FaceClusterSimilarity { get; set; } = 0.42f;
+    public float FaceClusterSimilarity { get; set; } = 0.36f;
 
     /// <summary>Tiempo de guarda específico para personas sin identificar (segundos).</summary>
     public int UnknownPersonCooldownSeconds { get; set; } = 300;

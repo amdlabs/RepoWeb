@@ -91,6 +91,7 @@ builder.Services.AddSingleton<DiagnosticsService>();
 builder.Services.AddSingleton<DashboardService>();
 builder.Services.AddSingleton<DetectionCleanup>();
 builder.Services.AddSingleton<FaceClusterBackfill>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<FaceClusterBackfill>());
 
 // Auto-actualización de modelos: comprueba las fuentes oficiales periódicamente.
 builder.Services.AddSingleton<ModelUpdateService>();
