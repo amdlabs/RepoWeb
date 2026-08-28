@@ -1,4 +1,4 @@
-using IVZVision.Data.Entities;
+﻿using IVZVision.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace IVZVision.Data;
@@ -16,6 +16,7 @@ public class VisionDbContext : DbContext
     public DbSet<ConfigSnapshot> ConfigSnapshots => Set<ConfigSnapshot>();
     public DbSet<AppConfigurationRow> AppConfiguration => Set<AppConfigurationRow>();
     public DbSet<PlateCorrection> PlateCorrections => Set<PlateCorrection>();
+    public DbSet<FaceCluster> FaceClusters => Set<FaceCluster>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -75,6 +76,13 @@ public class VisionDbContext : DbContext
         {
             e.ToTable("PlateCorrections");
             e.HasIndex(p => p.WrongText).IsUnique();
+        });
+
+        b.Entity<FaceCluster>(e =>
+        {
+            e.ToTable("FaceClusters");
+            e.Property(f => f.Centroid).HasColumnType("varbinary(max)");
+            e.HasIndex(f => f.Numero);
         });
 
         b.Entity<RecognitionEvent>(e =>

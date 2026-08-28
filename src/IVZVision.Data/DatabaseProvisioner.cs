@@ -1,4 +1,4 @@
-using IVZVision.Core.Configuration;
+﻿using IVZVision.Core.Configuration;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -84,6 +84,25 @@ IF COL_LENGTH('RecognitionEvents', 'CropBase64') IS NULL
 
 IF COL_LENGTH('RecognitionEvents', 'FullFramePath') IS NULL
     ALTER TABLE RecognitionEvents ADD FullFramePath nvarchar(400) NULL;
+
+IF COL_LENGTH('RecognitionEvents', 'FaceClusterId') IS NULL
+    ALTER TABLE RecognitionEvents ADD FaceClusterId int NULL;
+
+IF OBJECT_ID('FaceClusters', 'U') IS NULL
+BEGIN
+    CREATE TABLE FaceClusters (
+        Id          int IDENTITY(1,1) NOT NULL CONSTRAINT PK_FaceClusters PRIMARY KEY,
+        Numero      int NOT NULL,
+        Label       nvarchar(200) NULL,
+        PersonId    int NULL,
+        Centroid    varbinary(max) NOT NULL,
+        Dimensions  int NOT NULL,
+        SampleCount int NOT NULL,
+        FirstSeenAt datetime2 NOT NULL,
+        LastSeenAt  datetime2 NOT NULL
+    );
+    CREATE INDEX IX_FaceClusters_Numero ON FaceClusters (Numero);
+END
 
 IF OBJECT_ID('ObjectLabels', 'U') IS NULL
 BEGIN

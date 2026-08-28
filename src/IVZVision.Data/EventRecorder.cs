@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using IVZVision.Core.Configuration;
 using IVZVision.Core.Detection;
 using IVZVision.Data.Entities;
@@ -15,13 +15,16 @@ public sealed class EventRecorder
 {
     private readonly IDbContextFactory<VisionDbContext> _dbFactory;
     private readonly IConfigStore _config;
+    private readonly FaceClusterIndex _clusters;
     private readonly ILogger<EventRecorder> _logger;
     private readonly ConcurrentDictionary<string, DateTimeOffset> _lastSeen = new();
 
-    public EventRecorder(IDbContextFactory<VisionDbContext> dbFactory, IConfigStore config, ILogger<EventRecorder> logger)
+    public EventRecorder(IDbContextFactory<VisionDbContext> dbFactory, IConfigStore config,
+                         FaceClusterIndex clusters, ILogger<EventRecorder> logger)
     {
         _dbFactory = dbFactory;
         _config = config;
+        _clusters = clusters;
         _logger = logger;
     }
 
@@ -67,6 +70,11 @@ public sealed class EventRecorder
         if (!obs.Match.IsKnown && !recognition.RegisterUnknown)
             return null;
 
+        // Todo rostro se agrupa con los suyos: la misma persona queda bajo una única
+        // ficha aunque aparezca en cámaras distintas, tenga nombre o no.
+        if (obs.Kind == ObservationKind.Face && obs.FaceEmbedding is { Length: > 0 })
+            obs.FaceClusterId = await _clusters.AssignAsync(obs.FaceEmbedding, ct).ConfigureAwait(false);
+
         try
         {
             await using var db = await _dbFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
@@ -101,6 +109,7 @@ public sealed class EventRecorder
                 CropPath = obs.CropPath is null ? null : Truncate(obs.CropPath, 400),
                 CropBase64 = obs.CropJpegBase64,
                 FullFramePath = obs.FullFramePath is null ? null : Truncate(obs.FullFramePath, 400),
+                FaceClusterId = obs.FaceClusterId,
             };
 
             db.RecognitionEvents.Add(entity);
@@ -161,6 +170,10 @@ public sealed class EventRecorder
             ObservationKind.Plate => obs.PlateText ?? "desconocida",
             ObservationKind.Object => obs.ObjectClass ?? "desconocido",
             ObservationKind.Text => obs.Match.Label, // el mismo texto no se repite dentro del tiempo de guarda
+            // Rostros desconocidos: la repetición ya la controla la comparación por
+            // parecido facial, mucho más precisa. Si se usara una clave común,
+            // dos desconocidos distintos en la misma cámara se pisarían entre sí.
+            ObservationKind.Face when !obs.Match.IsKnown && obs.FaceEmbedding is { Length: > 0 } => obs.Id,
             _ => obs.Match.PersonId?.ToString() ?? "desconocido",
         };
 

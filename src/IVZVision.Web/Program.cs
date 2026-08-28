@@ -59,6 +59,7 @@ builder.Services.AddSingleton<IConfigStore>(sp => new DbConfigStore(
 builder.Services.AddSingleton<IDbContextFactory<VisionDbContext>, VisionDbContextFactory>();
 builder.Services.AddSingleton<DatabaseProvisioner>();
 builder.Services.AddSingleton<KnownSubjectsIndex>();
+builder.Services.AddSingleton<FaceClusterIndex>();
 builder.Services.AddSingleton<EventRecorder>();
 
 // ---- Motor de visión -----------------------------------------------------
@@ -89,6 +90,7 @@ builder.Services.AddSingleton<SnapshotPathResolver>();
 builder.Services.AddSingleton<DiagnosticsService>();
 builder.Services.AddSingleton<DashboardService>();
 builder.Services.AddSingleton<DetectionCleanup>();
+builder.Services.AddSingleton<FaceClusterBackfill>();
 
 // Auto-actualización de modelos: comprueba las fuentes oficiales periódicamente.
 builder.Services.AddSingleton<ModelUpdateService>();

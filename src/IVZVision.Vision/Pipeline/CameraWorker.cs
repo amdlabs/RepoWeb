@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using IVZVision.Core.Configuration;
 using IVZVision.Core.Detection;
 using IVZVision.Data;
@@ -343,6 +343,9 @@ public sealed class CameraWorker
                 Match = item.Match,
             });
         }
+
+        // Sólo interesa lo que cae dentro de una zona que admita ese tipo de detección.
+        FilterByZones(observations, frame.Width, frame.Height);
 
         AssociatePlatesToVehicles(observations);
 
@@ -699,12 +702,49 @@ public sealed class CameraWorker
         }
     }
 
+    /// <summary>
+    /// Descarta las detecciones que no caen en ninguna zona dibujada que admita su
+    /// tipo. El punto de referencia es el centro del cuadro. Sin zonas no filtra nada.
+    /// </summary>
+    private void FilterByZones(List<Observation> observations, int width, int height)
+    {
+        var zones = _camera.Zones;
+        if (zones.Count == 0 || observations.Count == 0) return;
+
+        observations.RemoveAll(obs =>
+        {
+            var cx = (obs.Box.X + obs.Box.Width / 2) * 100.0 / Math.Max(1, width);
+            var cy = (obs.Box.Y + obs.Box.Height / 2) * 100.0 / Math.Max(1, height);
+
+            return !zones.Any(z => z.Allows(obs.Kind) && z.Contains(cx, cy));
+        });
+    }
+
     private Rect? ResolveRoi(int width, int height)
     {
-        var x = Math.Clamp(_camera.RoiXPercent, 0, 100);
-        var y = Math.Clamp(_camera.RoiYPercent, 0, 100);
-        var w = Math.Clamp(_camera.RoiWidthPercent, 1, 100);
-        var h = Math.Clamp(_camera.RoiHeightPercent, 1, 100);
+        double x, y, w, h;
+
+        if (_camera.Zones.Count > 0)
+        {
+            // Con zonas dibujadas se analiza sólo el rectángulo que las envuelve:
+            // menos píxeles que procesar y ningún falso positivo fuera de ellas.
+            var left = _camera.Zones.Min(z => z.XPercent);
+            var top = _camera.Zones.Min(z => z.YPercent);
+            var right = _camera.Zones.Max(z => z.XPercent + z.WidthPercent);
+            var bottom = _camera.Zones.Max(z => z.YPercent + z.HeightPercent);
+
+            x = Math.Clamp(left, 0, 100);
+            y = Math.Clamp(top, 0, 100);
+            w = Math.Clamp(right - x, 1, 100 - x);
+            h = Math.Clamp(bottom - y, 1, 100 - y);
+        }
+        else
+        {
+            x = Math.Clamp(_camera.RoiXPercent, 0, 100);
+            y = Math.Clamp(_camera.RoiYPercent, 0, 100);
+            w = Math.Clamp(_camera.RoiWidthPercent, 1, 100);
+            h = Math.Clamp(_camera.RoiHeightPercent, 1, 100);
+        }
 
         if (x == 0 && y == 0 && w >= 100 && h >= 100) return null;
 

@@ -1,4 +1,4 @@
-using IVZVision.Core.Configuration;
+﻿using IVZVision.Core.Configuration;
 using IVZVision.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -19,6 +19,16 @@ public class CamaraModel : PageModel
     }
 
     [BindProperty] public CameraConfig Camera { get; set; } = new();
+
+    /// <summary>Zonas dibujadas en el editor visual, serializadas en JSON.</summary>
+    [BindProperty] public string? ZonasJson { get; set; }
+
+    /// <summary>Zonas de la cámara actual para pintarlas al abrir el editor.</summary>
+    public string ZonasParaEditor => System.Text.Json.JsonSerializer.Serialize(
+        Camera.Zones, new System.Text.Json.JsonSerializerOptions
+        {
+            PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+        });
 
     public bool IsNew { get; private set; }
 
@@ -72,6 +82,25 @@ public class CamaraModel : PageModel
         }
 
         if (Camera.Id == Guid.Empty) Camera.Id = Guid.NewGuid();
+
+        // Zonas dibujadas en el editor visual: llegan como JSON en un campo oculto.
+        if (ZonasJson is not null)
+        {
+            try
+            {
+                Camera.Zones = System.Text.Json.JsonSerializer.Deserialize<List<DetectionZone>>(
+                    ZonasJson, new System.Text.Json.JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true,
+                    }) ?? new List<DetectionZone>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudieron leer las zonas de detección; se conservan las anteriores");
+                var previa = _config.Current.FindCamera(Camera.Id);
+                if (previa is not null) Camera.Zones = previa.Zones;
+            }
+        }
 
         // El campo de contraseña llega vacío al editar (el navegador no la rellena):
         // en blanco significa "conservar la actual".

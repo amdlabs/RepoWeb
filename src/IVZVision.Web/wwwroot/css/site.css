@@ -692,3 +692,130 @@ a.dash-card:hover {
     .motor-panel { flex-direction: column; align-items: stretch; }
     .motor-panel .actions .btn { width: 100%; }
 }
+
+
+/* ---- Editor visual de zonas de deteccion ---- */
+.zonas-lienzo {
+    position: relative;
+    display: block;
+    width: 100%;
+    background: #0b0e13;
+    border: 1px solid var(--line, #232a36);
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: crosshair;
+    user-select: none;
+    touch-action: none;
+    min-height: 180px;
+}
+.zonas-lienzo img {
+    display: block;
+    width: 100%;
+    height: auto;
+    pointer-events: none;
+}
+.zona {
+    position: absolute;
+    border: 2px solid var(--accent, #4f8ff7);
+    background: rgba(79, 143, 247, .18);
+    border-radius: 3px;
+    box-sizing: border-box;
+}
+.zona-dibujando {
+    border-style: dashed;
+    background: rgba(79, 143, 247, .10);
+}
+.zona-nombre {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: translateY(-100%);
+    background: var(--accent, #4f8ff7);
+    color: #fff;
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 4px 4px 0 0;
+    white-space: nowrap;
+}
+.zona-fila {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    background: var(--panel-2, #161a22);
+    border-radius: 8px;
+}
+.zona-input { max-width: 160px; }
+.zona-tipos { display: flex; gap: 12px; flex-wrap: wrap; }
+@media (max-width: 920px) {
+    .zona-fila { flex-direction: column; align-items: stretch; }
+    .zona-input { max-width: 100%; }
+}
+
+
+/* ---- Rostros agrupados (una ficha por persona, con todas sus fotos) ---- */
+.grupos-rostros { display: grid; gap: 12px; }
+
+.grupo-rostro {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    background: var(--surface-2, rgba(255, 255, 255, .02));
+}
+
+.grupo-cabecera {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.grupo-fotos {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+.grupo-fotos figure { margin: 0; flex: 0 0 auto; width: 92px; text-align: center; }
+
+.grupo-fotos img {
+    width: 92px;
+    height: 92px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    cursor: zoom-in;
+    background: #000;
+}
+
+.grupo-fotos figcaption {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.grupo-mas {
+    flex: 0 0 auto;
+    width: 92px;
+    height: 92px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    font-weight: 600;
+}
+
+@media (max-width: 640px) {
+    .grupo-cabecera { flex-direction: column; }
+    .grupo-cabecera .actions { justify-content: flex-start !important; }
+}

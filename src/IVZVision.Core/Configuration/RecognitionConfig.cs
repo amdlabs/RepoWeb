@@ -1,4 +1,4 @@
-namespace IVZVision.Core.Configuration;
+﻿namespace IVZVision.Core.Configuration;
 
 /// <summary>Umbrales y comportamiento del motor de reconocimiento.</summary>
 public sealed class RecognitionConfig
@@ -96,6 +96,12 @@ public sealed class RecognitionConfig
 
     /// <summary>Minutos que se recuerda a un desconocido para no volver a anexarlo.</summary>
     public int UnknownFaceDedupWindowMinutes { get; set; } = 120;
+
+    /// <summary>
+    /// Parecido mínimo para considerar que dos rostros son la misma persona y
+    /// agruparlos bajo la misma ficha, aunque aparezcan en cámaras distintas.
+    /// </summary>
+    public float FaceClusterSimilarity { get; set; } = 0.42f;
 
     /// <summary>Tiempo de guarda específico para personas sin identificar (segundos).</summary>
     public int UnknownPersonCooldownSeconds { get; set; } = 300;

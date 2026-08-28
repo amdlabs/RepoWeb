@@ -18,6 +18,128 @@
 }
 
 <div class="card" style="margin-bottom:16px">
+    <h2>Rostros agrupados (@Model.GruposTotal)</h2>
+    <p class="subtitle">
+        Cada ficha reúne todas las fotos de una misma cara, vengan de la cámara que vengan.
+        Mientras no se sepa quién es se numera como «Rostro desconocido N»; en cuanto le ponga
+        el nombre, el sistema aprende de esas fotos y a partir de ese momento la reconoce por su
+        nombre en todas las cámaras. Doble clic sobre una foto la amplía.
+    </p>
+
+    @if (Model.RostrosSinAgrupar > 0)
+    {
+        <form method="post" asp-page-handler="AgruparAnteriores" style="margin-bottom:12px">
+            <input type="hidden" name="PaginaGrupos" value="@Model.PaginaGrupos" />
+            <button class="btn small secondary" type="submit">
+                Agrupar fotos anteriores (@Model.RostrosSinAgrupar pendientes)
+            </button>
+            <span class="hint">
+                Las fotos guardadas antes de activar el agrupamiento se reprocesan por tandas;
+                si quedan pendientes, vuelva a pulsar.
+            </span>
+        </form>
+    }
+
+    @if (Model.FaceGroups.Count == 0)
+    {
+        <p class="hint">Todavía no hay rostros agrupados. Aparecerán aquí a medida que las cámaras detecten caras.</p>
+    }
+    else
+    {
+        <div class="grupos-rostros">
+            @foreach (var grupo in Model.FaceGroups)
+            {
+                var primera = grupo.PrimeraVez.ToLocalTime();
+                var ultima = grupo.UltimaVez.ToLocalTime();
+                <div class="grupo-rostro">
+                    <div class="grupo-cabecera">
+                        <div>
+                            <b>@grupo.DisplayName</b>
+                            @if (grupo.PersonId is not null)
+                            {
+                                <span class="badge badge-ok">identificado</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-danger">sin identificar</span>
+                            }
+                            <div class="hint">
+                                @grupo.TotalFotos foto(s) ·
+                                @(grupo.Camaras.Count == 1 ? "1 cámara" : $"{grupo.Camaras.Count} cámaras")
+                                (@string.Join(", ", grupo.Camaras))
+                            </div>
+                            <div class="hint">
+                                Visto de @primera.ToString("dd/MM/yyyy HH:mm") a @ultima.ToString("dd/MM/yyyy HH:mm")
+                            </div>
+                        </div>
+                        <div class="actions" style="gap:6px; flex-wrap:wrap; justify-content:flex-end">
+                            <form method="post" asp-page-handler="NombrarGrupo" class="actions" style="gap:6px">
+                                <input type="hidden" name="grupoId" value="@grupo.ClusterId" />
+                                <input type="hidden" name="PaginaGrupos" value="@Model.PaginaGrupos" />
+                                <input name="nombre" placeholder="Nombre de la persona" required
+                                       value="@(grupo.PersonId is null ? "" : grupo.DisplayName)"
+                                       style="max-width:190px" />
+                                <button class="btn small" type="submit">Guardar y aprender</button>
+                            </form>
+                            <form method="post" asp-page-handler="DeshacerGrupo"
+                                  onsubmit="return confirm('¿Deshacer este grupo? Las fotos dejarán de estar agrupadas.');">
+                                <input type="hidden" name="grupoId" value="@grupo.ClusterId" />
+                                <input type="hidden" name="PaginaGrupos" value="@Model.PaginaGrupos" />
+                                <button class="btn small secondary" type="submit" title="El grupo mezcla dos personas distintas">Deshacer</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="grupo-fotos">
+                        @foreach (var foto in grupo.Fotos)
+                        {
+                            var cuando = foto.OccurredAt.ToLocalTime();
+                            var escena = string.IsNullOrEmpty(foto.FullFramePath)
+                                ? null
+                                : $"/media/recorte?path={Uri.EscapeDataString(foto.FullFramePath)}";
+                            var titulo = $"{foto.CameraName} · {cuando:dd/MM/yyyy HH:mm:ss}";
+                            <figure title="@titulo">
+                                @if (!string.IsNullOrEmpty(foto.CropBase64))
+                                {
+                                    <img src="data:image/jpeg;base64,@foto.CropBase64" alt="@titulo" data-escena="@escena" />
+                                }
+                                else
+                                {
+                                    <img src="/media/recorte?path=@Uri.EscapeDataString(foto.CropPath!)" alt="@titulo"
+                                         loading="lazy" data-escena="@escena" />
+                                }
+                                <figcaption>@foto.CameraName</figcaption>
+                            </figure>
+                        }
+                        @if (grupo.TotalFotos > grupo.Fotos.Count)
+                        {
+                            <div class="grupo-mas">+@(grupo.TotalFotos - grupo.Fotos.Count)</div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (Model.TotalPaginasGrupos > 1)
+        {
+            <div class="actions" style="margin-top:12px; align-items:center">
+                @if (Model.PaginaGrupos > 1)
+                {
+                    <a class="btn small secondary" asp-page="/Personas"
+                       asp-route-PaginaGrupos="@(Model.PaginaGrupos - 1)">← Anteriores</a>
+                }
+                <span class="hint">Página @Model.PaginaGrupos de @Model.TotalPaginasGrupos</span>
+                @if (Model.PaginaGrupos < Model.TotalPaginasGrupos)
+                {
+                    <a class="btn small secondary" asp-page="/Personas"
+                       asp-route-PaginaGrupos="@(Model.PaginaGrupos + 1)">Siguientes →</a>
+                }
+            </div>
+        }
+    }
+</div>
+
+<div class="card" style="margin-bottom:16px">
     <h2>Personas detectadas (@Model.UnknownFacesTotal)</h2>
     <p class="subtitle">
         Todas las personas vistas por las cámaras, de la más reciente a la más antigua.

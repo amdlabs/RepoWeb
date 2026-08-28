@@ -1,4 +1,4 @@
-namespace IVZVision.Core.Detection;
+﻿namespace IVZVision.Core.Detection;
 
 public enum ObservationKind
 {
@@ -100,6 +100,9 @@ public sealed class Observation
 
     /// <summary>Ruta del recorte en disco si se guardó.</summary>
     public string? CropPath { get; set; }
+
+    /// <summary>Grupo de rostros asignado (misma persona entre cámaras).</summary>
+    public int? FaceClusterId { get; set; }
 
     /// <summary>Ruta del fotograma completo (escena entera) asociado a esta detección.</summary>
     public string? FullFramePath { get; set; }

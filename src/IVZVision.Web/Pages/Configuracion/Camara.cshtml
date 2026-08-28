@@ -196,8 +196,8 @@
 
             <h3>Región de interés (%)</h3>
             <p class="hint" style="margin-top:-6px">
-                Limita el análisis a una zona del fotograma: reduce el consumo y los falsos positivos.
-                Deje 0/0/100/100 para analizar todo.
+                Sólo se aplica si no hay zonas dibujadas. Limita el análisis a una parte del
+                fotograma: reduce el consumo y los falsos positivos. Deje 0/0/100/100 para analizar todo.
             </p>
             <div class="grid grid-3">
                 <div class="field">
@@ -220,6 +220,36 @@
         </div>
     </div>
 
+    @* Editor visual: se dibujan las zonas sobre la imagen real de la cámara. *@
+    <div class="card" id="zonasPanel" data-camara="@Model.Camera.Id">
+        <h2>Zonas de detección</h2>
+        <p class="subtitle">
+            Arrastre sobre la imagen para marcar las áreas que le interesan y elija qué se
+            detecta en cada una. Si define alguna zona, <b>sólo se registra lo que ocurra
+            dentro de ella</b> (y el análisis se limita a esa parte, con lo que consume menos).
+            Sin zonas se analiza el fotograma completo.
+        </p>
+
+        <div class="actions" style="margin-bottom:10px">
+            <button type="button" class="btn small secondary" id="zonasRefrescar">Actualizar imagen</button>
+            <button type="button" class="btn small secondary" id="zonasTodo">Añadir todo el encuadre</button>
+            <button type="button" class="btn small danger" id="zonasLimpiar">Quitar todas</button>
+        </div>
+
+        <div class="zonas-lienzo" id="zonasLienzo">
+            <img id="zonasImagen" alt="Imagen de la cámara" />
+        </div>
+
+        <div class="hint" id="zonasVacio">
+            Sin zonas: se analiza todo el encuadre. Arrastre sobre la imagen para crear la primera.
+        </div>
+
+        <div id="zonasLista" style="margin-top:10px"></div>
+
+        @* Las zonas viajan al servidor como JSON en este campo oculto. *@
+        <input type="hidden" id="zonasJson" name="ZonasJson" value="@Model.ZonasParaEditor" />
+    </div>
+
     <div class="actions">
         <button type="submit" class="btn">Guardar cámara</button>
         <a class="btn secondary" asp-page="/Configuracion/Camaras">Cancelar</a>
@@ -229,4 +259,5 @@
 @section Scripts {
     <script src="~/js/config.js" asp-append-version="true"></script>
     <script src="~/js/camara.js" asp-append-version="true"></script>
+    <script src="~/js/zonas.js" asp-append-version="true"></script>
 }

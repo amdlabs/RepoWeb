@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.Text;
 
 namespace IVZVision.Core.Configuration;
@@ -85,6 +85,14 @@ public sealed class CameraConfig
     /// <summary>Escucha los eventos ANPR nativos de la cámara vía ISAPI, además del OCR local.</summary>
     public bool UseCameraAnprEvents { get; set; } = false;
 
+    /// <summary>
+    /// Zonas de detección dibujadas sobre la imagen de la cámara. Si hay alguna, sólo
+    /// se registran las detecciones cuyo centro cae dentro de una zona que admita ese
+    /// tipo; el análisis se limita además al rectángulo que las envuelve.
+    /// Sin zonas, se analiza según la región de interés clásica.
+    /// </summary>
+    public List<DetectionZone> Zones { get; set; } = new();
+
     /// <summary>Región de interés en porcentaje 0-100 (0,0,100,100 = fotograma completo).</summary>
     public double RoiXPercent { get; set; } = 0;
     public double RoiYPercent { get; set; } = 0;
@@ -146,4 +154,37 @@ public sealed class CameraConfig
         if (at < 0 || schemeEnd < 0 || at < schemeEnd) return url;
         return string.Concat(url.AsSpan(0, schemeEnd + 2), "***:***", url.AsSpan(at));
     }
+}
+
+/// <summary>
+/// Área de interés dibujada sobre el fotograma, en porcentaje 0-100, con el tipo
+/// de detección que se admite dentro de ella.
+/// </summary>
+public sealed class DetectionZone
+{
+    public string Name { get; set; } = "Zona";
+
+    public double XPercent { get; set; }
+    public double YPercent { get; set; }
+    public double WidthPercent { get; set; } = 100;
+    public double HeightPercent { get; set; } = 100;
+
+    public bool Faces { get; set; } = true;
+    public bool Plates { get; set; } = true;
+    public bool Objects { get; set; } = true;
+    public bool Texts { get; set; } = true;
+
+    /// <summary>True si la zona admite el tipo de detección indicado.</summary>
+    public bool Allows(IVZVision.Core.Detection.ObservationKind kind) => kind switch
+    {
+        IVZVision.Core.Detection.ObservationKind.Face => Faces,
+        IVZVision.Core.Detection.ObservationKind.Plate => Plates,
+        IVZVision.Core.Detection.ObservationKind.Object => Objects,
+        _ => Texts,
+    };
+
+    /// <summary>True si el punto (en porcentaje del fotograma) cae dentro de la zona.</summary>
+    public bool Contains(double xPercent, double yPercent) =>
+        xPercent >= XPercent && xPercent <= XPercent + WidthPercent &&
+        yPercent >= YPercent && yPercent <= YPercent + HeightPercent;
 }

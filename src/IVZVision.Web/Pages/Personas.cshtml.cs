@@ -1,4 +1,4 @@
-using IVZVision.Data;
+﻿using IVZVision.Data;
 using IVZVision.Data.Entities;
 using IVZVision.Web.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -109,6 +109,233 @@ public class PersonasModel : PageModel
             .Skip((Pagina - 1) * DetectionsPageSize)
             .Take(DetectionsPageSize)
             .ToList();
+    }
+
+    // ---- Rostros agrupados --------------------------------------------------
+    // El motor va metiendo cada cara que ve en el grupo al que se parece, sea la
+    // cámara que sea. Aquí se muestra un grupo por persona con todas sus fotos, y
+    // al ponerle nombre el grupo pasa al padrón y sus fotos se vuelven plantillas.
+
+    public sealed record GroupPhoto(long EventId, DateTime OccurredAt, string CameraName,
+                                    string? CropBase64, string? CropPath, string? FullFramePath);
+
+    public sealed record FaceGroup(int ClusterId, int Numero, string DisplayName, int? PersonId,
+                                   DateTime PrimeraVez, DateTime UltimaVez, int TotalFotos,
+                                   IReadOnlyList<string> Camaras, IReadOnlyList<GroupPhoto> Fotos);
+
+    public IReadOnlyList<FaceGroup> FaceGroups { get; private set; } = Array.Empty<FaceGroup>();
+
+    /// <summary>Grupos de rostros formados en total (con o sin nombre).</summary>
+    public int GruposTotal { get; private set; }
+
+    public int TotalPaginasGrupos { get; private set; } = 1;
+
+    [BindProperty(SupportsGet = true)] public int PaginaGrupos { get; set; } = 1;
+
+    private const int GroupsPageSize = 8;
+    private const int PhotosPerGroup = 12;
+
+    private async Task LoadFaceGroupsAsync(VisionDbContext db, CancellationToken ct)
+    {
+        // Un grupo sólo interesa si conserva alguna foto que enseñar.
+        var resumen = await db.RecognitionEvents.AsNoTracking()
+            .Where(e => e.FaceClusterId != null && (e.CropBase64 != null || e.CropPath != null))
+            .GroupBy(e => e.FaceClusterId!.Value)
+            .Select(g => new { ClusterId = g.Key, Fotos = g.Count(), Ultima = g.Max(e => e.OccurredAt) })
+            .ToListAsync(ct);
+
+        GruposTotal = resumen.Count;
+        TotalPaginasGrupos = Math.Max(1, (int)Math.Ceiling(GruposTotal / (double)GroupsPageSize));
+        PaginaGrupos = Math.Clamp(PaginaGrupos, 1, TotalPaginasGrupos);
+
+        var pagina = resumen
+            .OrderByDescending(r => r.Ultima)
+            .Skip((PaginaGrupos - 1) * GroupsPageSize)
+            .Take(GroupsPageSize)
+            .ToList();
+
+        if (pagina.Count == 0)
+        {
+            FaceGroups = Array.Empty<FaceGroup>();
+            return;
+        }
+
+        var ids = pagina.Select(p => p.ClusterId).ToList();
+
+        var fichas = await db.FaceClusters.AsNoTracking()
+            .Where(c => ids.Contains(c.Id))
+            .ToDictionaryAsync(c => c.Id, ct);
+
+        // Las fotos de todos los grupos de la página, en una sola consulta.
+        var fotos = await db.RecognitionEvents.AsNoTracking()
+            .Where(e => e.FaceClusterId != null && ids.Contains(e.FaceClusterId!.Value)
+                        && (e.CropBase64 != null || e.CropPath != null))
+            .OrderByDescending(e => e.OccurredAt)
+            .Select(e => new { e.Id, e.FaceClusterId, e.OccurredAt, e.CameraName,
+                               e.CropBase64, e.CropPath, e.FullFramePath })
+            .Take(GroupsPageSize * 60)
+            .ToListAsync(ct);
+
+        var grupos = new List<FaceGroup>();
+        foreach (var r in pagina)
+        {
+            if (!fichas.TryGetValue(r.ClusterId, out var ficha)) continue;
+
+            var suyas = fotos.Where(f => f.FaceClusterId == r.ClusterId).ToList();
+
+            grupos.Add(new FaceGroup(
+                ficha.Id, ficha.Numero, ficha.DisplayName, ficha.PersonId,
+                ficha.FirstSeenAt, r.Ultima, r.Fotos,
+                suyas.Select(f => f.CameraName).Distinct().OrderBy(n => n).ToList(),
+                suyas.Take(PhotosPerGroup)
+                     .Select(f => new GroupPhoto(f.Id, f.OccurredAt, f.CameraName,
+                                                 f.CropBase64, f.CropPath, f.FullFramePath))
+                     .ToList()));
+        }
+
+        FaceGroups = grupos;
+    }
+
+    /// <summary>
+    /// Pone nombre a un grupo de rostros: crea la persona en el padrón y registra
+    /// sus mejores fotos como plantillas, de forma que a partir de ese momento el
+    /// sistema la reconozca por su nombre en cualquier cámara.
+    /// </summary>
+    public async Task<IActionResult> OnPostNombrarGrupoAsync(int grupoId, string nombre,
+                                                             [FromServices] EnrollmentService enrollment,
+                                                             [FromServices] FaceClusterIndex clusters,
+                                                             CancellationToken ct)
+    {
+        if (!RoleGuard.CanEdit(User)) return Forbid();
+
+        nombre = (nombre ?? "").Trim();
+        if (nombre.Length == 0)
+        {
+            TempData["Error"] = "Escriba el nombre antes de guardar el grupo.";
+            return RedirectToPage(new { PaginaGrupos });
+        }
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        var grupo = await db.FaceClusters.FirstOrDefaultAsync(c => c.Id == grupoId, ct);
+        if (grupo is null)
+        {
+            TempData["Error"] = "El grupo de rostros ya no existe.";
+            return RedirectToPage(new { PaginaGrupos });
+        }
+
+        // Si ya existe una persona con ese nombre se reutiliza, así dos grupos de la
+        // misma persona (por ejemplo con gorra y sin ella) acaban en una única ficha.
+        var persona = await db.Persons.FirstOrDefaultAsync(p => p.FullName == nombre, ct);
+        var creada = persona is null;
+        if (persona is null)
+        {
+            persona = new Person { FullName = nombre, IsAuthorized = false };
+            db.Persons.Add(persona);
+            await db.SaveChangesAsync(ct);
+        }
+
+        var candidatas = await db.RecognitionEvents.AsNoTracking()
+            .Where(e => e.FaceClusterId == grupoId && e.Kind == RecognitionKind.Face
+                        && (e.CropBase64 != null || e.CropPath != null))
+            .OrderByDescending(e => e.DetectionScore)
+            .Take(12)
+            .Select(e => new { e.CropBase64, e.CropPath })
+            .ToListAsync(ct);
+
+        var resolver = HttpContext.RequestServices.GetRequiredService<SnapshotPathResolver>();
+        var registradas = 0;
+
+        foreach (var foto in candidatas)
+        {
+            byte[]? imagen = null;
+            if (foto.CropBase64 is not null)
+            {
+                try { imagen = Convert.FromBase64String(foto.CropBase64); }
+                catch (FormatException) { }
+            }
+            else if (foto.CropPath is not null)
+            {
+                var ruta = resolver.Resolve(foto.CropPath);
+                if (ruta is not null && System.IO.File.Exists(ruta))
+                    imagen = await System.IO.File.ReadAllBytesAsync(ruta, ct);
+            }
+
+            if (imagen is null) continue;
+
+            // Basta con que unas cuantas fotos sirvan: las borrosas o de perfil se
+            // descartan solas porque el detector no encuentra la cara en ellas.
+            var alta = await enrollment.EnrollFromBytesAsync(persona.Id, imagen, ct);
+            if (alta.Success) registradas++;
+            if (registradas >= 6) break;
+        }
+
+        if (registradas == 0 && creada)
+        {
+            // Sin ninguna plantilla la persona no serviría para reconocer nada.
+            db.Persons.Remove(persona);
+            await db.SaveChangesAsync(ct);
+            TempData["Error"] = "Ninguna de las fotos del grupo sirve como plantilla facial " +
+                                "(demasiado pequeñas, borrosas o de perfil). Pruebe con otro grupo.";
+            return RedirectToPage(new { PaginaGrupos });
+        }
+
+        grupo.Label = nombre;
+        grupo.PersonId = persona.Id;
+        await db.SaveChangesAsync(ct);
+
+        // El histórico del grupo pasa a mostrar el nombre.
+        var personaId = persona.Id;
+        await db.RecognitionEvents
+            .Where(e => e.FaceClusterId == grupoId)
+            .ExecuteUpdateAsync(u => u.SetProperty(e => e.Label, nombre)
+                                      .SetProperty(e => e.PersonId, personaId)
+                                      .SetProperty(e => e.IsKnown, true), ct);
+
+        _index.MarkDirty();
+        await _index.RefreshAsync(ct);
+        clusters.MarkDirty();
+
+        TempData["Ok"] = $"«{nombre}» guardado con {registradas} plantilla(s) de las fotos del grupo. " +
+                          "A partir de ahora se le reconocerá por su nombre en todas las cámaras.";
+        return RedirectToPage(new { PaginaGrupos });
+    }
+
+    /// <summary>Fotos del histórico anteriores al agrupamiento que aún no pertenecen a ningún grupo.</summary>
+    public int RostrosSinAgrupar { get; private set; }
+
+    /// <summary>
+    /// Reprocesa las fotos guardadas antes de existir el agrupamiento: vuelve a
+    /// calcular la cara de cada recorte y la mete en el grupo que le toca.
+    /// </summary>
+    public async Task<IActionResult> OnPostAgruparAnterioresAsync([FromServices] FaceClusterBackfill backfill,
+                                                                  CancellationToken ct)
+    {
+        if (!RoleGuard.CanEdit(User)) return Forbid();
+
+        var resultado = await backfill.RunBatchAsync(ct);
+        TempData["Ok"] = resultado.Mensaje;
+        return RedirectToPage(new { PaginaGrupos });
+    }
+
+    /// <summary>Deshace una agrupación mal formada (dos personas mezcladas en un grupo).</summary>
+    public async Task<IActionResult> OnPostDeshacerGrupoAsync(int grupoId,
+                                                              [FromServices] FaceClusterIndex clusters,
+                                                              CancellationToken ct)
+    {
+        if (!RoleGuard.CanEdit(User)) return Forbid();
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        await db.RecognitionEvents
+            .Where(e => e.FaceClusterId == grupoId)
+            .ExecuteUpdateAsync(u => u.SetProperty(e => e.FaceClusterId, (int?)null), ct);
+
+        await db.FaceClusters.Where(c => c.Id == grupoId).ExecuteDeleteAsync(ct);
+
+        clusters.MarkDirty();
+        TempData["Ok"] = "Grupo deshecho. Las caras que lleguen a partir de ahora se volverán a agrupar.";
+        return RedirectToPage(new { PaginaGrupos });
     }
 
     /// <summary>Da de alta una persona nueva usando el rostro de un evento no identificado.</summary>
@@ -263,6 +490,10 @@ public class PersonasModel : PageModel
                 .Take(500)
                 .ToListAsync(ct);
 
+            await LoadFaceGroupsAsync(db, ct);
+            RostrosSinAgrupar = await db.RecognitionEvents
+                .CountAsync(e => e.FaceClusterId == null && e.Kind == RecognitionKind.Face
+                                 && (e.CropBase64 != null || e.CropPath != null), ct);
             await LoadUnknownFacesAsync(db, ct);
         }
         catch (Exception ex)
