@@ -1,4 +1,4 @@
-/* Muro de monitoreo: cuadrícula de 4/6/8/12 cámaras con el vídeo MJPEG procesado.
+﻿/* Muro de monitoreo: cuadrícula de 4/6/8/12 cámaras con el vídeo MJPEG procesado.
    Los datos vienen del backend (/api/camaras); aquí sólo hay presentación. */
 (function () {
     "use strict";
@@ -288,6 +288,12 @@
                 }
             });
 
+            // Capa donde se pintan los recuadros de lo que se va reconociendo.
+            var marcas = document.createElement("div");
+            marcas.className = "mon-marcas";
+            marcas.dataset.camara = cam.id;
+            cell.appendChild(marcas);
+
             var label = document.createElement("div");
             label.className = "mon-label";
             var dot = document.createElement("span");
@@ -365,6 +371,57 @@
         if (rotateTimer) clearInterval(rotateTimer);
         stopWs();
     });
+
+    /* ---------- Recuadro con el nombre sobre la imagen en vivo ---------- */
+
+    /* La imagen se muestra con object-fit: contain, así que dentro de la celda
+       sobra espacio por arriba o por los lados. Para que el recuadro caiga sobre
+       la cara hay que calcular dónde está de verdad la imagen dentro de la celda. */
+    function rectoDeImagen(img) {
+        var anchoCaja = img.clientWidth, altoCaja = img.clientHeight;
+        var anchoReal = img.naturalWidth, altoReal = img.naturalHeight;
+
+        if (!anchoReal || !altoReal) return { x: 0, y: 0, ancho: anchoCaja, alto: altoCaja };
+
+        var escala = Math.min(anchoCaja / anchoReal, altoCaja / altoReal);
+        var ancho = anchoReal * escala, alto = altoReal * escala;
+
+        return { x: (anchoCaja - ancho) / 2, y: (altoCaja - alto) / 2, ancho: ancho, alto: alto };
+    }
+
+    function marcarDeteccion(d) {
+        if (!d || d.cajaAncho == null || d.cajaAlto == null) return;
+
+        var capa = grid.querySelector('.mon-marcas[data-camara="' + d.camaraId + '"]');
+        if (!capa) return;
+
+        var img = capa.parentNode.querySelector("img[data-camara]");
+        if (!img) return;
+
+        var r = rectoDeImagen(img);
+
+        var marca = document.createElement("div");
+        marca.className = "mon-marca" + (d.conocido ? " conocida" : "");
+        marca.style.left = (r.x + (d.cajaX / 100) * r.ancho) + "px";
+        marca.style.top = (r.y + (d.cajaY / 100) * r.alto) + "px";
+        marca.style.width = ((d.cajaAncho / 100) * r.ancho) + "px";
+        marca.style.height = ((d.cajaAlto / 100) * r.alto) + "px";
+
+        // El nombre sólo aporta cuando se sabe de quién es.
+        if (d.conocido && d.etiqueta) {
+            var nombre = document.createElement("span");
+            nombre.className = "mon-marca-nombre";
+            nombre.textContent = d.etiqueta;
+            marca.appendChild(nombre);
+        }
+
+        capa.appendChild(marca);
+
+        // Cada marca dura lo justo: la siguiente vuelta del análisis vuelve a pintar.
+        setTimeout(function () {
+            if (marca.parentNode) marca.parentNode.removeChild(marca);
+        }, 2500);
+    }
 
     /* ---------- Paneles de detecciones en tiempo real (SignalR) ---------- */
 
@@ -563,6 +620,7 @@
             .build();
 
         connection.on("deteccion", push);
+        connection.on("deteccion", marcarDeteccion);
 
         // Al leer una matrícula nueva se abre el diálogo con la placa generada.
         connection.on("deteccion", function (hit) {

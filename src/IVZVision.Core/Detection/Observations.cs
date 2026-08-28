@@ -77,6 +77,11 @@ public sealed class Observation
     /// <summary>Confianza del detector (0-1).</summary>
     public float DetectionScore { get; init; }
 
+    /// <summary>Tamaño del fotograma en el que se midió <see cref="Box"/>, para poder
+    /// situar el recuadro sobre la imagen que ve el navegador, sea cual sea su escala.</summary>
+    public int FrameWidth { get; init; }
+    public int FrameHeight { get; init; }
+
     /// <summary>Texto de la matrícula normalizado (solo para <see cref="ObservationKind.Plate"/>).</summary>
     public string? PlateText { get; init; }
 

@@ -855,3 +855,127 @@ a.dash-card:hover {
 @media (hover: none) {
     .btn-quitar { opacity: .9; }
 }
+
+
+/* ---- Recuadros de reconocimiento sobre la imagen en vivo ---- */
+.mon-marcas {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.mon-marca {
+    position: absolute;
+    border: 2px solid rgba(255, 255, 255, .75);
+    border-radius: 4px;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, .45);
+    animation: marca-aparece .18s ease-out;
+}
+
+.mon-marca.conocida { border-color: #35d07f; }
+
+.mon-marca-nombre {
+    position: absolute;
+    left: -2px;
+    bottom: 100%;
+    margin-bottom: 3px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: #35d07f;
+    color: #05240f;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+@keyframes marca-aparece { from { opacity: 0; transform: scale(1.06); } to { opacity: 1; transform: none; } }
+
+/* ---- Aviso emergente de rostro conocido ---- */
+.avisos-pila {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.aviso {
+    position: relative;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    width: 320px;
+    max-width: calc(100vw - 32px);
+    padding: 10px 30px 10px 10px;
+    border: 1px solid var(--border);
+    border-left: 4px solid #35d07f;
+    border-radius: 10px;
+    background: var(--surface, #16181d);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+    pointer-events: auto;
+    opacity: 0;
+    transform: translateX(24px);
+    transition: opacity .25s ease-out, transform .25s ease-out;
+}
+
+.aviso.visible { opacity: 1; transform: none; }
+.aviso.saliendo { opacity: 0; transform: translateX(24px); }
+
+.aviso-foto {
+    width: 56px;
+    height: 56px;
+    object-fit: cover;
+    border-radius: 8px;
+    background: #000;
+    flex-shrink: 0;
+    cursor: zoom-in;
+}
+
+.aviso-cuerpo { min-width: 0; }
+
+.aviso-titulo {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #35d07f;
+    font-weight: 700;
+}
+
+.aviso-nombre {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.aviso-pie { font-size: 12px; color: var(--muted); }
+
+.aviso-cerrar {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.aviso-cerrar:hover { color: inherit; }
+
+@media (max-width: 640px) {
+    .avisos-pila { left: 12px; right: 12px; bottom: 12px; }
+    .aviso { width: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .aviso, .mon-marca { transition: none; animation: none; }
+}

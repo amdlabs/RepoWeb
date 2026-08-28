@@ -118,6 +118,13 @@ public sealed class EventRecorder
             obs.EventId = entity.Id;
             return entity.Id;
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // La cámara se detuvo (reinicio, cambio de configuración) mientras se
+            // guardaba: es lo normal al parar, no un fallo que merezca el registro.
+            _logger.LogDebug("Registro de {Kind} cancelado al detenerse la cámara {Camera}", obs.Kind, obs.CameraName);
+            return null;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "No se pudo registrar el evento de {Kind} en la cámara {Camera}", obs.Kind, obs.CameraName);

@@ -1,4 +1,4 @@
-using IVZVision.Core.Detection;
+﻿using IVZVision.Core.Detection;
 using IVZVision.Vision.Pipeline;
 using IVZVision.Web.Hubs;
 using Microsoft.AspNetCore.SignalR;
@@ -21,7 +21,13 @@ public sealed record ObservationDto(
     string? Miniatura,
     long? EventoId,
     string? Detalle,
-    string? Escena = null);
+    string? Escena = null,
+    // Recuadro del sujeto en porcentaje del fotograma: así el navegador lo sitúa
+    // sobre la imagen en vivo sin saber a qué resolución se está emitiendo.
+    double? CajaX = null,
+    double? CajaY = null,
+    double? CajaAncho = null,
+    double? CajaAlto = null);
 
 public sealed record CameraStatusDto(
     string CamaraId,
@@ -96,5 +102,9 @@ public sealed class SignalRObservationSink : IObservationSink
             _ => o.Match.Notes,
         },
         // Escena completa: da contexto al abrir la detección con doble clic.
-        o.FullFramePath is null ? null : $"/media/recorte?path={Uri.EscapeDataString(o.FullFramePath)}");
+        o.FullFramePath is null ? null : $"/media/recorte?path={Uri.EscapeDataString(o.FullFramePath)}",
+        o.FrameWidth > 0 ? o.Box.X * 100.0 / o.FrameWidth : null,
+        o.FrameHeight > 0 ? o.Box.Y * 100.0 / o.FrameHeight : null,
+        o.FrameWidth > 0 ? o.Box.Width * 100.0 / o.FrameWidth : null,
+        o.FrameHeight > 0 ? o.Box.Height * 100.0 / o.FrameHeight : null);
 }

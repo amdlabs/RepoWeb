@@ -1,4 +1,4 @@
-using IVZVision.Core.Configuration;
+﻿using IVZVision.Core.Configuration;
 using IVZVision.Core.Detection;
 using IVZVision.Core.Util;
 using IVZVision.Data;
@@ -148,9 +148,21 @@ public sealed class RecognitionEngine : IDisposable
     {
         lock (_gate)
         {
-            DisposeModels();
-            _loaded = false;
-            _logger.LogInformation("Modelos marcados para recarga");
+            // Liberar las sesiones ONNX mientras otro hilo está dentro de Run provoca
+            // fallos en la propia librería: hay que esperar a que termine la inferencia
+            // en curso. El orden de espera es siempre _gate → _inferenceGate, nunca al
+            // revés, de modo que no puede haber bloqueo cruzado.
+            _inferenceGate.Wait();
+            try
+            {
+                DisposeModels();
+                _loaded = false;
+                _logger.LogInformation("Modelos marcados para recarga");
+            }
+            finally
+            {
+                _inferenceGate.Release();
+            }
         }
     }
 
@@ -171,10 +183,20 @@ public sealed class RecognitionEngine : IDisposable
                      && _missingModelFiles.Any(File.Exists))
             {
                 // Un modelo que faltaba ya está en disco (p. ej. recién descargado):
-                // se recarga sin necesidad de reiniciar la aplicación.
+                // se recarga sin necesidad de reiniciar la aplicación. Igual que en
+                // Reload, se espera a que no haya ninguna inferencia en vuelo antes de
+                // soltar las sesiones que esa inferencia está usando.
                 _lastRetryAt = DateTimeOffset.UtcNow;
-                DisposeModels();
-                Load();
+                _inferenceGate.Wait();
+                try
+                {
+                    DisposeModels();
+                    Load();
+                }
+                finally
+                {
+                    _inferenceGate.Release();
+                }
             }
 
             return Status;

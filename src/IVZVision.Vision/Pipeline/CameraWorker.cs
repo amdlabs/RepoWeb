@@ -334,6 +334,8 @@ public sealed class CameraWorker
                 CameraId = _camera.Id,
                 CameraName = _camera.Name,
                 Box = box,
+                FrameWidth = frame.Width,
+                FrameHeight = frame.Height,
                 DetectionScore = item.Score,
                 PlateText = item.PlateText,
                 OcrConfidence = item.OcrConfidence,

@@ -1,4 +1,4 @@
-@{
+﻿@{
     var current = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
     bool Active(string prefix) => current.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
 }
@@ -70,6 +70,8 @@
     </footer>
 
     <script src="~/js/lightbox.js" asp-append-version="true" defer></script>
+    <script src="~/lib/signalr/signalr.min.js"></script>
+    <script src="~/js/avisos.js" asp-append-version="true" defer></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
