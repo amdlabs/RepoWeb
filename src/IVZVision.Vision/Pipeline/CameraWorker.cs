@@ -244,9 +244,14 @@ public sealed class CameraWorker
                 // reparte entre todas las cámaras y puede tardar; si el vídeo esperara
                 // su turno, el feed se congelaría (fotos en vez de vídeo). Si el motor
                 // sigue ocupado cuando toca analizar, ese fotograma simplemente se salta.
+                // AnalysisFps pone un TECHO al ritmo de análisis; 0 (o menos) = tiempo real,
+                // es decir, analizar tan rápido como el motor permita. En ambos casos se
+                // analiza SIEMPRE el fotograma más reciente y nunca se encola uno viejo: si
+                // el motor sigue ocupado con la vuelta anterior, este fotograma se salta.
                 var analysisInterval = _camera.AnalysisFps > 0 ? 1000.0 / _camera.AnalysisFps : 0;
-                if (analysisInterval > 0 && analysisClock.Elapsed.TotalMilliseconds >= analysisInterval
-                    && Interlocked.CompareExchange(ref _analysisBusy, 1, 0) == 0)
+                var tocaAnalizar = analysisInterval <= 0
+                                   || analysisClock.Elapsed.TotalMilliseconds >= analysisInterval;
+                if (tocaAnalizar && Interlocked.CompareExchange(ref _analysisBusy, 1, 0) == 0)
                 {
                     analysisClock.Restart();
 

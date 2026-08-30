@@ -1,4 +1,4 @@
-@page "/Configuracion/Camara"
+﻿@page "/Configuracion/Camara"
 @model IVZVision.Web.Pages.Configuracion.CamaraModel
 @{
     ViewData["Title"] = Model.IsNew ? "Nueva cámara" : "Editar cámara";
@@ -179,9 +179,13 @@
 
             <div class="grid grid-3">
                 <div class="field">
-                    <label asp-for="Camera.AnalysisFps">Fps analizados</label>
-                    <input asp-for="Camera.AnalysisFps" type="number" step="0.5" min="0.5" max="30" />
-                    <div class="hint">Más fps = más CPU.</div>
+                    <label asp-for="Camera.AnalysisFps">Fps de detección (tope)</label>
+                    <input asp-for="Camera.AnalysisFps" type="number" step="1" min="0" max="30" />
+                    <div class="hint">
+                        Tope de fotogramas analizados por segundo. <b>0 = tiempo real</b> (tan rápido
+                        como el equipo permita). Para la cámara de matrículas, súbalo o póngalo en 0;
+                        en cámaras poco críticas, bájelo para dejar más motor a las importantes.
+                    </div>
                 </div>
                 <div class="field">
                     <label asp-for="Camera.MaxAnalysisWidth">Ancho máx. de análisis (px)</label>

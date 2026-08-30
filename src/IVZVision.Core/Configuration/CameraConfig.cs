@@ -70,7 +70,7 @@ public sealed class CameraConfig
     public bool UseTcpTransport { get; set; } = true;
 
     /// <summary>Fotogramas por segundo que se envían al motor de reconocimiento (no afecta al vídeo mostrado).</summary>
-    public double AnalysisFps { get; set; } = 3;
+    public double AnalysisFps { get; set; } = 10;
 
     public bool EnableFaceRecognition { get; set; } = true;
 
