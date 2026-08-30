@@ -143,17 +143,39 @@ public sealed class FaceClusterBackfill : BackgroundService
             if (ct.IsCancellationRequested) break;
 
             int? grupo = null;
+
+            // Sólo se condena una foto («sin cara aprovechable») cuando el detector la
+            // miró y no encontró rostro, o cuando la imagen es ilegible. Un fallo del
+            // motor es transitorio: la foto se deja en la cola y se reintenta luego.
+            var sinCaraDefinitivo = false;
             var bytes = await LeerRecorteAsync(evento.CropBase64, evento.CropPath, ct);
 
-            if (bytes is not null)
+            if (bytes is null)
+            {
+                sinCaraDefinitivo = true;
+            }
+            else
             {
                 using var imagen = Cv2.ImDecode(bytes, ImreadModes.Color);
-                if (!imagen.Empty())
+                if (imagen.Empty())
+                {
+                    sinCaraDefinitivo = true;
+                }
+                else
                 {
                     var facial = _engine.EnrollFace(imagen);
                     if (facial.Success && facial.Embedding is not null)
                         grupo = await _clusters.AssignAsync(facial.Embedding, ct);
+                    else
+                        sinCaraDefinitivo = facial.Message.Contains("ningún rostro");
                 }
+            }
+
+            if (grupo is null && !sinCaraDefinitivo)
+            {
+                // Motor con problemas: mejor cortar la tanda y volver más tarde.
+                _mensaje = "El motor tuvo un tropiezo; el reproceso reintentará en unos minutos.";
+                break;
             }
 
             var valor = grupo ?? SinCara;

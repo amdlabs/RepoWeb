@@ -60,6 +60,7 @@ builder.Services.AddSingleton<IDbContextFactory<VisionDbContext>, VisionDbContex
 builder.Services.AddSingleton<DatabaseProvisioner>();
 builder.Services.AddSingleton<KnownSubjectsIndex>();
 builder.Services.AddSingleton<FaceClusterIndex>();
+builder.Services.AddSingleton<SceneMemoryIndex>();
 builder.Services.AddSingleton<EventRecorder>();
 
 // ---- Motor de visión -----------------------------------------------------
@@ -80,6 +81,7 @@ builder.Services.AddSingleton(sp => new CameraPipelineManager(
     sp.GetRequiredService<DatabaseProvisioner>(),
     sp.GetRequiredService<FrameBroadcaster>(),
     sp.GetServices<IObservationSink>(),
+    sp.GetRequiredService<SceneMemoryIndex>(),
     sp.GetRequiredService<ILoggerFactory>(),
     contentRoot));
 

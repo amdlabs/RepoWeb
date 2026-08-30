@@ -24,6 +24,7 @@ public sealed class CameraWorker
     private readonly EventRecorder _recorder;
     private readonly FrameBroadcaster _broadcaster;
     private readonly IReadOnlyList<IObservationSink> _sinks;
+    private readonly SceneMemoryIndex _scene;
     private readonly string _snapshotsRoot;
     private readonly ILogger _logger;
 
@@ -88,7 +89,8 @@ public sealed class CameraWorker
 
     public CameraWorker(CameraConfig camera, IConfigStore config, RecognitionEngine engine,
                         EventRecorder recorder, FrameBroadcaster broadcaster,
-                        IEnumerable<IObservationSink> sinks, string snapshotsRoot, ILogger logger)
+                        IEnumerable<IObservationSink> sinks,
+                        SceneMemoryIndex scene, string snapshotsRoot, ILogger logger)
     {
         _camera = camera;
         _config = config;
@@ -96,6 +98,7 @@ public sealed class CameraWorker
         _recorder = recorder;
         _broadcaster = broadcaster;
         _sinks = sinks.ToList();
+        _scene = scene;
         _snapshotsRoot = snapshotsRoot;
         _logger = logger;
 
@@ -351,6 +354,12 @@ public sealed class CameraWorker
 
         AssociatePlatesToVehicles(observations);
 
+        // Memoria de escena: lo quieto ya conocido se calla; lo que faltó o volvió, avisa.
+        var cambiosEscena = await _scene.ObserveAsync(_camera.Id, observations, frame.Width, frame.Height,
+                                                      _camera.EnableObjectDetection, ct).ConfigureAwait(false);
+        foreach (var cambio in cambiosEscena)
+            await ReportSceneChangeAsync(cambio, frame, ct).ConfigureAwait(false);
+
         _overlay = observations;
 
         // Un único fotograma completo por análisis, compartido por todas las
@@ -557,6 +566,40 @@ public sealed class CameraWorker
         var cx = inner.X + inner.Width / 2;
         var cy = inner.Y + inner.Height / 2;
         return cx >= outer.X && cx <= outer.Right && cy >= outer.Y && cy <= outer.Bottom;
+    }
+
+    /// <summary>
+    /// Convierte un cambio de escena (objeto ausente o que volvió) en un evento normal:
+    /// queda en el histórico y sale por los paneles como cualquier otra detección.
+    /// Salta el tiempo de guarda a propósito: estos avisos son puntuales por definición.
+    /// </summary>
+    private async Task ReportSceneChangeAsync(SceneChange cambio, Mat frame, CancellationToken ct)
+    {
+        var obs = new Observation
+        {
+            Kind = ObservationKind.Object,
+            CameraId = _camera.Id,
+            CameraName = _camera.Name,
+            ObjectClass = cambio.ObjectClass,
+            Annotation = cambio.Mensaje,
+            Box = new BoxF(
+                (float)(cambio.XPercent * frame.Width / 100.0 - cambio.WidthPercent * frame.Width / 200.0),
+                (float)(cambio.YPercent * frame.Height / 100.0 - cambio.HeightPercent * frame.Height / 200.0),
+                (float)(cambio.WidthPercent * frame.Width / 100.0),
+                (float)(cambio.HeightPercent * frame.Height / 100.0)).ClampTo(frame.Width, frame.Height),
+            FrameWidth = frame.Width,
+            FrameHeight = frame.Height,
+            DetectionScore = 1f,
+            CropJpegBase64 = cambio.CropBase64,
+        };
+
+        await _recorder.RecordAsync(obs, RecognitionSource.Local, ct).ConfigureAwait(false);
+
+        foreach (var sink in _sinks)
+        {
+            try { await sink.OnObservationAsync(obs, ct).ConfigureAwait(false); }
+            catch (Exception ex) { _logger.LogDebug(ex, "Un receptor de eventos ha fallado"); }
+        }
     }
 
     private async Task MaybeRegisterAsync(Mat frame, Observation obs, RecognitionConfig rec, CancellationToken ct)

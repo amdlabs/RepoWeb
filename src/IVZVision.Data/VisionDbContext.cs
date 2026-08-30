@@ -17,6 +17,7 @@ public class VisionDbContext : DbContext
     public DbSet<AppConfigurationRow> AppConfiguration => Set<AppConfigurationRow>();
     public DbSet<PlateCorrection> PlateCorrections => Set<PlateCorrection>();
     public DbSet<FaceCluster> FaceClusters => Set<FaceCluster>();
+    public DbSet<SceneObject> SceneObjects => Set<SceneObject>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -81,7 +82,13 @@ public class VisionDbContext : DbContext
         b.Entity<FaceCluster>(e =>
         {
             e.ToTable("FaceClusters");
-            e.Property(f => f.Centroid).HasColumnType("varbinary(max)");
+
+
+        b.Entity<SceneObject>(e =>
+        {
+            e.ToTable("SceneObjects");
+            e.HasIndex(o => o.CameraId);
+        });            e.Property(f => f.Centroid).HasColumnType("varbinary(max)");
             e.HasIndex(f => f.Numero);
         });
 

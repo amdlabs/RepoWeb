@@ -366,6 +366,18 @@
                 }
             });
 
+            // El área vigilada se pinta bajo los recuadros de detección.
+            var cobertura = document.createElement("canvas");
+            cobertura.className = "mon-cobertura";
+            cobertura.camRef = cam;
+            cell.appendChild(cobertura);
+
+            img.addEventListener("load", function () {
+                if (cobertura.dataset.pintado === "1") return;
+                cobertura.dataset.pintado = "1";
+                dibujarCobertura(cell, img, cam);
+            });
+
             // Capa donde se pintan los recuadros de lo que se va reconociendo.
             var marcas = document.createElement("div");
             marcas.className = "mon-marcas";
@@ -381,6 +393,10 @@
 
             cell.appendChild(img);
             cell.appendChild(label);
+
+            // Modelos de detección visibles sobre el vídeo: un chip por reconocimiento
+            // (Rostros, Matrículas, Objetos, Textos) que se enciende o apaga con un clic.
+            cell.appendChild(chipsDeModelos(cam));
 
             // Acceso directo a la configuración de esa cámara: fps de análisis y
             // reconocimientos activos, para darle más recursos a la de matrículas.
@@ -469,6 +485,130 @@
         if (rotateTimer) clearInterval(rotateTimer);
         stopWs();
     });
+
+    /* ---------- Área vigilada: el perímetro de la unión de las zonas ----------
+       Las zonas de una cámara pueden solaparse; lo que interesa ver es el área total
+       cubierta como una sola figura. Se pinta la unión en un lienzo aparte y el borde
+       se obtiene dilatando esa unión unos píxeles y restándole la figura original:
+       queda sólo el contorno, uno por cada isla de cobertura si no se tocan. */
+
+    var verZonas = localStorage.getItem("ivz.monitoreo.zonas") !== "0";
+
+    function dibujarCobertura(cell, img, cam) {
+        var lienzo = cell.querySelector(".mon-cobertura");
+        if (!lienzo) return;
+
+        lienzo.width = cell.clientWidth;
+        lienzo.height = cell.clientHeight;
+
+        var ctx = lienzo.getContext("2d");
+        ctx.clearRect(0, 0, lienzo.width, lienzo.height);
+
+        var zonas = cam.zonas || [];
+        if (!verZonas || !zonas.length) return;
+
+        var r = rectoDeImagen(img);
+
+        // La unión de todas las zonas, rellena, en un lienzo fuera de pantalla.
+        var union = document.createElement("canvas");
+        union.width = lienzo.width;
+        union.height = lienzo.height;
+        var uctx = union.getContext("2d");
+        uctx.fillStyle = "#f7c948";
+        zonas.forEach(function (z) {
+            uctx.fillRect(r.x + (z.x / 100) * r.ancho, r.y + (z.y / 100) * r.alto,
+                          (z.ancho / 100) * r.ancho, (z.alto / 100) * r.alto);
+        });
+
+        // Dilatada en 8 direcciones menos la original = sólo el perímetro.
+        [[-2, 0], [2, 0], [0, -2], [0, 2], [-2, -2], [-2, 2], [2, -2], [2, 2]].forEach(function (d) {
+            ctx.drawImage(union, d[0], d[1]);
+        });
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.drawImage(union, 0, 0);
+        ctx.globalCompositeOperation = "source-over";
+    }
+
+    var btnZonas = document.getElementById("monZonas");
+    if (btnZonas) {
+        btnZonas.classList.toggle("active", verZonas);
+        btnZonas.addEventListener("click", function () {
+            verZonas = !verZonas;
+            localStorage.setItem("ivz.monitoreo.zonas", verZonas ? "1" : "0");
+            btnZonas.classList.toggle("active", verZonas);
+            render();
+        });
+    }
+
+    window.addEventListener("resize", function () {
+        grid.querySelectorAll(".mon-cell").forEach(function (cell) {
+            var img = cell.querySelector("img[data-camara]");
+            var lienzo = cell.querySelector(".mon-cobertura");
+            if (img && lienzo && lienzo.camRef) dibujarCobertura(cell, img, lienzo.camRef);
+        });
+    });
+
+    /* ---------- Chips de modelos por cámara: ver y conmutar reconocimientos ---------- */
+
+    var MODELOS = [
+        { campo: "reconoceRostros", clave: "rostros", letra: "R", nombre: "Rostros" },
+        { campo: "leeMatriculas", clave: "matriculas", letra: "M", nombre: "Matrículas" },
+        { campo: "detectaObjetos", clave: "objetos", letra: "O", nombre: "Objetos" },
+        { campo: "leeTextos", clave: "textos", letra: "T", nombre: "Textos" },
+    ];
+
+    function chipsDeModelos(cam) {
+        var caja = document.createElement("div");
+        caja.className = "mon-modelos";
+
+        MODELOS.forEach(function (m) {
+            var chip = document.createElement("button");
+            chip.type = "button";
+            chip.className = "mon-chip" + (cam[m.campo] ? " activo" : "");
+            chip.textContent = m.letra;
+
+            function titulo() {
+                chip.title = m.nombre + ": " + (cam[m.campo] ? "activado" : "apagado") + " (clic para cambiar)";
+            }
+            titulo();
+
+            chip.addEventListener("dblclick", function (e) { e.stopPropagation(); });
+            chip.addEventListener("click", function (e) {
+                e.stopPropagation();
+                if (chip.disabled) return;
+                chip.disabled = true;
+
+                var cuerpo = {};
+                cuerpo[m.clave] = !cam[m.campo];
+
+                fetch("/api/camaras/" + cam.id + "/reconocimientos", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(cuerpo),
+                })
+                    .then(function (r) {
+                        if (!r.ok) throw new Error("HTTP " + r.status);
+                        return r.json();
+                    })
+                    .then(function (res) {
+                        cam.reconoceRostros = res.rostros;
+                        cam.leeMatriculas = res.matriculas;
+                        cam.detectaObjetos = res.objetos;
+                        cam.leeTextos = res.textos;
+                        chip.classList.toggle("activo", cam[m.campo]);
+                        titulo();
+                    })
+                    .catch(function () {
+                        chip.title = m.nombre + ": no se pudo cambiar (¿sesión de administrador?)";
+                    })
+                    .finally(function () { chip.disabled = false; });
+            });
+
+            caja.appendChild(chip);
+        });
+
+        return caja;
+    }
 
     /* ---------- Edición de la vista: qué cámara va en cada recuadro ---------- */
 

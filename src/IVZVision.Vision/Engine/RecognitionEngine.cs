@@ -170,6 +170,16 @@ public sealed class RecognitionEngine : IDisposable
     private readonly List<string> _missingModelFiles = new();
 
     /// <summary>
+    /// Un análisis que revienta pide recargar los modelos en vez de dejar el detector
+    /// marcado como muerto para siempre: la mayoría de estos fallos (un tropiezo del
+    /// proveedor DirectML al arrancar, una sesión en mal estado) se curan recargando.
+    /// </summary>
+    private volatile bool _recargaPedida;
+
+    private bool RecargaPendiente()
+        => _recargaPedida && DateTimeOffset.UtcNow - _lastRetryAt > TimeSpan.FromSeconds(30);
+
+    /// <summary>
     /// Un modelo que faltaba ya está en disco (p. ej. recién descargado): merece la
     /// pena recargar sin reiniciar la aplicación. Se consulta con _gate tomado.
     /// </summary>
@@ -185,7 +195,7 @@ public sealed class RecognitionEngine : IDisposable
         // así que no debe tocar el semáforo de inferencia.
         lock (_gate)
         {
-            if (_loaded && !ConvieneReintentar()) return Status;
+            if (_loaded && !ConvieneReintentar() && !RecargaPendiente()) return Status;
         }
 
         // Hay que cargar o recargar. Primero el semáforo de inferencia y después el
@@ -198,10 +208,12 @@ public sealed class RecognitionEngine : IDisposable
                 if (!_loaded)
                 {
                     Load();
+                    _recargaPedida = false;
                 }
-                else if (ConvieneReintentar())
+                else if (ConvieneReintentar() || RecargaPendiente())
                 {
                     _lastRetryAt = DateTimeOffset.UtcNow;
+                    _recargaPedida = false;
                     DisposeModels();
                     Load();
                 }
@@ -307,6 +319,7 @@ public sealed class RecognitionEngine : IDisposable
             {
                 Status.TextDetectorReady = false;
                 Status.TextError = ex.Message;
+                _recargaPedida = true;
             }
         }
     }
@@ -372,6 +385,7 @@ public sealed class RecognitionEngine : IDisposable
             {
                 Status.ObjectDetectorReady = false;
                 Status.ObjectError = ex.Message;
+                _recargaPedida = true;
             }
         }
     }
@@ -386,6 +400,16 @@ public sealed class RecognitionEngine : IDisposable
         try
         {
             var faces = detector.Detect(frame, rec.FaceDetectionThreshold, rec.FaceNmsThreshold, rec.MinFaceSize);
+
+            // El detector acaba de responder: si constaba como caído, ya no lo está.
+            if (!Status.FaceDetectorReady)
+            {
+                lock (_gate)
+                {
+                    Status.FaceDetectorReady = true;
+                    Status.FaceError = null;
+                }
+            }
 
             foreach (var face in faces)
             {
@@ -419,6 +443,7 @@ public sealed class RecognitionEngine : IDisposable
             {
                 Status.FaceDetectorReady = false;
                 Status.FaceError = ex.Message;
+                _recargaPedida = true;
             }
         }
     }

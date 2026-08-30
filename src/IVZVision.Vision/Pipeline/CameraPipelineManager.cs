@@ -24,6 +24,7 @@ public sealed class CameraPipelineManager : IHostedService, IDisposable
     private readonly DatabaseProvisioner _provisioner;
     private readonly FrameBroadcaster _broadcaster;
     private readonly IEnumerable<IObservationSink> _sinks;
+    private readonly SceneMemoryIndex _scene;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<CameraPipelineManager> _logger;
     private readonly string _contentRoot;
@@ -38,6 +39,7 @@ public sealed class CameraPipelineManager : IHostedService, IDisposable
     public CameraPipelineManager(IConfigStore config, RecognitionEngine engine, EventRecorder recorder,
                                  KnownSubjectsIndex index, DatabaseProvisioner provisioner,
                                  FrameBroadcaster broadcaster, IEnumerable<IObservationSink> sinks,
+                                 SceneMemoryIndex scene,
                                  ILoggerFactory loggerFactory, string contentRoot)
     {
         _config = config;
@@ -47,6 +49,7 @@ public sealed class CameraPipelineManager : IHostedService, IDisposable
         _provisioner = provisioner;
         _broadcaster = broadcaster;
         _sinks = sinks;
+        _scene = scene;
         _loggerFactory = loggerFactory;
         _logger = loggerFactory.CreateLogger<CameraPipelineManager>();
         _contentRoot = contentRoot;
@@ -213,7 +216,7 @@ public sealed class CameraPipelineManager : IHostedService, IDisposable
             {
                 var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
 
-                var worker = new CameraWorker(camera, _config, _engine, _recorder, _broadcaster, _sinks,
+                var worker = new CameraWorker(camera, _config, _engine, _recorder, _broadcaster, _sinks, _scene,
                                               snapshotsRoot, _loggerFactory.CreateLogger<CameraWorker>());
 
                 // Hilo dedicado: VideoCapture.Read es una llamada nativa bloqueante.

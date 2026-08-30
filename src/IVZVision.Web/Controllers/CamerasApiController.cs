@@ -1,4 +1,4 @@
-using IVZVision.Core.Configuration;
+﻿using IVZVision.Core.Configuration;
 using IVZVision.Core.Detection;
 using IVZVision.Vision.Pipeline;
 using Microsoft.AspNetCore.Mvc;
@@ -58,6 +58,11 @@ public class CamerasApiController : ControllerBase
                 reconoceRostros = c.EnableFaceRecognition,
                 leeMatriculas = c.EnablePlateRecognition,
                 detectaObjetos = c.EnableObjectDetection,
+                leeTextos = c.EnableTextReading,
+                zonas = c.Zones.Select(z => new
+                {
+                    x = z.XPercent, y = z.YPercent, ancho = z.WidthPercent, alto = z.HeightPercent,
+                }),
                 conectada = status?.Connected ?? false,
                 estado = status?.State ?? "Parada",
                 fps = status?.MeasuredFps ?? 0,
@@ -68,6 +73,42 @@ public class CamerasApiController : ControllerBase
         });
 
         return Ok(cameras);
+    }
+
+    public sealed record ReconocimientosRequest(bool? Rostros, bool? Matriculas, bool? Objetos, bool? Textos);
+
+    /// <summary>
+    /// Enciende o apaga los reconocimientos de una cámara desde el muro, sin pasar por
+    /// la pantalla de configuración. Sólo cambia lo que venga informado en el cuerpo.
+    /// </summary>
+    [HttpPost("{id:guid}/reconocimientos")]
+    [Microsoft.AspNetCore.Authorization.Authorize(Policy = "Administrador")]
+    public async Task<IActionResult> Reconocimientos(Guid id, [FromBody] ReconocimientosRequest cambios,
+                                                     CancellationToken ct)
+    {
+        if (_config.Current.FindCamera(id) is null)
+            return NotFound(new { error = "La cámara indicada no existe." });
+
+        var actualizado = await _config.UpdateAsync(cfg =>
+        {
+            var cam = cfg.FindCamera(id);
+            if (cam is null) return;
+
+            if (cambios.Rostros is bool r) cam.EnableFaceRecognition = r;
+            if (cambios.Matriculas is bool m) cam.EnablePlateRecognition = m;
+            if (cambios.Objetos is bool o) cam.EnableObjectDetection = o;
+            if (cambios.Textos is bool t) cam.EnableTextReading = t;
+        }, ct);
+
+        var cam2 = actualizado.FindCamera(id)!;
+        return Ok(new
+        {
+            ok = true,
+            rostros = cam2.EnableFaceRecognition,
+            matriculas = cam2.EnablePlateRecognition,
+            objetos = cam2.EnableObjectDetection,
+            textos = cam2.EnableTextReading,
+        });
     }
 
     /// <summary>Devuelve las últimas detecciones de la cámara indicada.</summary>

@@ -110,6 +110,15 @@ public sealed class RecognitionConfig
     /// </summary>
     public float FaceClusterAutoMergeSimilarity { get; set; } = 0.50f;
 
+    /// <summary>
+    /// Memoria de escena: los objetos quietos (libros, cajas…) se aprenden y dejan de
+    /// anunciarse mientras sigan en su sitio; se avisa cuando faltan o cuando vuelven.
+    /// </summary>
+    public bool SceneMemoryEnabled { get; set; } = true;
+
+    /// <summary>Segundos sin ver un objeto quieto antes de darlo por ausente.</summary>
+    public int SceneObjectMissingSeconds { get; set; } = 90;
+
     /// <summary>Tiempo de guarda específico para personas sin identificar (segundos).</summary>
     public int UnknownPersonCooldownSeconds { get; set; } = 300;
 

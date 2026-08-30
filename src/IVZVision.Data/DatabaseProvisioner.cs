@@ -104,6 +104,26 @@ BEGIN
     CREATE INDEX IX_FaceClusters_Numero ON FaceClusters (Numero);
 END
 
+IF OBJECT_ID('SceneObjects', 'U') IS NULL
+BEGIN
+    CREATE TABLE SceneObjects (
+        Id            int IDENTITY(1,1) NOT NULL CONSTRAINT PK_SceneObjects PRIMARY KEY,
+        CameraId      uniqueidentifier NOT NULL,
+        ObjectClass   nvarchar(60) NOT NULL,
+        XPercent      float NOT NULL,
+        YPercent      float NOT NULL,
+        WidthPercent  float NOT NULL,
+        HeightPercent float NOT NULL,
+        FirstSeenAt   datetime2 NOT NULL,
+        LastSeenAt    datetime2 NOT NULL,
+        TimesSeen     int NOT NULL,
+        IsPresent     bit NOT NULL,
+        LastNeighbors nvarchar(400) NULL,
+        CropBase64    nvarchar(max) NULL
+    );
+    CREATE INDEX IX_SceneObjects_CameraId ON SceneObjects (CameraId);
+END
+
 IF OBJECT_ID('ObjectLabels', 'U') IS NULL
 BEGIN
     CREATE TABLE ObjectLabels (
