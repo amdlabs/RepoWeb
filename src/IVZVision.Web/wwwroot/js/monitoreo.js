@@ -13,6 +13,22 @@
     var LAYOUTS = { 1: [1, 1], 4: [2, 2], 6: [3, 2], 8: [4, 2], 12: [4, 3] };
 
     var camaras = [];
+
+    // El diálogo de etiquetado vive en el módulo de paneles; los recuadros sobre el
+    // vídeo lo usan a través de este enganche.
+    var abrirDialogoDeteccion = null;
+
+    /* ---------- Filtro de los paneles por cámara ---------- */
+    var filtroPanel = document.getElementById("monFiltroPanel");
+
+    function aplicarFiltroPaneles() {
+        var id = filtroPanel ? filtroPanel.value : "";
+        Array.prototype.slice.call(document.querySelectorAll(".feed .hit")).forEach(function (el) {
+            el.classList.toggle("oculto", !!id && el.dataset.camaraId !== id);
+        });
+    }
+
+    if (filtroPanel) filtroPanel.addEventListener("change", aplicarFiltroPaneles);
     var layout = Number(localStorage.getItem("ivz.monitoreo.layout")) || 4;
     if (!LAYOUTS[layout]) layout = 4;
     var pagina = 0;
@@ -366,6 +382,17 @@
             cell.appendChild(img);
             cell.appendChild(label);
 
+            // Acceso directo a la configuración de esa cámara: fps de análisis y
+            // reconocimientos activos, para darle más recursos a la de matrículas.
+            var ajustes = document.createElement("a");
+            ajustes.className = "mon-config";
+            ajustes.href = "/Configuracion/Camara?id=" + cam.id;
+            ajustes.title = "Configurar esta cámara (fps de análisis, reconocimientos)";
+            ajustes.textContent = "⚙";
+            ajustes.addEventListener("click", function (e) { e.stopPropagation(); });
+            ajustes.addEventListener("dblclick", function (e) { e.stopPropagation(); });
+            cell.appendChild(ajustes);
+
             // Doble clic: maximizar esa cámara sobre el muro (Esc o ✕ para volver).
             cell.addEventListener("dblclick", function () { maximizar(cam); });
 
@@ -410,6 +437,15 @@
         .then(function (r) { return r.json(); })
         .then(function (data) {
             camaras = (data || []).filter(function (c) { return c.habilitada; });
+
+            if (filtroPanel) {
+                camaras.forEach(function (c) {
+                    var op = document.createElement("option");
+                    op.value = c.id;
+                    op.textContent = c.nombre;
+                    filtroPanel.appendChild(op);
+                });
+            }
             if (!camaras.length) {
                 vacio.hidden = false;
                 return;
@@ -542,20 +578,27 @@
         marca.style.width = ((d.cajaAncho / 100) * r.ancho) + "px";
         marca.style.height = ((d.cajaAlto / 100) * r.alto) + "px";
 
-        // El nombre sólo aporta cuando se sabe de quién es.
-        if (d.conocido && d.etiqueta) {
+        // El nombre se muestra cuando se sabe de quién es; en matrículas, el texto leído.
+        if (d.etiqueta && (d.conocido || d.tipo === "matricula")) {
             var nombre = document.createElement("span");
             nombre.className = "mon-marca-nombre";
             nombre.textContent = d.etiqueta;
             marca.appendChild(nombre);
         }
 
+        // Un clic sobre el recuadro abre el formulario de etiquetado de esa detección.
+        marca.addEventListener("click", function (e) {
+            e.stopPropagation();
+            if (abrirDialogoDeteccion) abrirDialogoDeteccion(d);
+        });
+        marca.addEventListener("dblclick", function (e) { e.stopPropagation(); });
+
         capa.appendChild(marca);
 
-        // Cada marca dura lo justo: la siguiente vuelta del análisis vuelve a pintar.
+        // Dura lo justo para verla y poder clicarla; la siguiente vuelta repinta.
         setTimeout(function () {
             if (marca.parentNode) marca.parentNode.removeChild(marca);
-        }, 2500);
+        }, 4000);
     }
 
     /* ---------- Paneles de detecciones en tiempo real (SignalR) ---------- */
@@ -608,6 +651,7 @@
             body.appendChild(meta);
 
             var flag = document.createElement("div");
+            flag.className = "hit-flag";
             flag.innerHTML = badge(hit);
 
             item.appendChild(img);
@@ -720,17 +764,67 @@
             });
         }
 
+        /// La misma persona no llena la lista: su fila se actualiza y sube arriba.
+        function claveDeRostro(hit) {
+            if (hit.tipo !== "rostro") return null;
+            if (hit.grupoId) return "g" + hit.grupoId;
+            if (hit.conocido && hit.etiqueta) return "n" + hit.etiqueta.toLowerCase();
+            return null;
+        }
+
+        function actualizarFila(item, hit) {
+            item.dataset.hit = JSON.stringify(hit);
+            item.dataset.veces = (parseInt(item.dataset.veces, 10) || 1) + 1;
+
+            var img = item.querySelector("img");
+            if (img && hit.miniatura) {
+                img.src = hit.miniatura;
+                if (hit.escena) img.dataset.escena = hit.escena;
+            }
+
+            var titulo = item.querySelector(".hit-title");
+            if (titulo && hit.etiqueta) titulo.textContent = hit.etiqueta;
+
+            var meta = item.querySelector(".hit-meta");
+            if (meta) meta.textContent = [hit.hora, hit.camara].filter(Boolean).join(" · ")
+                + " · vista ×" + item.dataset.veces;
+
+            var flag = item.querySelector(".hit-flag");
+            if (flag) flag.innerHTML = badge(hit);
+        }
+
         function push(hit) {
             var target = hit.tipo === "matricula" ? feedPlates
                        : (hit.tipo === "objeto" || hit.tipo === "texto") ? feedObjects
                        : feedFaces;
             if (!target) return;
+
+            var clave = claveDeRostro(hit);
+            if (clave) {
+                var previa = target.querySelector('.hit[data-clave="' + clave + '"]');
+                if (previa) {
+                    // Misma persona otra vez: se refresca su única fila (foto, hora,
+                    // contador) y sube arriba, conservando la casilla marcada.
+                    actualizarFila(previa, hit);
+                    target.insertBefore(previa, target.firstChild);
+                    return;
+                }
+            }
+
             var item = render(hit);
             item.dataset.hit = JSON.stringify(hit);
-            if (!hit.conocido && hit.tipo !== "texto") {
+            item.dataset.camaraId = hit.camaraId;
+            if (clave) item.dataset.clave = clave;
+
+            // Matrículas y objetos siempre se pueden etiquetar con un clic.
+            if (hit.tipo !== "texto" && (!hit.conocido || hit.tipo === "matricula" || hit.tipo === "objeto")) {
                 item.style.cursor = "pointer";
                 item.title = "Clic para completar los datos de esta detección";
             }
+
+            if (filtroPanel && filtroPanel.value && hit.camaraId !== filtroPanel.value)
+                item.classList.add("oculto");
+
             target.insertBefore(item, target.firstChild);
             while (target.children.length > MAX_ITEMS) target.removeChild(target.lastChild);
         }
@@ -834,14 +928,17 @@
             document.body.appendChild(overlay);
         }
 
+        // Los recuadros dibujados sobre el vídeo abren este mismo formulario.
+        abrirDialogoDeteccion = abrirDialogo;
+
         document.addEventListener("click", function (e) {
             var item = e.target.closest(".hit");
             if (!item || !item.dataset.hit) return;
             var hit = JSON.parse(item.dataset.hit);
             if (hit.tipo === "texto") return;
-            // Las matrículas siempre abren el diálogo (para ver la placa generada);
-            // el resto, sólo si aún no están identificados.
-            if (hit.conocido && hit.tipo !== "matricula") return;
+            // Matrículas y objetos se etiquetan siempre con un clic; los rostros
+            // identificados no, porque su flujo es el de los grupos.
+            if (hit.conocido && hit.tipo !== "matricula" && hit.tipo !== "objeto") return;
             abrirDialogo(hit);
         });
 

@@ -1000,3 +1000,31 @@ a.dash-card:hover {
 
 .mon-editando .mon-cell { outline: 1px dashed var(--border); outline-offset: -2px; }
 .mon-editando .mon-cell img { opacity: .55; }
+
+
+/* ---- Filtro de paneles, engranaje por cámara y recuadros clicables ---- */
+.feed .hit.oculto { display: none; }
+
+.mon-config {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 4;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, .55);
+    color: #fff;
+    text-decoration: none;
+    font-size: 13px;
+    opacity: 0;
+    transition: opacity .12s;
+}
+
+.mon-cell:hover .mon-config { opacity: 1; }
+@media (hover: none) { .mon-config { opacity: .8; } }
+
+.mon-marca { pointer-events: auto; cursor: pointer; }

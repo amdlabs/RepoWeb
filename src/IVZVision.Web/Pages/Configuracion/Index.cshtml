@@ -282,6 +282,14 @@
                     en varios grupos; súbalo si se mezclan personas distintas.
                 </div>
             </div>
+            <div class="field">
+                <label asp-for="Recognition.FaceClusterAutoMergeSimilarity">Fusión automática de grupos (0-1)</label>
+                <input asp-for="Recognition.FaceClusterAutoMergeSimilarity" type="number" step="0.001" min="0.05" max="0.99" />
+                <div class="hint">
+                    Si dos grupos llegan a parecerse por encima de este valor, se fusionan solos
+                    y su cara promedio se recalcula. 0,50 es un valor prudente.
+                </div>
+            </div>
             <div class="grid grid-3">
                 <div class="field">
                     <label asp-for="Recognition.FaceNmsThreshold">IoU (NMS)</label>

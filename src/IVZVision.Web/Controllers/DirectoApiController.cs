@@ -1,4 +1,4 @@
-using IVZVision.Core.Configuration;
+﻿using IVZVision.Core.Configuration;
 using IVZVision.Data;
 using IVZVision.Data.Entities;
 using IVZVision.Vision.Pipeline;
@@ -72,7 +72,7 @@ public class DirectoApiController : ControllerBase
                 {
                     e.Id, e.Kind, e.CameraId, e.CameraName, e.OccurredAt, e.Label, e.PlateText,
                     e.ObjectClass, e.IsKnown, e.IsAuthorized, e.DetectionScore, e.MatchScore,
-                    e.OcrConfidence, e.CropBase64, e.CropPath,
+                    e.OcrConfidence, e.CropBase64, e.CropPath, e.FullFramePath, e.FaceClusterId,
                 })
                 .ToListAsync(ct);
 
@@ -105,7 +105,9 @@ public class DirectoApiController : ControllerBase
                             ? $"/media/recorte?path={Uri.EscapeDataString(e.CropPath)}"
                             : null,
                     e.Id,
-                    e.ObjectClass))
+                    e.ObjectClass,
+                    e.FullFramePath is null ? null : $"/media/recorte?path={Uri.EscapeDataString(e.FullFramePath)}",
+                    GrupoId: e.FaceClusterId > 0 ? e.FaceClusterId : null))
                 .ToList();
         }
         catch (Exception)

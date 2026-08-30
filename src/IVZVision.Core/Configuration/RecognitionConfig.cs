@@ -103,6 +103,13 @@ public sealed class RecognitionConfig
     /// </summary>
     public float FaceClusterSimilarity { get; set; } = 0.36f;
 
+    /// <summary>
+    /// Parecido entre dos grupos de rostros a partir del cual se fusionan solos:
+    /// si dos fichas se parecen tanto, son la misma persona y no tiene sentido
+    /// esperar a que alguien las una a mano.
+    /// </summary>
+    public float FaceClusterAutoMergeSimilarity { get; set; } = 0.50f;
+
     /// <summary>Tiempo de guarda específico para personas sin identificar (segundos).</summary>
     public int UnknownPersonCooldownSeconds { get; set; } = 300;
 

@@ -97,6 +97,19 @@ public sealed class FaceClusterIndex
                     await db.SaveChangesAsync(ct).ConfigureAwait(false);
                 }
 
+                // Cada cara nueva mueve un poco el centroide; si con ese movimiento el
+                // grupo quedó pegado a otro, es que siempre fueron la misma persona:
+                // se fusionan solos y la cara promedio se recalcula ponderada.
+                var autofusion = Math.Clamp(rec.FaceClusterAutoMergeSimilarity, umbral, 0.99f);
+                var gemelo = BuscarMasParecido(mejor, autofusion);
+                if (gemelo is not null)
+                {
+                    _logger.LogInformation("Grupos {A} y {B} superan el {Umbral:P0} de parecido: se fusionan solos",
+                                           mejor.Id, gemelo.Id, autofusion);
+                    var superviviente = await MergeLockedAsync(new[] { mejor.Id, gemelo.Id }, ct).ConfigureAwait(false);
+                    if (superviviente is not null) return superviviente;
+                }
+
                 return mejor.Id;
             }
 
@@ -144,6 +157,38 @@ public sealed class FaceClusterIndex
         if (ids.Count < 2) return ids.Count == 1 ? ids[0] : null;
 
         await _gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            return await MergeLockedAsync(ids, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>El grupo que más se parece a éste por encima del umbral, o null. Exige el cerrojo tomado.</summary>
+    private Entry? BuscarMasParecido(Entry grupo, float umbral)
+    {
+        Entry? mejor = null;
+        var mejorParecido = umbral;
+
+        foreach (var c in _clusters)
+        {
+            if (c.Id == grupo.Id || c.Centroid.Length != grupo.Centroid.Length) continue;
+
+            float dot = 0;
+            for (var i = 0; i < grupo.Centroid.Length; i++) dot += grupo.Centroid[i] * c.Centroid[i];
+
+            if (dot >= mejorParecido) { mejorParecido = dot; mejor = c; }
+        }
+
+        return mejor;
+    }
+
+    /// <summary>Núcleo de la fusión. Exige tener tomado <see cref="_gate"/>.</summary>
+    private async Task<int?> MergeLockedAsync(IReadOnlyList<int> ids, CancellationToken ct)
+    {
         try
         {
             await using var db = await _dbFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
@@ -206,16 +251,23 @@ public sealed class FaceClusterIndex
             _logger.LogInformation("Grupos de rostros unificados: {Absorbidos} → «{Destino}» ({Fotos} muestras)",
                                    string.Join(", ", absorbidos), destino.DisplayName, total);
 
+            // Si el grupo superviviente ya tiene nombre, el histórico absorbido lo hereda.
+            if (destino.PersonId is int dueno)
+            {
+                await db.RecognitionEvents
+                    .Where(e => e.FaceClusterId == destino.Id && !e.IsKnown)
+                    .ExecuteUpdateAsync(u => u.SetProperty(e => e.Label, destino.DisplayName)
+                                              .SetProperty(e => e.PersonId, (int?)dueno)
+                                              .SetProperty(e => e.IsKnown, true), ct)
+                    .ConfigureAwait(false);
+            }
+
             return destino.Id;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "No se pudieron unificar los grupos de rostros");
             return null;
-        }
-        finally
-        {
-            _gate.Release();
         }
     }
 
