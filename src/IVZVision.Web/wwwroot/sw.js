@@ -1,7 +1,7 @@
-/* Service worker mínimo para que la aplicación sea instalable (Chrome/Edge/Safari).
+﻿/* Service worker mínimo para que la aplicación sea instalable (Chrome/Edge/Safari).
    No cachea el vídeo ni la API: todo pasa directo a la red; solo los estáticos
    básicos quedan en caché para abrir la app al instante. */
-const CACHE = "cerbero-v2";
+const CACHE = "cerbero-v3";
 const ESTATICOS = ["/css/site.css", "/manifest.webmanifest", "/iconos/icono-192.png", "/iconos/icono-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -48,4 +48,34 @@ self.addEventListener("fetch", (e) => {
                 })
                 .catch(() => caches.match(e.request)));
     }
+});
+
+
+/* ---- Avisos push: cada rostro visto llega como notificación del sistema ---- */
+self.addEventListener("push", (e) => {
+    let d = {};
+    try { d = e.data ? e.data.json() : {}; } catch (err) { /* aviso sin datos */ }
+
+    e.waitUntil(self.registration.showNotification(d.titulo || "Cerbero Garage", {
+        body: d.cuerpo || "",
+        icon: d.icono || "/iconos/icono-192.png",
+        image: d.imagen || undefined,
+        badge: "/iconos/icono-192.png",
+        tag: d.tag || undefined,   // el mismo sujeto sustituye su aviso anterior
+        renotify: false,
+        data: { url: d.url || "/" },
+    }));
+});
+
+/* Tocar el aviso abre la foto completa y el vídeo en vivo de esa cámara. */
+self.addEventListener("notificationclick", (e) => {
+    e.notification.close();
+    const url = (e.notification.data && e.notification.data.url) || "/";
+
+    e.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then((ventanas) => {
+        for (const v of ventanas) {
+            if ("focus" in v) { v.navigate(url); return v.focus(); }
+        }
+        return clients.openWindow(url);
+    }));
 });

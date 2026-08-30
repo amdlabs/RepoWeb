@@ -1,0 +1,59 @@
+﻿@page
+@model NotificacionModel
+@{
+    ViewData["Title"] = "Aviso";
+}
+
+@if (Model.Registro is null)
+{
+    <h1>Aviso</h1>
+    <div class="alert alert-error">El aviso ya no existe o fue borrado del histórico.</div>
+}
+else
+{
+    var e = Model.Registro;
+    var local = e.OccurredAt.ToLocalTime();
+
+    <h1>@(e.IsKnown ? $"Rostro conocido: {e.Label}" : "Rostro sin identificar")</h1>
+    <p class="subtitle">@e.CameraName · @local.ToString("dd/MM/yyyy HH:mm:ss")</p>
+
+    <div class="grid grid-2">
+        <div class="card">
+            <h2>Lo captado</h2>
+            <div class="notif-fotos">
+                @if (!string.IsNullOrEmpty(e.CropBase64))
+                {
+                    <img class="notif-cara" src="data:image/jpeg;base64,@e.CropBase64" alt="Rostro" />
+                }
+                else if (!string.IsNullOrEmpty(e.CropPath))
+                {
+                    <img class="notif-cara" src="/media/recorte?path=@Uri.EscapeDataString(e.CropPath)" alt="Rostro" />
+                }
+                @if (!string.IsNullOrEmpty(e.FullFramePath))
+                {
+                    <img class="notif-escena" src="/media/recorte?path=@Uri.EscapeDataString(e.FullFramePath)"
+                         alt="Escena completa" />
+                }
+            </div>
+            <div class="hint" style="margin-top:8px">
+                Confianza del detector: @((int)Math.Round(e.DetectionScore * 100)) %
+                @if (e.IsKnown)
+                {
+                    <text>· similitud: @((int)Math.Round(e.MatchScore * 100)) %</text>
+                }
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>La cámara ahora</h2>
+            <img class="notif-vivo" src="/stream/@e.CameraId" alt="@e.CameraName en vivo" />
+            <div class="actions" style="margin-top:10px">
+                <a class="btn small secondary" asp-page="/Monitoreo">Abrir el muro completo</a>
+                @if (!e.IsKnown)
+                {
+                    <a class="btn small" asp-page="/Personas">Ponerle nombre en Rostros agrupados</a>
+                }
+            </div>
+        </div>
+    </div>
+}

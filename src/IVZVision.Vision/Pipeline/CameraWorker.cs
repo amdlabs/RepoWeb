@@ -37,6 +37,9 @@ public sealed class CameraWorker
     /// <summary>1 mientras hay un análisis de esta cámara en curso (el vídeo nunca lo espera).</summary>
     private int _analysisBusy;
 
+    /// <summary>Inferencias completadas en la ventana de medición de fps.</summary>
+    private int _analysesInWindow;
+
     /// <summary>Rostros desconocidos ya registrados hace poco (embedding normalizado + última vez).</summary>
     private readonly List<UnknownFaceMemory> _recentUnknownFaces = new();
     private readonly object _unknownFacesGate = new();
@@ -227,6 +230,9 @@ public sealed class CameraWorker
                 if (fpsClock.Elapsed.TotalSeconds >= 2)
                 {
                     Status.MeasuredFps = Math.Round(framesInWindow / fpsClock.Elapsed.TotalSeconds, 1);
+                    // El ritmo real de análisis se mide igual: inferencias hechas en la ventana.
+                    Status.MeasuredAnalysisFps = Math.Round(
+                        Interlocked.Exchange(ref _analysesInWindow, 0) / fpsClock.Elapsed.TotalSeconds, 1);
                     framesInWindow = 0;
                     fpsClock.Restart();
                     await NotifyStatusAsync(ct).ConfigureAwait(false);
@@ -251,6 +257,7 @@ public sealed class CameraWorker
                         {
                             await AnalyzeFrameAsync(snapshot, rec, ct).ConfigureAwait(false);
                             Status.FramesProcessed++;
+                            Interlocked.Increment(ref _analysesInWindow);
                         }
                         catch (OperationCanceledException) { /* parada de la cámara */ }
                         catch (Exception ex)

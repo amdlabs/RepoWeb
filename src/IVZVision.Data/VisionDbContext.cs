@@ -18,6 +18,7 @@ public class VisionDbContext : DbContext
     public DbSet<PlateCorrection> PlateCorrections => Set<PlateCorrection>();
     public DbSet<FaceCluster> FaceClusters => Set<FaceCluster>();
     public DbSet<SceneObject> SceneObjects => Set<SceneObject>();
+    public DbSet<PushSubscriptionEntity> PushSubscriptions => Set<PushSubscriptionEntity>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -88,6 +89,12 @@ public class VisionDbContext : DbContext
         {
             e.ToTable("SceneObjects");
             e.HasIndex(o => o.CameraId);
+        });
+
+        b.Entity<PushSubscriptionEntity>(e =>
+        {
+            e.ToTable("PushSubscriptions");
+            e.HasIndex(p => p.Endpoint).IsUnique();
         });            e.Property(f => f.Centroid).HasColumnType("varbinary(max)");
             e.HasIndex(f => f.Numero);
         });

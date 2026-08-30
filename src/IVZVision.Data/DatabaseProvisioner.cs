@@ -104,6 +104,20 @@ BEGIN
     CREATE INDEX IX_FaceClusters_Numero ON FaceClusters (Numero);
 END
 
+IF OBJECT_ID('PushSubscriptions', 'U') IS NULL
+BEGIN
+    CREATE TABLE PushSubscriptions (
+        Id        int IDENTITY(1,1) NOT NULL CONSTRAINT PK_PushSubscriptions PRIMARY KEY,
+        Endpoint  nvarchar(500) NOT NULL,
+        P256dh    nvarchar(200) NOT NULL,
+        Auth      nvarchar(100) NOT NULL,
+        Username  nvarchar(100) NULL,
+        CreatedAt datetime2 NOT NULL,
+        FailCount int NOT NULL
+    );
+    CREATE UNIQUE INDEX IX_PushSubscriptions_Endpoint ON PushSubscriptions (Endpoint);
+END
+
 IF OBJECT_ID('SceneObjects', 'U') IS NULL
 BEGIN
     CREATE TABLE SceneObjects (

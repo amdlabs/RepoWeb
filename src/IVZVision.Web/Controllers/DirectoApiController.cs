@@ -42,7 +42,8 @@ public class DirectoApiController : ControllerBase
             s.CameraId.ToString(), s.Name, s.Connected, s.State, s.LastError,
             s.MeasuredFps,
             s.FrameWidth > 0 ? $"{s.FrameWidth}×{s.FrameHeight}" : "—",
-            s.FramesProcessed)).ToList();
+            s.FramesProcessed,
+            s.MeasuredAnalysisFps)).ToList();
 
         // El búfer en memoria se vacía al reiniciar el servicio; si está corto se
         // completa con el histórico para que los paneles nunca aparezcan vacíos.

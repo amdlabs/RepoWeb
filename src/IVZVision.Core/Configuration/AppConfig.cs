@@ -17,6 +17,10 @@ public sealed class AppConfig
     public StorageConfig Storage { get; set; } = new();
 
     public SecurityConfig Security { get; set; } = new();
+    public PushConfig Push { get; set; } = new();
+
+    /// <summary>Vista del muro por usuario (qué cámara en cada recuadro).</summary>
+    public List<WallView> WallViews { get; set; } = new();
 
     /// <summary>
     /// Motor de reconocimiento encendido. Es persistente: si se apaga desde la web,
@@ -45,4 +49,12 @@ public static class ConfigJson
         PropertyNameCaseInsensitive = true,
         Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
     };
+}
+
+/// <summary>Distribución del muro guardada por un usuario, para que le siga entre dispositivos.</summary>
+public sealed class WallView
+{
+    public string Username { get; set; } = "";
+    public int Layout { get; set; }
+    public List<string> CameraOrder { get; set; } = new();
 }

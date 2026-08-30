@@ -136,6 +136,9 @@ public sealed class CameraStatus
     public string? LastError { get; set; }
     public DateTimeOffset? LastFrameAt { get; set; }
     public double MeasuredFps { get; set; }
+
+    /// <summary>Fotogramas realmente analizados por segundo (inferencia), aparte del vídeo.</summary>
+    public double MeasuredAnalysisFps { get; set; }
     public int FrameWidth { get; set; }
     public int FrameHeight { get; set; }
     public long FramesProcessed { get; set; }

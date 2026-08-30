@@ -66,6 +66,7 @@ public class CamerasApiController : ControllerBase
                 conectada = status?.Connected ?? false,
                 estado = status?.State ?? "Parada",
                 fps = status?.MeasuredFps ?? 0,
+                fpsAnalisis = status?.MeasuredAnalysisFps ?? 0,
                 resolucion = status is { FrameWidth: > 0 } ? $"{status.FrameWidth}x{status.FrameHeight}" : null,
                 ultimoFotograma = status?.LastFrameAt,
                 error = status?.LastError,

@@ -36,6 +36,7 @@
             {
                 <a asp-page="/Configuracion/Index" class="@(Active("/Configuracion") || Active("/Usuarios") ? "active" : "")">Configuración</a>
             }
+            <button class="btn small secondary" type="button" id="btnAvisosPush" hidden>🔕</button>
         </nav>
         <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
             @* Aparece solo si el navegador permite instalar la aplicación. *@
@@ -72,6 +73,7 @@
     <script src="~/js/lightbox.js" asp-append-version="true" defer></script>
     <script src="~/lib/signalr/signalr.min.js"></script>
     <script src="~/js/avisos.js" asp-append-version="true" defer></script>
+    <script src="~/js/push-avisos.js" asp-append-version="true" defer></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

@@ -72,6 +72,8 @@ builder.Services.AddSingleton(sp => new RecognitionEngine(
 
 builder.Services.AddSingleton<FrameBroadcaster>();
 builder.Services.AddSingleton<IObservationSink, SignalRObservationSink>();
+builder.Services.AddSingleton<PushService>();
+builder.Services.AddSingleton<IObservationSink, PushObservationSink>();
 
 builder.Services.AddSingleton(sp => new CameraPipelineManager(
     sp.GetRequiredService<IConfigStore>(),

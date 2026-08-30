@@ -31,6 +31,7 @@
     if (filtroPanel) filtroPanel.addEventListener("change", aplicarFiltroPaneles);
     var layout = Number(localStorage.getItem("ivz.monitoreo.layout")) || 4;
     if (!LAYOUTS[layout]) layout = 4;
+    // Se rellena desde el servidor antes de pintar (véase el arranque, más abajo).
     var pagina = 0;
 
     /* ---------- Carrusel: rotación automática de páginas ---------- */
@@ -114,6 +115,21 @@
             if (lista) localStorage.setItem(CLAVE_VISTA, JSON.stringify(lista));
             else localStorage.removeItem(CLAVE_VISTA);
         } catch (e) { /* sin memoria: la vista dura lo que la sesión */ }
+        guardarVistaServidor();
+    }
+
+    // La vista se guarda también en el servidor, por usuario, para que le siga entre
+    // dispositivos: lo que coloque en un equipo lo encuentra igual en otro.
+    var guardarVistaPendiente = null;
+    function guardarVistaServidor() {
+        if (guardarVistaPendiente) clearTimeout(guardarVistaPendiente);
+        guardarVistaPendiente = setTimeout(function () {
+            fetch("/api/vista-muro", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ layout: layout, camaras: vistaGuardada() || [] }),
+            }).catch(function () { /* sin conexión: queda al menos en este navegador */ });
+        }, 800);
     }
 
     /// Cámaras en el orden en que deben verse; los huecos vacíos son null.
@@ -284,6 +300,8 @@
                 if (salida && salida.catch) salida.catch(function () { });
             }
 
+            if (window.__monOverlayUnhooks && overlay._detHandler)
+                window.__monOverlayUnhooks(overlay._detHandler, overlay._estadoHandler);
             overlay.remove();
             document.removeEventListener("keydown", onKey);
             document.removeEventListener("fullscreenchange", onFullscreenChange);
@@ -303,8 +321,58 @@
         document.addEventListener("keydown", onKey);
         document.addEventListener("fullscreenchange", onFullscreenChange);
 
+        // Panel con toda la info de la cámara y sus últimas detecciones en vivo.
+        var info = document.createElement("div");
+        info.className = "mon-overlay-info";
+        info.innerHTML = "<h3>" + cam.nombre + "</h3>"
+            + '<div class="mon-oi-fps hint">midiendo fps…</div>'
+            + '<div class="mon-oi-estado hint"></div>'
+            + '<div class="mon-oi-modelos"></div>'
+            + '<h4>Últimas detecciones</h4>'
+            + '<div class="mon-oi-hits"></div>';
+
+        var oiModelos = info.querySelector(".mon-oi-modelos");
+        [["reconoceRostros", "Rostros"], ["leeMatriculas", "Matrículas"],
+         ["detectaObjetos", "Objetos"], ["leeTextos", "Textos"]].forEach(function (m) {
+            var chip = document.createElement("span");
+            chip.className = "mon-oi-chip" + (cam[m[0]] ? " activo" : "");
+            chip.textContent = m[1];
+            oiModelos.appendChild(chip);
+        });
+
+        var oiHits = info.querySelector(".mon-oi-hits");
+        var oiFps = info.querySelector(".mon-oi-fps");
+        var oiEstado = info.querySelector(".mon-oi-estado");
+
+        function pintarEstadoCam(est) {
+            oiFps.textContent = formatearFps(est.fps, est.fpsAnalisis);
+            oiEstado.textContent = (est.conectada ? "Conectada" : "Sin señal")
+                + (est.resolucion ? " · " + est.resolucion : "");
+        }
+        pintarEstadoCam({ fps: cam.fps, fpsAnalisis: cam.fpsAnalisis, conectada: cam.conectada, resolucion: cam.resolucion });
+
+        function detOverlay(hit) {
+            if (hit.camaraId !== cam.id) return;
+            var fila = document.createElement("div");
+            fila.className = "mon-oi-hit";
+            var img = document.createElement("img");
+            img.src = hit.miniatura || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E";
+            var txt = document.createElement("span");
+            txt.textContent = (hit.etiqueta || hit.tipo) + " · " + hit.hora;
+            fila.appendChild(img);
+            fila.appendChild(txt);
+            oiHits.insertBefore(fila, oiHits.firstChild);
+            while (oiHits.children.length > 12) oiHits.removeChild(oiHits.lastChild);
+        }
+
+        // Se engancha a los mismos eventos SignalR del módulo de paneles.
+        overlay._detHandler = detOverlay;
+        overlay._estadoHandler = function (est) { if (est.camaraId === cam.id) pintarEstadoCam(est); };
+        if (window.__monOverlayHooks) window.__monOverlayHooks(overlay._detHandler, overlay._estadoHandler);
+
         overlay.appendChild(video);
         overlay.appendChild(titulo);
+        overlay.appendChild(info);
         overlay.appendChild(cerrar);
         document.body.appendChild(overlay);
 
@@ -319,9 +387,21 @@
         }
     }
 
+    // El muro se ajusta a la pantalla: las filas reparten la altura disponible y no
+    // hace falta desplazarse para ver todas las cámaras. Bajo el muro siguen los
+    // paneles de detecciones, a los que se llega desplazando el contenido.
+    function ajustarAltoMuro() {
+        var rows = LAYOUTS[layout][1];
+        grid.style.gridTemplateRows = "repeat(" + rows + ", 1fr)";
+        var top = grid.getBoundingClientRect().top;
+        var alto = Math.max(220, window.innerHeight - top - 16);
+        grid.style.height = alto + "px";
+    }
+
     function render() {
         var cols = LAYOUTS[layout][0];
         grid.style.gridTemplateColumns = "repeat(" + cols + ", 1fr)";
+        ajustarAltoMuro();
         grid.innerHTML = "";
 
         pagina = Math.min(pagina, totalPaginas() - 1);
@@ -384,6 +464,13 @@
             marcas.dataset.camara = cam.id;
             cell.appendChild(marcas);
 
+            // Los fps van en su propia esquina (abajo a la derecha), lejos del nombre.
+            var fps = document.createElement("div");
+            fps.className = "mon-fps";
+            fps.dataset.camara = cam.id;
+            fps.textContent = formatearFps(cam.fps, cam.fpsAnalisis);
+            cell.appendChild(fps);
+
             var label = document.createElement("div");
             label.className = "mon-label";
             var dot = document.createElement("span");
@@ -441,6 +528,7 @@
         b.addEventListener("click", function () {
             layout = Number(b.dataset.layout);
             localStorage.setItem("ivz.monitoreo.layout", layout);
+            guardarVistaServidor();
             pagina = 0;
             render();
         });
@@ -449,7 +537,17 @@
     btnPrev.addEventListener("click", function () { if (pagina > 0) { pagina--; render(); } });
     btnNext.addEventListener("click", function () { if (pagina < totalPaginas() - 1) { pagina++; render(); } });
 
-    fetch("/api/camaras")
+    // Primero la vista guardada del usuario (si la hay); manda sobre la local.
+    fetch("/api/vista-muro")
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .catch(function () { return null; })
+        .then(function (vista) {
+            if (vista && vista.layout && LAYOUTS[vista.layout]) layout = vista.layout;
+            if (vista && vista.camaras && vista.camaras.length) {
+                try { localStorage.setItem(CLAVE_VISTA, JSON.stringify(vista.camaras)); } catch (e) {}
+            }
+            return fetch("/api/camaras");
+        })
         .then(function (r) { return r.json(); })
         .then(function (data) {
             camaras = (data || []).filter(function (c) { return c.habilitada; });
@@ -541,12 +639,20 @@
     }
 
     window.addEventListener("resize", function () {
+        ajustarAltoMuro();
         grid.querySelectorAll(".mon-cell").forEach(function (cell) {
             var img = cell.querySelector("img[data-camara]");
             var lienzo = cell.querySelector(".mon-cobertura");
             if (img && lienzo && lienzo.camRef) dibujarCobertura(cell, img, lienzo.camRef);
         });
     });
+
+    /// «vídeo 25 fps · análisis 3 fps» — vídeo recibido frente a fotogramas inferidos.
+    function formatearFps(feed, analisis) {
+        var f = Number(feed) || 0;
+        var a = Number(analisis) || 0;
+        return "vídeo " + f.toFixed(f >= 10 ? 0 : 1) + " fps · análisis " + a.toFixed(a >= 10 ? 0 : 1) + " fps";
+    }
 
     /* ---------- Chips de modelos por cámara: ver y conmutar reconocimientos ---------- */
 
@@ -1097,6 +1203,22 @@
 
         connection.on("deteccion", push);
         connection.on("deteccion", marcarDeteccion);
+
+        // La cámara maximizada engancha aquí sus propios oyentes (usa esta conexión).
+        var detExtra = [], estExtra = [];
+        connection.on("deteccion", function (h) { detExtra.forEach(function (fn) { try { fn(h); } catch (e) {} }); });
+        window.__monOverlayHooks = function (det, est) { if (det) detExtra.push(det); if (est) estExtra.push(est); };
+        window.__monOverlayUnhooks = function (det, est) {
+            detExtra = detExtra.filter(function (f) { return f !== det; });
+            estExtra = estExtra.filter(function (f) { return f !== est; });
+        };
+
+        // Los fps de cada celda se refrescan con el estado que emite el motor.
+        connection.on("estadoCamara", function (est) {
+            var chip = grid.querySelector('.mon-fps[data-camara="' + est.camaraId + '"]');
+            if (chip) chip.textContent = formatearFps(est.fps, est.fpsAnalisis);
+            estExtra.forEach(function (fn) { try { fn(est); } catch (e) {} });
+        });
 
         // Al leer una matrícula nueva se abre el diálogo con la placa generada.
         connection.on("deteccion", function (hit) {

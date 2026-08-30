@@ -39,7 +39,8 @@ public sealed record CameraStatusDto(
     string? Error,
     double Fps,
     string Resolucion,
-    long Fotogramas);
+    long Fotogramas,
+    double FpsAnalisis = 0);
 
 /// <summary>Reenvía a SignalR lo que produce el pipeline de visión.</summary>
 public sealed class SignalRObservationSink : IObservationSink
@@ -66,7 +67,8 @@ public sealed class SignalRObservationSink : IObservationSink
             status.LastError,
             status.MeasuredFps,
             status.FrameWidth > 0 ? $"{status.FrameWidth}×{status.FrameHeight}" : "—",
-            status.FramesProcessed);
+            status.FramesProcessed,
+            status.MeasuredAnalysisFps);
 
         await _hub.Clients.Group(DetectionHub.AllCamerasGroup)
                   .SendAsync("estadoCamara", dto, ct).ConfigureAwait(false);
