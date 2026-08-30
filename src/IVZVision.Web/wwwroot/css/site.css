@@ -1090,10 +1090,12 @@ a.dash-card:hover {
 
 
 /* ---- Fps por cámara: esquina inferior derecha, sin pisar el nombre ---- */
+/* Los fps van justo debajo de los chips de modelos (arriba-izquierda), en su
+   propia línea, para que no se solapen con ellos ni con el nombre de la cámara. */
 .mon-fps {
     position: absolute;
-    right: 6px;
-    bottom: 6px;
+    left: 6px;
+    top: 34px;
     z-index: 3;
     padding: 2px 7px;
     border-radius: 6px;
@@ -1104,8 +1106,10 @@ a.dash-card:hover {
     pointer-events: none;
 }
 
-/* El nombre (abajo-izquierda) cede sitio para no tocar a los fps. */
-.mon-label { max-width: calc(100% - 190px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* En edición, los chips bajan para dejar sitio al selector: los fps les siguen. */
+.mon-editando .mon-fps { top: 68px; }
+
+.mon-label { max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 
 /* ---- Info de la cámara maximizada ---- */
