@@ -5,10 +5,21 @@
     Layout = "_Layout";
 }
 
-<div style="max-width:380px;margin:48px auto">
-    <div class="card">
-        <h1 style="margin-top:0">Iniciar sesión</h1>
-        <p class="subtitle">Acceda con su usuario del sistema.</p>
+<div class="gate">
+    <div class="gate-card">
+        <div class="gate-emblem" aria-hidden="true">
+            <svg viewBox="0 0 64 64" width="52" height="52" fill="none" stroke="currentColor" stroke-width="2.4"
+                 stroke-linecap="round" stroke-linejoin="round">
+                <!-- Tres arcos: la puerta que el guardián de tres cabezas vigila. -->
+                <path d="M12 54V30a20 20 0 0 1 40 0v24" opacity=".45" />
+                <path d="M20 54V32a12 12 0 0 1 24 0v22" opacity=".7" />
+                <path d="M28 54V34a4 4 0 0 1 8 0v20" />
+                <line x1="8" y1="54" x2="56" y2="54" />
+            </svg>
+        </div>
+
+        <div class="gate-brand">Cerbero Garage</div>
+        <p class="gate-sub">Vigilancia local · rostros, matrículas y objetos</p>
 
         @if (Model.Error is not null)
         {
@@ -24,13 +35,11 @@
                 <label asp-for="Password">Contraseña</label>
                 <input asp-for="Password" type="password" autocomplete="current-password" required />
             </div>
-            <div class="actions">
-                <button class="btn" type="submit">Entrar</button>
-            </div>
+            <button class="btn gate-entrar" type="submit">Entrar</button>
         </form>
 
-        <p class="hint" style="margin-top:14px">
-            Instalación nueva: <code>admin</code> / <code>admin</code>. Cámbiela en la pantalla Usuarios.
+        <p class="hint gate-hint">
+            Instalación nueva: <code>admin</code> / <code>admin</code>. Cámbiela en Usuarios.
         </p>
     </div>
 </div>

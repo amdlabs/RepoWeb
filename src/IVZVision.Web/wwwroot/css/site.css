@@ -1,15 +1,39 @@
 ﻿:root {
-    --bg: #0f1319;
-    --panel: #171c25;
-    --panel-2: #1e2530;
-    --line: #2a323f;
-    --text: #e6eaf0;
-    --muted: #93a0b4;
-    --accent: #3d8bfd;
-    --ok: #38b24a;
-    --warn: #e0a021;
-    --danger: #e0483a;
-    --radius: 10px;
+    color-scheme: dark;
+
+    /* ---- Cerbero · consola de guardia nocturna ----
+       Obsidiana azulada de fondo, latón de lámpara de guardia como identidad
+       (con moderación), teal de señal para lo vivo/interactivo, y semánticos
+       sobrios para los estados. */
+    --bg:        #0a0c11;   /* obsidiana */
+    --bg-2:      #0d0f16;
+    --panel:     #12151f;   /* tarjetas */
+    --panel-2:   #191d2a;   /* elevado / hover */
+    --surface:   #12151f;   /* alias */
+    --surface-2: #0f121b;
+    --line:      #242b3a;   /* hairline */
+    --border:    #242b3a;   /* alias (lo usan bloques nuevos) */
+    --line-2:    #333d50;   /* hairline marcada */
+
+    --text:  #e9edf4;
+    --muted: #8b95a9;
+    --faint: #59627a;
+
+    --brass:     #f0b429;   /* identidad: collar/lámpara del guardián */
+    --brass-dim: #b8891f;
+    --accent:    #34d1c6;   /* señal: vivo, enlaces, foco */
+    --ok:        #38c172;   /* autorizado / presente */
+    --warn:      #e8a33d;   /* atención */
+    --danger:    #fb5d57;   /* desconocido / no autorizado */
+
+    --radius:    12px;
+    --radius-sm: 8px;
+    --radius-pill: 999px;
+
+    --shadow: 0 10px 30px -18px rgba(0, 0, 0, .8);
+
+    --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Liberation Mono", monospace;
 }
 
 * { box-sizing: border-box; }
@@ -19,10 +43,16 @@ html { height: 100%; }
 body {
     margin: 0;
     background: var(--bg);
+    /* Vela de guardia: un halo de latón muy tenue arriba da profundidad sin ruido. */
+    background-image:
+        radial-gradient(1200px 420px at 50% -280px, rgba(240, 180, 41, .06), transparent 70%);
+    background-attachment: fixed;
     color: var(--text);
-    font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    font-family: var(--font-ui);
     font-size: 15px;
     line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
     display: flex;
     flex-direction: column;
     /* La aplicación ocupa la ventana: la cabecera y el pie quedan fijos y sólo el
@@ -32,66 +62,108 @@ body {
     overflow: hidden;
 }
 
+/* Datos de máquina (matrículas, horas, fps, contadores, coordenadas) en
+   monoespaciada con cifras tabulares: alinea las listas y da el aire de consola. */
+.mono, .hit-title.plate, td.plate,
+td[data-col="Hora"], td[data-col="Fecha"] {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-/* ---------- Cabecera ---------- */
+/* Accesibilidad: foco de teclado siempre visible y coherente. */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+/* Barras de desplazamiento finas, a tono con la consola. */
+* { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: #45506680; }
+
+/* ---------- Barra de mando ---------- */
 .topbar {
     display: flex;
     align-items: center;
-    gap: 32px;
-    padding: 0 24px;
-    min-height: 58px;
-    background: var(--panel);
+    gap: 28px;
+    padding: 0 22px;
+    min-height: 60px;
+    background: linear-gradient(180deg, #141826, var(--panel));
+    /* Filo de latón: la firma de identidad, discreta y siempre presente. */
+    border-top: 2px solid var(--brass);
     border-bottom: 1px solid var(--line);
     flex-wrap: wrap;
+    position: relative;
+    z-index: 20;
 }
 
-.brand { display: flex; align-items: center; gap: 8px; text-decoration: none; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
 .brand:hover { text-decoration: none; }
+/* Monograma del guardián: cifras en latón dentro de una puerta con muescas. */
 .brand-mark {
-    background: var(--accent);
-    color: #fff;
+    background: transparent;
+    color: var(--brass);
+    font-family: var(--font-mono);
     font-weight: 700;
-    padding: 3px 8px;
-    border-radius: 6px;
-    letter-spacing: .5px;
+    padding: 4px 9px;
+    border: 1px solid var(--brass-dim);
+    border-radius: var(--radius-sm);
+    letter-spacing: 1px;
     font-size: 13px;
+    box-shadow: inset 0 0 0 1px rgba(240, 180, 41, .12), 0 0 14px -6px var(--brass);
 }
-.brand-name { color: var(--text); font-weight: 600; }
+.brand-name { color: var(--text); font-weight: 650; letter-spacing: .2px; }
 
-.nav { display: flex; gap: 4px; flex-wrap: wrap; }
+.nav { display: flex; gap: 2px; flex-wrap: wrap; }
 .nav a {
     color: var(--muted);
-    padding: 7px 13px;
-    border-radius: 7px;
-    font-weight: 500;
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    font-weight: 550;
+    font-size: 14px;
     text-decoration: none;
+    position: relative;
+    transition: color .12s, background .12s;
 }
 .nav a:hover { background: var(--panel-2); color: var(--text); text-decoration: none; }
-.nav a.active { background: var(--panel-2); color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
-
-.content { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 24px 28px; max-width: 1600px; width: 100%; margin: 0 auto; }
-
-.footer {
-    padding: 14px 24px;
-    color: var(--muted);
-    font-size: 13px;
-    border-top: 1px solid var(--line);
+.nav a.active { color: var(--text); }
+/* El activo se marca con una barra de latón, no con relleno: menos ruido, más señal. */
+.nav a.active::after {
+    content: "";
+    position: absolute;
+    left: 12px; right: 12px; bottom: -1px;
+    height: 2px;
+    background: var(--brass);
+    border-radius: 2px;
 }
 
+.content { flex: 1; min-height: 0; overflow-y: auto; padding: 22px 24px 30px; max-width: 1600px; width: 100%; margin: 0 auto; }
+
+.footer {
+    padding: 12px 24px;
+    color: var(--faint);
+    font-size: 12.5px;
+    border-top: 1px solid var(--line);
+    background: var(--bg-2);
+}
+.footer a { color: var(--muted); }
+
 /* ---------- Bloques ---------- */
-h1 { font-size: 22px; margin: 0 0 4px; font-weight: 600; }
-h2 { font-size: 17px; margin: 0 0 14px; font-weight: 600; }
-h3 { font-size: 14px; margin: 0 0 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
-.subtitle { color: var(--muted); margin: 0 0 20px; }
+h1 { font-size: 23px; margin: 0 0 3px; font-weight: 680; letter-spacing: -.02em; }
+h2 { font-size: 16px; margin: 0 0 14px; font-weight: 650; letter-spacing: -.01em; }
+h3 { font-size: 12px; margin: 0 0 10px; font-weight: 650; color: var(--faint); text-transform: uppercase; letter-spacing: .8px; }
+.subtitle { color: var(--muted); margin: 0 0 18px; }
 
 .card {
     background: var(--panel);
     border: 1px solid var(--line);
     border-radius: var(--radius);
     padding: 18px;
-    margin-bottom: 18px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+    /* Filo superior de luz: separa la tarjeta del fondo sin un borde duro. */
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, .025), transparent 64px);
 }
 
 .grid { display: grid; gap: 18px; }
@@ -156,12 +228,14 @@ h3 { font-size: 14px; margin: 0 0 10px; font-weight: 600; color: var(--muted); t
     display: flex;
     gap: 12px;
     align-items: center;
-    background: var(--panel-2);
+    background: var(--surface-2);
     border: 1px solid var(--line);
-    border-left: 4px solid var(--muted);
-    border-radius: 8px;
+    border-left: 3px solid var(--faint);
+    border-radius: var(--radius-sm);
     padding: 9px 11px;
+    transition: border-color .12s, background .12s;
 }
+.hit:hover { background: var(--panel-2); border-color: var(--line-2); }
 .hit.known { border-left-color: var(--ok); }
 .hit.restricted { border-left-color: var(--warn); }
 .hit.unknown { border-left-color: var(--danger); }
@@ -170,8 +244,8 @@ h3 { font-size: 14px; margin: 0 0 10px; font-weight: 600; color: var(--muted); t
 .hit .thumb-plate { width: 92px; height: 40px; }
 .hit-body { min-width: 0; flex: 1; }
 .hit-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hit-title.plate { font-family: "Consolas", "SF Mono", monospace; letter-spacing: 1px; }
-.hit-meta { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hit-title.plate { font-family: var(--font-mono); letter-spacing: 1px; }
+.hit-meta { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 
 .badge {
     display: inline-block;
@@ -181,10 +255,11 @@ h3 { font-size: 14px; margin: 0 0 10px; font-weight: 600; color: var(--muted); t
     font-weight: 600;
     border: 1px solid transparent;
 }
-.badge-ok { background: rgba(56,178,74,.15); color: #6ede7c; border-color: rgba(56,178,74,.35); }
-.badge-warn { background: rgba(224,160,33,.15); color: #f0c463; border-color: rgba(224,160,33,.35); }
-.badge-danger { background: rgba(224,72,58,.15); color: #f08a80; border-color: rgba(224,72,58,.35); }
-.badge-muted { background: var(--panel-2); color: var(--muted); border-color: var(--line); }
+.badge-ok { background: rgba(56,193,114,.14); color: #6fe4a2; border-color: rgba(56,193,114,.34); }
+.badge-warn { background: rgba(232,163,61,.14); color: #f3c576; border-color: rgba(232,163,61,.34); }
+.badge-danger { background: rgba(251,93,87,.14); color: #ff938e; border-color: rgba(251,93,87,.34); }
+.badge-muted { background: var(--panel-2); color: var(--muted); border-color: var(--line); font-variant-numeric: tabular-nums; }
+.badge-brass { background: rgba(240,180,41,.14); color: var(--brass); border-color: rgba(240,180,41,.34); }
 
 /* ---------- Formularios ---------- */
 .field { margin-bottom: 14px; }
@@ -194,15 +269,21 @@ h3 { font-size: 14px; margin: 0 0 10px; font-weight: 600; color: var(--muted); t
 input[type=text], input[type=password], input[type=number], input[type=search],
 input[type=date], select, textarea {
     width: 100%;
-    background: var(--bg);
+    background: var(--bg-2);
     border: 1px solid var(--line);
     color: var(--text);
-    border-radius: 7px;
-    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    padding: 9px 11px;
     font-size: 14px;
     font-family: inherit;
+    caret-color: var(--brass);
+    transition: border-color .12s, box-shadow .12s;
 }
-input:focus, select:focus, textarea:focus { outline: 2px solid rgba(61,139,253,.45); border-color: var(--accent); }
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(52, 209, 198, .22);
+}
 textarea { min-height: 70px; resize: vertical; }
 
 .check { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
@@ -211,37 +292,52 @@ textarea { min-height: 70px; resize: vertical; }
 
 .btn {
     background: var(--accent);
-    color: #fff;
+    color: #05211f;
     border: 0;
-    border-radius: 7px;
+    border-radius: var(--radius-sm);
     padding: 9px 16px;
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 650;
     cursor: pointer;
     font-family: inherit;
+    transition: filter .12s, background .12s, border-color .12s;
 }
-.btn:hover { filter: brightness(1.1); }
-.btn.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); }
-.btn.danger { background: var(--danger); }
-.btn.small { padding: 5px 11px; font-size: 13px; }
-.btn:disabled { opacity: .55; cursor: default; }
+.btn:hover { filter: brightness(1.08); }
+.btn.secondary { background: transparent; color: var(--text); border: 1px solid var(--line-2); }
+.btn.secondary:hover { background: var(--panel-2); border-color: var(--faint); filter: none; }
+.btn.danger { background: var(--danger); color: #2b0908; }
+.btn.small { padding: 6px 12px; font-size: 13px; }
+.btn:disabled { opacity: .5; cursor: default; filter: none; }
 
 .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
 
 /* ---------- Tablas ---------- */
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
-th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
-th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .4px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+/* Cabecera pegajosa: al recorrer una lista larga nunca se pierde qué es cada columna. */
+th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--panel-2);
+    color: var(--muted);
+    font-weight: 650;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    box-shadow: inset 0 -1px 0 var(--line-2);
+}
+tbody tr { transition: background .1s; }
 tbody tr:hover { background: var(--panel-2); }
-td.plate { font-family: "Consolas", "SF Mono", monospace; letter-spacing: 1px; font-weight: 600; }
-.table-wrap { overflow-x: auto; }
-.empty { color: var(--muted); padding: 22px 0; text-align: center; }
+td.plate { font-family: var(--font-mono); letter-spacing: 1px; font-weight: 600; }
+.table-wrap { overflow-x: auto; border-radius: var(--radius-sm); }
+.empty { color: var(--muted); padding: 26px 0; text-align: center; }
 
 /* ---------- Avisos ---------- */
-.alert { padding: 11px 14px; border-radius: 8px; margin-bottom: 16px; border: 1px solid; font-size: 14px; }
-.alert-ok { background: rgba(56,178,74,.12); border-color: rgba(56,178,74,.4); color: #8fe09b; }
-.alert-error { background: rgba(224,72,58,.12); border-color: rgba(224,72,58,.4); color: #f0a49c; }
-.alert-info { background: rgba(61,139,253,.1); border-color: rgba(61,139,253,.35); color: #9dc2fb; }
+.alert { padding: 11px 14px 11px 14px; border-radius: var(--radius-sm); margin-bottom: 16px; border: 1px solid; border-left-width: 3px; font-size: 14px; }
+.alert-ok { background: rgba(56,193,114,.1); border-color: rgba(56,193,114,.4); color: #8fe6b3; }
+.alert-error { background: rgba(251,93,87,.1); border-color: rgba(251,93,87,.4); color: #ffa8a3; }
+.alert-info { background: rgba(52,209,198,.09); border-color: rgba(52,209,198,.35); color: #8fe6df; }
 
 .test-output {
     margin-top: 10px;
@@ -258,10 +354,10 @@ td.plate { font-family: "Consolas", "SF Mono", monospace; letter-spacing: 1px; f
 .test-output.ko { border-color: rgba(224,72,58,.5); }
 
 /* ---------- Configuración ---------- */
-.tabs { display: flex; gap: 6px; margin-bottom: 20px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
-.tabs a { padding: 9px 15px; color: var(--muted); border-bottom: 2px solid transparent; text-decoration: none; }
+.tabs { display: flex; gap: 4px; margin-bottom: 20px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+.tabs a { padding: 9px 15px; color: var(--muted); border-bottom: 2px solid transparent; text-decoration: none; font-weight: 550; }
 .tabs a:hover { color: var(--text); text-decoration: none; }
-.tabs a.active { color: var(--text); border-bottom-color: var(--accent); }
+.tabs a.active { color: var(--text); border-bottom-color: var(--brass); }
 
 .kv { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
 .kv:last-child { border-bottom: 0; }
@@ -1146,3 +1242,38 @@ a.dash-card:hover {
 /* ---- El muro llena la pantalla: las celdas ocupan la altura de su fila ---- */
 .mon-grid { min-height: 0; }
 .mon-grid .mon-cell { aspect-ratio: auto; height: 100%; min-height: 0; }
+
+/* ---- Puerta del guardián: pantalla de acceso ---- */
+.gate {
+    min-height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+.gate-card {
+    width: 100%;
+    max-width: 360px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-top: 2px solid var(--brass);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 30px 28px 24px;
+    text-align: center;
+}
+.gate-emblem {
+    width: 84px; height: 84px;
+    margin: 0 auto 14px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--brass);
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 40%, rgba(240,180,41,.14), transparent 70%);
+}
+.gate-brand { font-size: 20px; font-weight: 680; letter-spacing: -.01em; }
+.gate-sub { color: var(--muted); font-size: 13px; margin: 4px 0 22px; }
+.gate-card .field { text-align: left; }
+.gate-card form .field label { text-transform: uppercase; font-size: 11px; letter-spacing: .6px; }
+.gate-entrar { width: 100%; margin-top: 4px; padding: 11px; font-size: 15px; }
+.gate-hint { margin-top: 16px; text-align: center; color: var(--faint); }
+.gate-hint code { font-family: var(--font-mono); color: var(--muted); background: var(--bg-2); padding: 1px 5px; border-radius: 4px; }
