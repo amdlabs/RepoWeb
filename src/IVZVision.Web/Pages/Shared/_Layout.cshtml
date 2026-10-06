@@ -7,25 +7,31 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>@ViewData["Title"] · Cerbero Garage</title>
+    <title>@ViewData["Title"] · ExoGuardian</title>
+    @* Tema claro/oscuro de Exowise: va antes del CSS y sin defer para que la página no parpadee. *@
+    <script src="~/js/exowise-tema.js" asp-append-version="true"></script>
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="icon" href="~/iconos/icono-192.png" />
 
     <!-- Aplicación instalable (PWA): Chrome/Edge «Instalar», Safari «Añadir al Dock / pantalla de inicio» -->
     <link rel="manifest" href="~/manifest.webmanifest" />
-    <meta name="theme-color" content="#0b0e13" />
+    <meta name="theme-color" content="#f7f1ec" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#141414" media="(prefers-color-scheme: dark)" />
     <link rel="apple-touch-icon" href="~/iconos/icono-180.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Cerbero Garage" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="ExoGuardian" />
     <script src="~/js/pwa.js" asp-append-version="true" defer></script>
 </head>
 <body>
     <header class="topbar">
-        <a class="brand" asp-page="/Directo">
-            <span class="brand-mark">CG</span>
-            <span class="brand-name">Cerbero Garage</span>
+        <a class="brand" asp-page="/Directo" aria-label="Exowise · ExoGuardian">
+            <img class="brand-mark claro" src="~/marca/logo.svg" alt="" />
+            <img class="brand-mark oscuro" src="~/marca/logo-dark-bg.svg" alt="" />
+            <span class="brand-word">Exowise</span>
+            <span class="brand-sep" aria-hidden="true"></span>
+            <span class="brand-name">ExoGuardian</span>
         </a>
         <nav class="nav">
             <a asp-page="/Dashboard" class="@(Active("/Dashboard") ? "active" : "")">Dashboard</a>
@@ -38,13 +44,14 @@
             }
             <button class="btn small secondary" type="button" id="btnAvisosPush" hidden>🔕</button>
         </nav>
-        <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+        <div class="topbar-acciones">
             @* Aparece solo si el navegador permite instalar la aplicación. *@
             <button class="btn small secondary" type="button" id="btnInstalarApp" hidden
-                    title="Instalar Cerbero Garage como aplicación">⬇ Instalar app</button>
+                    title="Instalar ExoGuardian como aplicación">⬇ Instalar app</button>
+            <div data-exowise-tema></div>
             @if (User.Identity?.IsAuthenticated == true)
             {
-                <form method="post" asp-page="/Login" asp-page-handler="Salir" style="display:flex;align-items:center;gap:10px;margin:0">
+                <form method="post" asp-page="/Login" asp-page-handler="Salir">
                     <span class="hint">@User.Identity.Name</span>
                     <button class="btn small secondary" type="submit">Salir</button>
                 </form>
@@ -65,7 +72,7 @@
     </main>
 
     <footer class="footer">
-        Cerbero Garage · reconocimiento facial, de matrículas y de objetos en local ·
+        ExoGuardian · Exowise Labs · reconocimiento facial, de matrículas y de objetos en local ·
         <a href="/api/docs" target="_blank">API REST</a> ·
         <a href="/api/camaras" target="_blank">/api/camaras</a>
     </footer>

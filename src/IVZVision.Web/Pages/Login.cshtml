@@ -8,17 +8,13 @@
 <div class="gate">
     <div class="gate-card">
         <div class="gate-emblem" aria-hidden="true">
-            <svg viewBox="0 0 64 64" width="52" height="52" fill="none" stroke="currentColor" stroke-width="2.4"
-                 stroke-linecap="round" stroke-linejoin="round">
-                <!-- Tres arcos: la puerta que el guardián de tres cabezas vigila. -->
-                <path d="M12 54V30a20 20 0 0 1 40 0v24" opacity=".45" />
-                <path d="M20 54V32a12 12 0 0 1 24 0v22" opacity=".7" />
-                <path d="M28 54V34a4 4 0 0 1 8 0v20" />
-                <line x1="8" y1="54" x2="56" y2="54" />
-            </svg>
+            <img class="claro" src="~/marca/logo.svg" alt="" />
+            <img class="oscuro" src="~/marca/logo-dark-bg.svg" alt="" />
+            <span class="brand-word">Exowise</span>
         </div>
 
-        <div class="gate-brand">Cerbero Garage</div>
+        <div class="gate-brand">ExoGuardian</div>
+        <div class="gate-regla" aria-hidden="true"></div>
         <p class="gate-sub">Vigilancia local · rostros, matrículas y objetos</p>
 
         @if (Model.Error is not null)
@@ -41,5 +37,6 @@
         <p class="hint gate-hint">
             Instalación nueva: <code>admin</code> / <code>admin</code>. Cámbiela en Usuarios.
         </p>
+        <p class="gate-lema">Wisdom from the outside.</p>
     </div>
 </div>

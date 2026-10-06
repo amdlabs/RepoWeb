@@ -40,7 +40,7 @@
             var esApple = /Safari/.test(navigator.userAgent) && !/Chrome|Chromium|Edg/.test(navigator.userAgent);
             alert(esApple
                 ? "En Safari: menú Archivo → «Añadir al Dock» (macOS), o Compartir → «Añadir a pantalla de inicio» (iPhone/iPad)."
-                : "Use el icono de instalar de la barra de direcciones, o el menú del navegador → «Instalar Cerbero Garage».");
+                : "Use el icono de instalar de la barra de direcciones, o el menú del navegador → «Instalar ExoGuardian».");
             return;
         }
 

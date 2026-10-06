@@ -159,7 +159,7 @@ builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
     {
-        Title = "Cerbero Garage API",
+        Title = "ExoGuardian API",
         Version = "v1",
         Description = "API JSON para integraciones: lista de cámaras configuradas y " +
                       "detecciones (objetos, rostros y matrículas) de cada cámara. " +
@@ -200,8 +200,8 @@ app.UseSwagger(options => options.RouteTemplate = "api/docs/{documentName}/swagg
 app.UseSwaggerUI(options =>
 {
     options.RoutePrefix = "api/docs";
-    options.SwaggerEndpoint("/api/docs/v1/swagger.json", "Cerbero Garage API v1");
-    options.DocumentTitle = "Cerbero Garage · API";
+    options.SwaggerEndpoint("/api/docs/v1/swagger.json", "ExoGuardian API v1");
+    options.DocumentTitle = "ExoGuardian · API";
 });
 
 app.MapRazorPages();
