@@ -1393,7 +1393,8 @@ b, strong { font-weight: 500; }
 a { color: var(--text); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--orange) 70%, transparent); text-underline-offset: 3px; }
 a:hover { text-decoration-color: var(--orange); }
 .nav a, .tabs a, .brand, a.btn, a.dash-card, .mon-config { text-decoration: none; }
-:focus-visible { outline-color: var(--orange); }
+/* Foco en tinta (crema en oscuro): el naranja sobre crema da 1.9:1 y WCAG 2.2 pide 3:1 para el indicador. */
+:focus-visible { outline-color: var(--primario); }
 * { scrollbar-color: var(--line-2) transparent; }
 
 /* Cabecera: crema translúcida, sin filo de latón ni degradado. */
@@ -1450,7 +1451,7 @@ h3 { font-size: 12px; font-weight: 500; letter-spacing: .14em; }
 /* Formularios */
 input[type=text], input[type=password], input[type=number], input[type=search],
 input[type=date], select, textarea { background: var(--surface-2); font-weight: 400; padding: 9px 13px; }
-input:focus, select:focus, textarea:focus { border-color: var(--orange); box-shadow: 0 0 0 3px color-mix(in srgb, var(--orange) 25%, transparent); }
+input:focus, select:focus, textarea:focus { border-color: var(--primario); box-shadow: 0 0 0 3px color-mix(in srgb, var(--orange) 30%, transparent); }
 .check input, .grupo-marca input, .hit-marca { accent-color: var(--primario); }
 .check label { font-weight: 400; }
 
